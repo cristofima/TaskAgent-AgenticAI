@@ -137,15 +137,6 @@ Agent: ✅ Task updated! Status changed to InProgress
 
 ---
 
-## 📚 Learn More
-
-For comprehensive learning:
-
-- **[TECH_ARTICLE.md](TECH_ARTICLE.md)** - Complete technical guide covering Azure OpenAI setup, framework concepts, agent design, and best practices
-- **[AGENT_IMPROVEMENTS.md](AGENT_IMPROVEMENTS.md)** - Details on Markdown tables, contextual suggestions, and UX improvements
-
----
-
 ## 🎨 Agent Features
 
 ### Markdown Tables
