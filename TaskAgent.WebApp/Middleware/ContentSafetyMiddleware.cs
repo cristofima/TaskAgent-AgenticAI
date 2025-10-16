@@ -36,11 +36,18 @@ public class ContentSafetyMiddleware
                 return;
             }
 
-            _logger.LogInformation("Applying 2-layer content safety checks");
+            _logger.LogInformation("Applying 2-layer content safety checks (parallel execution)");
 
-            var injectionResult = await contentSafetyService.DetectPromptInjectionAsync(
-                userMessage
-            );
+            // Execute both safety checks in parallel for better performance
+            var injectionTask = contentSafetyService.DetectPromptInjectionAsync(userMessage);
+            var contentTask = contentSafetyService.AnalyzeTextAsync(userMessage);
+
+            // Wait for both tasks to complete
+            await Task.WhenAll(injectionTask, contentTask);
+
+            // Get results (tasks are already completed, no additional await needed)
+            var injectionResult = await injectionTask;
+            var contentResult = await contentTask;
 
             _logger.LogInformation(
                 "Prompt Shield result - AttackDetected: {Detected}, Type: {Type}",
@@ -48,6 +55,13 @@ public class ContentSafetyMiddleware
                 injectionResult.DetectedAttackType
             );
 
+            _logger.LogInformation(
+                "Content moderation result - IsSafe: {Safe}, Violations: {Count}",
+                contentResult.IsSafe,
+                contentResult.ViolatedCategories?.Count ?? 0
+            );
+
+            // Check prompt injection first (security priority)
             if (!injectionResult.IsSafe)
             {
                 _logger.LogWarning("Blocking request - Prompt injection detected");
@@ -55,14 +69,7 @@ public class ContentSafetyMiddleware
                 return;
             }
 
-            var contentResult = await contentSafetyService.AnalyzeTextAsync(userMessage);
-
-            _logger.LogInformation(
-                "Content moderation result - IsSafe: {Safe}, Violations: {Count}",
-                contentResult.IsSafe,
-                contentResult.ViolatedCategories?.Count ?? 0
-            );
-
+            // Then check content safety
             if (!contentResult.IsSafe)
             {
                 _logger.LogWarning("Blocking request - Content policy violation");
