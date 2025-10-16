@@ -5,11 +5,9 @@ namespace TaskAgent.Domain.Entities;
 
 /// <summary>
 /// Represents a task entity in the domain model
-/// Follows Domain-Driven Design principles with encapsulation and business logic
 /// </summary>
 public class TaskItem
 {
-    // Private setter for EF Core
     public int Id { get; private set; }
 
     private string _title = string.Empty;
@@ -29,16 +27,11 @@ public class TaskItem
     }
 
     public string Description { get; private set; } = string.Empty;
-
     public TaskPriority Priority { get; private set; }
-
     public DomainTaskStatus Status { get; private set; }
-
     public DateTime CreatedAt { get; private set; }
-
     public DateTime UpdatedAt { get; private set; }
 
-    // EF Core requires a parameterless constructor
     private TaskItem() { }
 
     /// <summary>
@@ -60,14 +53,13 @@ public class TaskItem
     }
 
     /// <summary>
-    /// Update task status - Business logic encapsulated
+    /// Update task status
     /// </summary>
     public void UpdateStatus(DomainTaskStatus newStatus)
     {
         if (Status == newStatus)
             return;
 
-        // Business rule: Cannot go back from Completed to Pending
         if (Status == DomainTaskStatus.Completed && newStatus == DomainTaskStatus.Pending)
             throw new InvalidOperationException("Cannot change completed task back to pending");
 

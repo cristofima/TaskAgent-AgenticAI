@@ -9,7 +9,6 @@ namespace TaskAgent.WebApp.Services;
 
 /// <summary>
 /// Service for managing AI Agent lifecycle and interactions
-/// Follows Single Responsibility Principle - handles only agent-related operations
 /// </summary>
 public class TaskAgentService : ITaskAgentService
 {

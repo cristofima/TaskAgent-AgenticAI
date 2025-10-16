@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskAgent.Application.DTOs;
 using TaskAgent.Application.Interfaces;
+using TaskAgent.WebApp.Services;
 
 namespace TaskAgent.WebApp.Controllers;
 
@@ -9,10 +10,14 @@ namespace TaskAgent.WebApp.Controllers;
 public class ChatController : ControllerBase
 {
     private readonly ITaskAgentService _taskAgent;
+    private readonly ILogger<ChatController> _logger;
 
-    public ChatController(ITaskAgentService taskAgent)
+    public ChatController(
+        ITaskAgentService taskAgent,
+        ILogger<ChatController> logger)
     {
-        _taskAgent = taskAgent;
+        _taskAgent = taskAgent ?? throw new ArgumentNullException(nameof(taskAgent));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     [HttpPost("send")]
@@ -20,7 +25,7 @@ public class ChatController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Message))
         {
-            return BadRequest(new { error = "Message cannot be empty" });
+            return ErrorResponseFactory.CreateBadRequest("InvalidInput", "Message cannot be empty");
         }
 
         try
@@ -34,14 +39,28 @@ public class ChatController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            _logger.LogError(ex, "Error processing chat message");
+            return ErrorResponseFactory.CreateInternalServerError(
+                "An error occurred while processing your message. Please try again.",
+                new { exception = ex.Message }
+            );
         }
     }
 
     [HttpPost("new-thread")]
     public IActionResult NewThread()
     {
-        var threadId = _taskAgent.GetNewThreadId();
-        return Ok(new { threadId });
+        try
+        {
+            var threadId = _taskAgent.GetNewThreadId();
+            return Ok(new { threadId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating new thread");
+            return ErrorResponseFactory.CreateInternalServerError(
+                "An error occurred while creating a new conversation thread."
+            );
+        }
     }
 }

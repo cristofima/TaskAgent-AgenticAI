@@ -2,7 +2,6 @@ namespace TaskAgent.Application.Interfaces;
 
 /// <summary>
 /// Interface for AI Agent service operations
-/// Part of Application Layer - defines business logic contracts
 /// </summary>
 public interface ITaskAgentService
 {

@@ -13,17 +13,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="Program.cs~RF19de50.TMP" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="appsettings.Development.json" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
+    <PackageReference Include="Azure.AI.ContentSafety" Version="1.0.0" />
     <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-preview.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.9">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.10">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

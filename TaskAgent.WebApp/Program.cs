@@ -1,14 +1,15 @@
 using TaskAgent.Infrastructure;
 using TaskAgent.WebApp;
+using TaskAgent.WebApp.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register layers in dependency order: Infrastructure -> Application -> Presentation
 builder.Services.AddInfrastructure(builder.Configuration).AddPresentation(builder.Configuration);
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
+app.ValidateConfiguration();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -18,6 +19,9 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+
+app.UseContentSafety();
+
 app.UseAuthorization();
 
 app.MapControllerRoute(name: "default", pattern: "{controller=Home}/{action=Index}/{id?}");

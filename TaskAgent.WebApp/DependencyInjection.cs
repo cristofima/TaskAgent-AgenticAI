@@ -5,6 +5,9 @@ using TaskAgent.WebApp.Services;
 
 namespace TaskAgent.WebApp;
 
+/// <summary>
+/// Presentation layer dependency injection
+/// </summary>
 public static class DependencyInjection
 {
     public static IServiceCollection AddPresentation(
@@ -12,41 +15,36 @@ public static class DependencyInjection
         IConfiguration configuration
     )
     {
-        // Add services to the container
         services.AddControllersWithViews();
+        RegisterTaskAgent(services, configuration);
+        return services;
+    }
 
-        // Configure Azure OpenAI
+    /// <summary>
+    /// Register Task Agent service
+    /// </summary>
+    private static void RegisterTaskAgent(IServiceCollection services, IConfiguration configuration)
+    {
         var azureOpenAiEndpoint = configuration["AzureOpenAI:Endpoint"];
         var modelDeployment = configuration["AzureOpenAI:DeploymentName"];
         var apiKey = configuration["AzureOpenAI:ApiKey"];
 
-        if (
-            string.IsNullOrWhiteSpace(azureOpenAiEndpoint)
-            || string.IsNullOrWhiteSpace(modelDeployment)
-            || string.IsNullOrWhiteSpace(apiKey)
-        )
+        if (string.IsNullOrWhiteSpace(azureOpenAiEndpoint) || 
+            string.IsNullOrWhiteSpace(modelDeployment) || 
+            string.IsNullOrWhiteSpace(apiKey))
         {
             throw new InvalidOperationException(
-                "Missing required Azure OpenAI configuration. "
-                    + "Please check appsettings.json and appsettings.Development.json"
+                "Missing required Azure OpenAI configuration. Please check appsettings.json and appsettings.Development.json"
             );
         }
 
-        // Register Azure OpenAI client
-        var client = new AzureOpenAIClient(
-            new Uri(azureOpenAiEndpoint),
-            new AzureKeyCredential(apiKey)
-        );
+        var client = new AzureOpenAIClient(new Uri(azureOpenAiEndpoint), new AzureKeyCredential(apiKey));
 
-        // Register TaskAgent as scoped with proper dependency injection
-        // Each HTTP request gets its own instance with its own repository instance
         services.AddScoped<ITaskAgentService>(sp =>
         {
             var taskRepository = sp.GetRequiredService<ITaskRepository>();
             var agent = TaskAgentService.CreateAgent(client, modelDeployment, taskRepository);
             return new TaskAgentService(agent);
         });
-
-        return services;
     }
 }

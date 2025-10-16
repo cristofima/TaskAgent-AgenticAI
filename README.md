@@ -1,6 +1,6 @@
 # Task Agent - AI-Powered Task Management
 
-An intelligent task management assistant built with Microsoft Agentic AI Framework and Azure OpenAI, demonstrating Clean Architecture and autonomous AI agent capabilities.
+An intelligent task management assistant built with Microsoft Agentic AI Framework and Azure OpenAI, demonstrating Clean Architecture and autonomous AI agent capabilities with Azure Content Safety protection.
 
 ---
 
@@ -13,7 +13,7 @@ cd TaskAgentWeb
 # Restore dependencies
 dotnet restore
 
-# Configure your Azure OpenAI credentials in appsettings.Development.json
+# Configure your Azure OpenAI and Content Safety credentials in appsettings.Development.json
 # Run the application
 dotnet run
 ```
@@ -25,6 +25,7 @@ Visit `http://localhost:5000` and start managing your tasks with natural languag
 ## ✨ Features
 
 - 💬 **Natural Language Interface**: Talk to your task manager like a person
+- 🛡️ **Multi-Layer Security**: Azure Content Safety protection (Prompt Shield + Content Moderation)
 - ✅ **Complete CRUD**: Create, read, update, and delete tasks
 - 📊 **Smart Filtering**: Filter by status and priority
 - 📈 **Task Analytics**: Get summaries and statistics
@@ -34,7 +35,32 @@ Visit `http://localhost:5000` and start managing your tasks with natural languag
 
 ---
 
-## �️ Architecture
+## 🛡️ Content Safety
+
+This application implements **2-layer defense** using Azure AI Content Safety:
+
+### Layer 1: Prompt Shield
+
+- Detects prompt injection attacks (jailbreaks, instruction override, role manipulation)
+- REST API: `/contentsafety/text:shieldPrompt` (API version 2024-09-01)
+- Blocks malicious attempts to manipulate the AI system
+- **Optimized**: Trusts Azure's pre-trained model without system context (reduces false positives)
+
+### Layer 2: Content Moderation
+
+- Analyzes text for harmful content (Hate, Violence, Sexual, Self-Harm)
+- SDK: `Azure.AI.ContentSafety` v1.0.0
+- Configurable severity thresholds (0-6 scale)
+
+**Architecture**: Content safety checks run automatically via middleware before any AI processing.
+
+**Performance**: IHttpClientFactory with Named HttpClient for optimal connection pooling and DNS refresh.
+
+**Testing**: See [CONTENT_SAFETY.md](CONTENT_SAFETY.md) for 75+ test cases, known limitations, and troubleshooting guide.
+
+---
+
+## 🏗️ Architecture
 
 Built with **Clean Architecture** for maintainability and testability:
 
@@ -43,7 +69,7 @@ TaskAgent.Domain (Entities, Business Logic)
     ↓
 TaskAgent.Application (Use Cases, Interfaces)
     ↓
-TaskAgent.Infrastructure (Data Access, EF Core)
+TaskAgent.Infrastructure (Data Access, Azure Services)
     ↓
 TaskAgent.WebApp (UI, Controllers, AI Agent)
 ```
@@ -51,24 +77,25 @@ TaskAgent.WebApp (UI, Controllers, AI Agent)
 **Key Components**:
 
 - **Domain**: `TaskItem` entity with business rules, Status/Priority enums
-- **Application**: DTOs, `ITaskRepository`, 6 AI function tools
-- **Infrastructure**: `TaskDbContext`, `TaskRepository` implementation
-- **Presentation**: MVC controllers, Razor views, `TaskAgentService`
+- **Application**: DTOs (using record types), `ITaskRepository`, 6 AI function tools
+- **Infrastructure**: `TaskDbContext`, `TaskRepository`, `ContentSafetyService` with HttpClientFactory
+- **Presentation**: MVC controllers, Razor views, `TaskAgentService`, configuration validation extensions
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Technology                     | Purpose              |
-| ------------------------------ | -------------------- |
-| .NET 9.0                       | Modern web framework |
-| ASP.NET Core MVC               | Web application      |
-| Entity Framework Core 9.0      | Database ORM         |
-| SQL Server LocalDB             | Data persistence     |
-| Microsoft Agentic AI Framework | Autonomous agents    |
-| Azure OpenAI (GPT-4o-mini)     | Language model       |
-| Bootstrap 5                    | Responsive UI        |
-| Marked.js                      | Markdown rendering   |
+| Technology                     | Purpose               |
+| ------------------------------ | --------------------- |
+| .NET 9.0                       | Modern web framework  |
+| ASP.NET Core MVC               | Web application       |
+| Entity Framework Core 9.0      | Database ORM          |
+| SQL Server LocalDB             | Data persistence      |
+| Microsoft Agentic AI Framework | Autonomous agents     |
+| Azure OpenAI (GPT-4o-mini)     | Language model        |
+| Azure AI Content Safety        | Security & moderation |
+| Bootstrap 5                    | Responsive UI         |
+| Marked.js                      | Markdown rendering    |
 
 ---
 
@@ -79,6 +106,7 @@ TaskAgent.WebApp (UI, Controllers, AI Agent)
 - .NET 9.0 SDK
 - SQL Server LocalDB (included with Visual Studio)
 - Azure OpenAI resource with deployed model
+- Azure AI Content Safety resource
 
 ### Configuration
 
@@ -87,9 +115,17 @@ TaskAgent.WebApp (UI, Controllers, AI Agent)
 ```json
 {
   "AzureOpenAI": {
-    "Endpoint": "https://your-resource.openai.azure.com/",
-    "ApiKey": "your-api-key-here",
+    "Endpoint": "https://your-openai-resource.openai.azure.com/",
+    "ApiKey": "your-openai-api-key",
     "ModelDeployment": "gpt-4o-mini"
+  },
+  "ContentSafety": {
+    "Endpoint": "https://your-contentsafety-resource.cognitiveservices.azure.com/",
+    "ApiKey": "your-contentsafety-api-key",
+    "HateThreshold": 2,
+    "ViolenceThreshold": 2,
+    "SexualThreshold": 2,
+    "SelfHarmThreshold": 2
   }
 }
 ```
@@ -167,23 +203,40 @@ Agent provides 1-2 smart suggestions after each operation:
 ```
 TaskAgentWeb/
 ├── TaskAgent.Domain/          # Entities, Enums
-├── TaskAgent.Application/     # DTOs, Interfaces, Functions
-├── TaskAgent.Infrastructure/  # DbContext, Repositories
+├── TaskAgent.Application/     # DTOs (record types), Interfaces, Functions
+├── TaskAgent.Infrastructure/  # DbContext, Repositories, Azure Services
+│   ├── Services/             # ContentSafetyService (HttpClientFactory)
+│   ├── Models/               # ContentSafetyConfig, PromptShieldResponse
+│   └── DependencyInjection.cs # Named HttpClient registration
 └── TaskAgent.WebApp/          # Controllers, Views, Services
     ├── Controllers/           # ChatController, HomeController
-    ├── Services/             # TaskAgentService
+    ├── Services/             # TaskAgentService, ErrorResponseFactory
+    ├── Middleware/           # ContentSafetyMiddleware
+    ├── Extensions/           # ConfigurationValidationExtensions, etc.
     ├── Views/                # Razor UI
     └── wwwroot/              # CSS, JavaScript
 ```
 
 ---
 
-## 🔒 Security Notes
+## 🔒 Security
 
-- ⚠️ Never commit API keys to source control
-- Use environment variables or Azure Key Vault in production
+### Content Safety
+
+- **2-Layer Defense**: Automatic Prompt Shield + Content Moderation
+- **Fail-Secure**: Blocks requests on Prompt Shield errors; Fail-Open on Content Moderation for availability
+- **Optimized Detection**: Prompt Shield uses pre-trained model (no system context) to reduce false positives
+- **Performance**: HttpClientFactory with Named HttpClient for connection pooling and DNS refresh
+- **Immutable DTOs**: Record types for thread-safety and proper equality semantics
+- **See**: [CONTENT_SAFETY.md](CONTENT_SAFETY.md) for testing guide and limitations
+
+### Application Security
+
 - Input validation via EF Core parameterized queries
 - XSS protection with DOMPurify sanitization
+- Configuration validation on startup (via extension methods)
+- Never commit API keys to source control
+- Use environment variables or Azure Key Vault in production
 
 ---
 
