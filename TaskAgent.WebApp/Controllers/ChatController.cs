@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskAgent.Application.DTOs;
 using TaskAgent.Application.Interfaces;
+using TaskAgent.WebApp.Constants;
 using TaskAgent.WebApp.Services;
 
 namespace TaskAgent.WebApp.Controllers;
@@ -12,9 +13,7 @@ public class ChatController : ControllerBase
     private readonly ITaskAgentService _taskAgent;
     private readonly ILogger<ChatController> _logger;
 
-    public ChatController(
-        ITaskAgentService taskAgent,
-        ILogger<ChatController> logger)
+    public ChatController(ITaskAgentService taskAgent, ILogger<ChatController> logger)
     {
         _taskAgent = taskAgent ?? throw new ArgumentNullException(nameof(taskAgent));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -25,7 +24,10 @@ public class ChatController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Message))
         {
-            return ErrorResponseFactory.CreateBadRequest("InvalidInput", "Message cannot be empty");
+            return ErrorResponseFactory.CreateBadRequest(
+                ErrorCodes.INVALID_INPUT,
+                ErrorMessages.MESSAGE_EMPTY
+            );
         }
 
         try
@@ -41,7 +43,7 @@ public class ChatController : ControllerBase
         {
             _logger.LogError(ex, "Error processing chat message");
             return ErrorResponseFactory.CreateInternalServerError(
-                "An error occurred while processing your message. Please try again.",
+                ErrorMessages.PROCESSING_ERROR,
                 new { exception = ex.Message }
             );
         }
@@ -59,7 +61,7 @@ public class ChatController : ControllerBase
         {
             _logger.LogError(ex, "Error creating new thread");
             return ErrorResponseFactory.CreateInternalServerError(
-                "An error occurred while creating a new conversation thread."
+                ErrorMessages.THREAD_CREATION_ERROR
             );
         }
     }

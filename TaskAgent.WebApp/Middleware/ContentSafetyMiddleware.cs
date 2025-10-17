@@ -1,6 +1,7 @@
 using System.Text.Json;
 using TaskAgent.Application.DTOs;
 using TaskAgent.Application.Interfaces;
+using TaskAgent.WebApp.Constants;
 using TaskAgent.WebApp.Models;
 
 namespace TaskAgent.WebApp.Middleware;
@@ -92,7 +93,7 @@ public class ContentSafetyMiddleware
     /// </summary>
     private static bool ShouldApplySafetyChecks(HttpContext context)
     {
-        return context.Request.Path.StartsWithSegments("/api/chat")
+        return context.Request.Path.StartsWithSegments($"/{ApiRoutes.CHAT}")
             && context.Request.Method == HttpMethods.Post;
     }
 
@@ -124,7 +125,7 @@ public class ContentSafetyMiddleware
         await context.Response.WriteAsJsonAsync(
             new
             {
-                error = "SecurityViolation",
+                error = ErrorCodes.PROMPT_INJECTION_DETECTED,
                 message = "Your message was flagged as attempting to manipulate the system. "
                     + "Please rephrase your request for legitimate task management.",
                 details = result.DetectedAttackType,
@@ -139,14 +140,14 @@ public class ContentSafetyMiddleware
     {
         _logger.LogWarning(
             "Content violation blocked: {Violations}",
-            string.Join(", ", result.ViolatedCategories ?? new List<string>())
+            string.Join(", ", result.ViolatedCategories ?? [])
         );
 
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
         await context.Response.WriteAsJsonAsync(
             new
             {
-                error = "ContentPolicyViolation",
+                error = ErrorCodes.CONTENT_POLICY_VIOLATION,
                 message = "Your message contains content that violates our policy. "
                     + "Please rephrase your request.",
                 violations = result.ViolatedCategories,

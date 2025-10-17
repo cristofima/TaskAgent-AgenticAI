@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TaskAgent.Application.DTOs;
 using TaskAgent.Application.Interfaces;
+using TaskAgent.Infrastructure.Constants;
 using TaskAgent.Infrastructure.Models;
 
 namespace TaskAgent.Infrastructure.Services;
@@ -26,7 +27,7 @@ public class ContentSafetyService : IContentSafetyService
         _contentSafetyClient =
             contentSafetyClient ?? throw new ArgumentNullException(nameof(contentSafetyClient));
         _httpClient =
-            httpClientFactory?.CreateClient("ContentSafety")
+            httpClientFactory?.CreateClient(ContentSafetyConstants.HTTP_CLIENT_NAME)
             ?? throw new ArgumentNullException(nameof(httpClientFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
@@ -67,12 +68,16 @@ public class ContentSafetyService : IContentSafetyService
         {
             _logger.LogInformation("Checking prompt injection");
 
-            var apiUrl = "/contentsafety/text:shieldPrompt?api-version=2024-09-01";
+            const string apiUrl = ContentSafetyConstants.PROMPT_SHIELD_API_PATH;
 
             var requestBody = new { userPrompt };
 
             var jsonContent = JsonSerializer.Serialize(requestBody);
-            var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            var httpContent = new StringContent(
+                jsonContent,
+                Encoding.UTF8,
+                ContentSafetyConstants.CONTENT_TYPE_JSON
+            );
 
             var httpResponse = await _httpClient.PostAsync(apiUrl, httpContent);
 
@@ -88,8 +93,8 @@ public class ContentSafetyService : IContentSafetyService
                 {
                     IsSafe = false,
                     InjectionDetected = true,
-                    DetectedAttackType = "API Error",
-                    Reason = "Security check failed. Request blocked as precaution.",
+                    DetectedAttackType = ContentSafetyConstants.API_ERROR_ATTACK_TYPE,
+                    Reason = ContentSafetyConstants.API_ERROR_REASON,
                 };
             }
 
@@ -142,17 +147,25 @@ public class ContentSafetyService : IContentSafetyService
 
     private static ContentSafetyConfig LoadConfiguration(IConfiguration configuration)
     {
+        const int defaultThreshold = ContentSafetyConstants.DEFAULT_SEVERITY_THRESHOLD;
+
         return new ContentSafetyConfig
         {
-            HateSeverityThreshold = configuration.GetValue("ContentSafety:HateThreshold", 2),
+            HateSeverityThreshold = configuration.GetValue(
+                "ContentSafety:HateThreshold",
+                defaultThreshold
+            ),
             ViolenceSeverityThreshold = configuration.GetValue(
                 "ContentSafety:ViolenceThreshold",
-                2
+                defaultThreshold
             ),
-            SexualSeverityThreshold = configuration.GetValue("ContentSafety:SexualThreshold", 2),
+            SexualSeverityThreshold = configuration.GetValue(
+                "ContentSafety:SexualThreshold",
+                defaultThreshold
+            ),
             SelfHarmSeverityThreshold = configuration.GetValue(
                 "ContentSafety:SelfHarmThreshold",
-                2
+                defaultThreshold
             ),
         };
     }

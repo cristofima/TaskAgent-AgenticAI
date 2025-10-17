@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text;
+using TaskAgent.Application.Constants;
 using TaskAgent.Application.Interfaces;
 using TaskAgent.Domain.Entities;
 using TaskAgent.Domain.Enums;
@@ -31,12 +32,12 @@ public class TaskFunctions
         try
         {
             if (string.IsNullOrWhiteSpace(title))
-                return "❌ Error: Task title cannot be empty.";
+                return ErrorMessages.TASK_TITLE_EMPTY;
 
             // Parse priority
             if (!Enum.TryParse<TaskPriority>(priority, true, out var taskPriority))
             {
-                return $"❌ Error: Invalid priority '{priority}'. Must be: Low, Medium, or High.";
+                return string.Format(ErrorMessages.INVALID_PRIORITY_FORMAT, priority);
             }
 
             // Create task using domain factory method
@@ -47,7 +48,7 @@ public class TaskFunctions
             await _taskRepository.SaveChangesAsync();
 
             return $"""
-                ✅ Task created successfully!
+                {ErrorMessages.TASK_CREATED_SUCCESS}
 
                 ID: {task.Id}
                 Title: {task.Title}
@@ -59,11 +60,11 @@ public class TaskFunctions
         }
         catch (ArgumentException ex)
         {
-            return $"❌ Validation error: {ex.Message}";
+            return $"{ErrorMessages.VALIDATION_ERROR_PREFIX}{ex.Message}";
         }
         catch (Exception ex)
         {
-            return $"❌ Error creating task: {ex.Message}";
+            return $"{ErrorMessages.ERROR_CREATING_TASK}{ex.Message}";
         }
     }
 
@@ -83,14 +84,14 @@ public class TaskFunctions
             if (!string.IsNullOrEmpty(status))
             {
                 if (!Enum.TryParse<DomainTaskStatus>(status, true, out var parsedStatus))
-                    return $"❌ Invalid status '{status}'. Must be: Pending, InProgress, or Completed.";
+                    return string.Format(ErrorMessages.INVALID_STATUS_FORMAT, status);
                 taskStatus = parsedStatus;
             }
 
             if (!string.IsNullOrEmpty(priority))
             {
                 if (!Enum.TryParse<TaskPriority>(priority, true, out var parsedPriority))
-                    return $"❌ Invalid priority '{priority}'. Must be: Low, Medium, or High.";
+                    return string.Format(ErrorMessages.INVALID_PRIORITY_FORMAT, priority);
                 taskPriority = parsedPriority;
             }
 
@@ -107,7 +108,7 @@ public class TaskFunctions
                     filters.Add($"priority={taskPriority}");
 
                 var filterText = filters.Any() ? $" matching {string.Join(", ", filters)}" : "";
-                return $"📋 No tasks found{filterText}.";
+                return string.Format(ErrorMessages.NO_TASKS_FOUND, filterText);
             }
 
             var result = new StringBuilder();
@@ -142,7 +143,7 @@ public class TaskFunctions
         }
         catch (Exception ex)
         {
-            return $"❌ Error listing tasks: {ex.Message}";
+            return $"{ErrorMessages.ERROR_LISTING_TASKS}{ex.Message}";
         }
     }
 
@@ -156,7 +157,7 @@ public class TaskFunctions
             var task = await _taskRepository.GetByIdAsync(taskId);
 
             if (task == null)
-                return $"❌ Task #{taskId} not found.";
+                return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
 
             return $"""
                 📝 Task Details:
@@ -172,7 +173,7 @@ public class TaskFunctions
         }
         catch (Exception ex)
         {
-            return $"❌ Error retrieving task: {ex.Message}";
+            return $"{ErrorMessages.ERROR_RETRIEVING_TASK}{ex.Message}";
         }
     }
 
@@ -187,12 +188,12 @@ public class TaskFunctions
         try
         {
             if (status == null && priority == null)
-                return "❌ Error: You must specify either status or priority to update.";
+                return ErrorMessages.UPDATE_REQUIRES_FIELDS;
 
             // Fetch task
             var task = await _taskRepository.GetByIdAsync(taskId);
             if (task == null)
-                return $"❌ Task #{taskId} not found.";
+                return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
 
             var updates = new List<string>();
 
@@ -200,7 +201,7 @@ public class TaskFunctions
             if (status != null)
             {
                 if (!Enum.TryParse<DomainTaskStatus>(status, true, out var newStatus))
-                    return $"❌ Invalid status '{status}'. Must be: Pending, InProgress, or Completed.";
+                    return string.Format(ErrorMessages.INVALID_STATUS_FORMAT, status);
 
                 task.UpdateStatus(newStatus);
                 updates.Add($"status to '{newStatus}'");
@@ -210,7 +211,7 @@ public class TaskFunctions
             if (priority != null)
             {
                 if (!Enum.TryParse<TaskPriority>(priority, true, out var newPriority))
-                    return $"❌ Invalid priority '{priority}'. Must be: Low, Medium, or High.";
+                    return string.Format(ErrorMessages.INVALID_PRIORITY_FORMAT, priority);
 
                 task.UpdatePriority(newPriority);
                 updates.Add($"priority to '{newPriority}'");
@@ -220,15 +221,15 @@ public class TaskFunctions
             await _taskRepository.UpdateAsync(task);
             await _taskRepository.SaveChangesAsync();
 
-            return $"✅ Task #{taskId} updated successfully! Changed {string.Join(" and ", updates)}.";
+            return string.Format(ErrorMessages.TASK_UPDATED_SUCCESS, taskId, string.Join(" and ", updates));
         }
         catch (InvalidOperationException ex)
         {
-            return $"❌ Business rule violation: {ex.Message}";
+            return $"{ErrorMessages.BUSINESS_RULE_ERROR_PREFIX}{ex.Message}";
         }
         catch (Exception ex)
         {
-            return $"❌ Error updating task: {ex.Message}";
+            return $"{ErrorMessages.ERROR_UPDATING_TASK}{ex.Message}";
         }
     }
 
@@ -239,16 +240,16 @@ public class TaskFunctions
         {
             var task = await _taskRepository.GetByIdAsync(taskId);
             if (task == null)
-                return $"❌ Task #{taskId} not found.";
+                return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
 
             await _taskRepository.DeleteAsync(taskId);
             await _taskRepository.SaveChangesAsync();
 
-            return $"✅ Task #{taskId} '{task.Title}' has been deleted successfully.";
+            return string.Format(ErrorMessages.TASK_DELETED_SUCCESS, taskId, task.Title);
         }
         catch (Exception ex)
         {
-            return $"❌ Error deleting task: {ex.Message}";
+            return $"{ErrorMessages.ERROR_DELETING_TASK}{ex.Message}";
         }
     }
 
@@ -260,7 +261,7 @@ public class TaskFunctions
             var allTasks = (await _taskRepository.GetAllAsync()).ToList();
 
             if (!allTasks.Any())
-                return "📊 No tasks in the system yet.";
+                return ErrorMessages.NO_TASKS_IN_SYSTEM;
 
             var pending = allTasks.Count(t => t.Status == DomainTaskStatus.Pending);
             var inProgress = allTasks.Count(t => t.Status == DomainTaskStatus.InProgress);
@@ -289,7 +290,7 @@ public class TaskFunctions
         }
         catch (Exception ex)
         {
-            return $"❌ Error generating summary: {ex.Message}";
+            return $"{ErrorMessages.ERROR_GENERATING_SUMMARY}{ex.Message}";
         }
     }
 }

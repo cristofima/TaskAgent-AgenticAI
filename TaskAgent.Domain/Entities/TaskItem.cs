@@ -1,3 +1,4 @@
+using TaskAgent.Domain.Constants;
 using TaskAgent.Domain.Enums;
 using DomainTaskStatus = TaskAgent.Domain.Enums.TaskStatus;
 
@@ -17,10 +18,10 @@ public class TaskItem
         private set
         {
             if (string.IsNullOrWhiteSpace(value))
-                throw new ArgumentException("Title cannot be empty", nameof(Title));
+                throw new ArgumentException(ValidationMessages.TITLE_REQUIRED, nameof(Title));
 
-            if (value.Length > 200)
-                throw new ArgumentException("Title cannot exceed 200 characters", nameof(Title));
+            if (value.Length > TaskConstants.MAX_TITLE_LENGTH)
+                throw new ArgumentException(ValidationMessages.TITLE_TOO_LONG, nameof(Title));
 
             _title = value;
         }
@@ -61,7 +62,7 @@ public class TaskItem
             return;
 
         if (Status == DomainTaskStatus.Completed && newStatus == DomainTaskStatus.Pending)
-            throw new InvalidOperationException("Cannot change completed task back to pending");
+            throw new InvalidOperationException(ValidationMessages.CANNOT_REOPEN_COMPLETED_TASK);
 
         Status = newStatus;
         UpdatedAt = DateTime.UtcNow;

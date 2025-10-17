@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TaskAgent.Domain.Constants;
 using TaskAgent.Domain.Entities;
 
 namespace TaskAgent.Infrastructure.Data;
@@ -28,9 +29,9 @@ public class TaskDbContext : DbContext
             entity.HasKey(e => e.Id);
 
             // Properties configuration
-            entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(TaskConstants.MAX_TITLE_LENGTH);
 
-            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.Description).HasMaxLength(TaskConstants.MAX_DESCRIPTION_LENGTH);
 
             entity.Property(e => e.Priority).IsRequired().HasConversion<int>(); // Store enum as int
 
