@@ -6,9 +6,20 @@
 
 **Critical**: Domain has NO external dependencies. Application defines interfaces (e.g., `ITaskRepository`); Infrastructure implements them (`TaskRepository`).
 
+### Layer Responsibilities
+
+```
+Domain/          - Entities (TaskItem), Enums, Constants, NO external dependencies
+Application/     - DTOs, Interfaces (ITaskRepository, ITaskAgentService), Functions (TaskFunctions)
+Infrastructure/  - EF Core (TaskDbContext), Repositories, Azure Services (ContentSafetyService)
+WebApp/          - Controllers, Middleware, DI setup, Agent factory (TaskAgentService)
+```
+
+**Dependency Flow**: Each layer only references the one below. Infrastructure and WebApp both depend on Application, but NOT on each other.
+
 ## AI Agent Pattern
 
-### Factory Method (TaskAgentService.CreateAgent)
+### Factory Method (`TaskAgentService.CreateAgent`)
 
 ```csharp
 // Wires: AzureOpenAIClient + TaskFunctions (6 tools) + 170-line instruction prompt
@@ -17,109 +28,254 @@ var agent = chatClient.CreateAIAgent(instructions: "...", tools: [...]);
 
 **Key Points**:
 
-- Agent is **scoped per request** (DI in `DependencyInjection.AddPresentation()`) - never singleton
+- Agent is **scoped per request** (registered in `DependencyInjection.AddPresentation()`) - never singleton
 - Each conversation gets a **thread ID** for context persistence via `_threads` dictionary
 - Instructions embed behavioral rules: immediate task creation, Markdown tables with emojis, contextual suggestions
 - Tools created with `AIFunctionFactory.Create(taskFunctions.MethodName)`
+- Agent factory is a static method that takes `AzureOpenAIClient`, `modelDeployment`, and `ITaskRepository`
 
 ### Function Tools Contract
 
 All 6 methods in `TaskFunctions.cs` **must**:
 
-- Decorate with `[Description]` for AI understanding
+- Decorate with `[Description]` on method AND parameters for AI understanding
 - Return user-friendly strings (✅/❌ emojis) - **NEVER throw exceptions to AI**
-- Catch all exceptions internally, return error strings
+- Catch all exceptions internally, return formatted error strings (see `Application/Constants/ErrorMessages.cs`)
 - Use emoji patterns: 🔴 High, 🟡 Medium, 🟢 Low; ⏳ Pending, 🔄 InProgress, ✅ Completed
+- Methods: `CreateTask`, `ListTasks`, `GetTaskDetails`, `UpdateTask`, `DeleteTask`, `GetTaskSummary`
+
+**Adding New Function Tools**:
+
+1. Add method to `TaskFunctions.cs` with `[Description]` attributes
+2. Register in `TaskAgentService.CreateAgent()`: `AIFunctionFactory.Create(taskFunctions.NewMethod)`
+3. Update 170-line instruction string if behavioral guidance needed
+4. Test that tool never throws exceptions to AI
 
 ## Domain Patterns
 
-### Entity Creation
+### Entity Creation - Factory Method Required
 
 ```csharp
-// ❌ NEVER: new TaskItem()
+// ❌ NEVER: new TaskItem() { Title = "..." }
 // ✅ ALWAYS: TaskItem.Create(title, description, priority)
 ```
 
-- Private setters + factory method enforce validation (title ≤ 200 chars)
+- Private setters + factory method enforce validation (title ≤ 200 chars, see `Domain/Constants/TaskConstants.cs`)
+- Private parameterless constructor for EF Core only
 - Business rules in entity: `UpdateStatus()` blocks Completed → Pending transitions
+- Validation throws `ArgumentException` with messages from `Domain/Constants/ValidationMessages.cs`
+
+### Entity Updates
+
+```csharp
+// ✅ Use entity methods for state changes
+task.UpdateStatus(TaskStatus.InProgress);  // Validates business rules
+task.UpdatePriority(TaskPriority.High);
+
+// ❌ NEVER: task.Status = TaskStatus.InProgress (won't compile - private setter)
+```
 
 ## Critical Workflows
 
-### EF Migrations (multi-project solution)
+### EF Migrations (Multi-Project Solution)
 
 ```powershell
-# Always specify both projects:
+# Always specify BOTH projects (Infrastructure has DbContext, WebApp has startup/DI):
 dotnet ef migrations add MigrationName --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
 dotnet ef database update --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
+
+# View migrations
+dotnet ef migrations list --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
 ```
 
-### Running
+**Why Both?**: Infrastructure contains `TaskDbContext`, but WebApp has configuration (`appsettings.json` connection string) and DI setup.
+
+### Running the Application
 
 ```powershell
 dotnet run --project TaskAgent.WebApp
-# Requires appsettings.Development.json: AzureOpenAI:{Endpoint,ApiKey,DeploymentName}
-# ContentSafety config optional (gracefully degrades with console warning)
 ```
+
+**Required Configuration** (in `appsettings.Development.json`):
+
+```json
+{
+  "AzureOpenAI": {
+    "Endpoint": "https://your-resource.openai.azure.com/",
+    "ApiKey": "your-key",
+    "DeploymentName": "gpt-4o-mini"
+  },
+  "ContentSafety": {
+    "Endpoint": "https://your-resource.cognitiveservices.azure.com/",
+    "ApiKey": "your-key",
+    "HateThreshold": 2,
+    "ViolenceThreshold": 2,
+    "SexualThreshold": 2,
+    "SelfHarmThreshold": 2
+  }
+}
+```
+
+**Note**: ContentSafety config is required (throws `InvalidOperationException` if missing). App validates on startup via `app.ValidateConfiguration()`.
 
 ## Content Safety Middleware
 
-**2-Layer Defense** on `/api/chat` endpoints (parallel execution):
+**2-Layer Parallel Defense** on `/api/chat` POST endpoints:
 
-1. **Prompt Injection** (Prompt Shield) → Blocks (returns 400)
-2. **Content Safety** (Moderation) → Blocks if thresholds exceeded (hate/violence/sexual/self-harm, default=2)
+1. **Prompt Shield** (Prompt Injection Detection) → REST API call to `/contentsafety/text:shieldPrompt`
+2. **Content Moderation** (Harmful Content) → SDK call to `ContentSafetyClient.AnalyzeTextAsync()`
 
-**Performance Optimization**: Both layers execute in parallel using `Task.WhenAll` for ~50% faster response times (~200-400ms vs ~400-800ms sequential). Security priority maintained by checking injection result first.
+**Architecture**:
 
-Applied via `app.UseContentSafety()` before `UseAuthorization()`. Implementation in `Infrastructure/Services/ContentSafetyService.cs` using Azure Content Safety SDK.
+- Middleware: `WebApp/Middleware/ContentSafetyMiddleware.cs`
+- Service: `Infrastructure/Services/ContentSafetyService.cs`
+- Extension: `app.UseContentSafety()` in `Program.cs` (before `UseAuthorization()`)
+- HttpClient: Named client via `IHttpClientFactory` (registered in `Infrastructure/DependencyInjection.cs`)
+
+**Performance Optimization**: Both layers execute in parallel using `Task.WhenAll` for ~50% faster response (~200-400ms vs ~400-800ms sequential). Security priority: checks injection result first, then content result.
+
+**Blocking Behavior**:
+
+- Prompt injection detected → 400 Bad Request with `PromptInjectionResult`
+- Content policy violation → 400 Bad Request with `ContentSafetyResult` and violated categories
 
 ## Project-Specific Conventions
 
-### Naming Quirk
+### Naming Quirk - TaskStatus Collision
 
-`TaskStatus` enum collision resolved with alias: `using DomainTaskStatus = TaskAgent.Domain.Enums.TaskStatus;`
+`TaskStatus` enum collision with `System.Threading.Tasks.TaskStatus` resolved with alias:
 
-### Error Handling Strategy
+```csharp
+using DomainTaskStatus = TaskAgent.Domain.Enums.TaskStatus;
+```
 
-- **Domain**: Throw `ArgumentException` for validation
-- **Function Tools**: NEVER throw - catch & return error strings to AI
-- **Controllers**: `BadRequest(400)` for validation, `StatusCode(500)` for unexpected
+Use `DomainTaskStatus` in files that also use `Task<T>` (common in async code).
 
-### Configuration
+### Error Handling Strategy by Layer
 
-Secrets in `appsettings.Development.json` (gitignored): `AzureOpenAI:ApiKey`, `ContentSafety:ApiKey`
+- **Domain**: Throw `ArgumentException` for validation failures (title empty, too long, invalid state transitions)
+- **Function Tools**: NEVER throw - catch & return user-friendly error strings with emojis
+- **Controllers**: `BadRequest(400)` for validation, `StatusCode(500)` for unexpected errors
+- **Middleware**: Log errors, fail open (allow request to proceed) for availability
+
+### Constants Pattern
+
+All magic strings/numbers in constant files:
+
+- `Domain/Constants/TaskConstants.cs`: MAX_TITLE_LENGTH (200)
+- `Domain/Constants/ValidationMessages.cs`: Validation error messages
+- `Application/Constants/ErrorMessages.cs`: Function tool error messages
+- `Infrastructure/Constants/ContentSafetyConstants.cs`: API paths, HTTP client name
+- `WebApp/Constants/ApiRoutes.cs`: Route constants (CHAT = "api/chat")
+- `WebApp/Constants/ErrorCodes.cs`: Error codes for API responses
+
+### Dependency Injection Pattern
+
+Each layer has a `DependencyInjection.cs` with extension methods:
+
+```csharp
+// Infrastructure/DependencyInjection.cs
+services.AddInfrastructure(configuration);  // Registers DbContext, Repositories, ContentSafetyClient
+
+// WebApp/DependencyInjection.cs
+services.AddPresentation(configuration);    // Registers Controllers, AIAgent (scoped)
+```
+
+Called in `Program.cs`: `builder.Services.AddInfrastructure(builder.Configuration).AddPresentation(builder.Configuration);`
 
 ## Integration Points
 
 ### EF Core Patterns
 
-- **Read-only queries**: Always use `.AsNoTracking()` for performance
-- **Enums**: Stored as ints in SQL Server with `.HasConversion<int>()`
+- **Read-only queries**: Always use `.AsNoTracking()` for better performance (see `TaskRepository.GetAllAsync()`)
+- **Tracked updates**: Don't use `.AsNoTracking()` when updating entities
+- **Enums**: Stored as ints in SQL Server with `.HasConversion<int>()` in entity configuration
 - **Indexes**: On Status, Priority, CreatedAt for filtering performance
+- **Connection**: LocalDB via connection string `"Server=(localdb)\\mssqllocaldb;Database=TaskAgentDb;Trusted_Connection=true;"`
+
+### Azure OpenAI Client Setup
+
+```csharp
+// Registered in WebApp/DependencyInjection.cs
+var client = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+var chatClient = client.GetChatClient(modelDeployment);
+var agent = chatClient.CreateAIAgent(instructions: "...", tools: [...]);
+```
+
+**Scoped Lifetime**: Agent must be scoped per request (not singleton) to maintain separate conversation contexts.
+
+### Content Safety HttpClient
+
+```csharp
+// Infrastructure/DependencyInjection.cs
+services.AddHttpClient(ContentSafetyConstants.HTTP_CLIENT_NAME, client => {
+    client.BaseAddress = new Uri(endpoint);
+    client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", apiKey);
+});
+```
+
+Uses `IHttpClientFactory` for connection pooling and proper DNS refresh handling.
 
 ## Common Modifications
 
-### Adding Function Tools
+### Adding a New Entity
 
-1. Method in `TaskFunctions.cs` with `[Description]` on method & parameters
-2. Register in `CreateAgent()`: `AIFunctionFactory.Create(taskFunctions.NewMethod)`
-3. Update agent instructions string if behavioral guidance needed
+1. Create entity in `Domain/Entities/` with factory method and private setters
+2. Add `DbSet<NewEntity>` to `TaskDbContext.cs`
+3. Create entity configuration class in `Infrastructure/Data/Configurations/`
+4. Run EF migration (see Critical Workflows)
+5. Create repository interface in `Application/Interfaces/`
+6. Implement repository in `Infrastructure/Repositories/`
+7. Register in `Infrastructure/DependencyInjection.cs`
 
 ### Modifying Agent Behavior
 
-Edit 170-line instruction string in `TaskAgentService.CreateAgent()` - single source of truth for agent behavior
+Edit the 170-line instruction string in `TaskAgentService.CreateAgent()` - this is the single source of truth for agent personality and behavior rules.
 
-### Entity Changes
+**Important sections**:
 
-1. Update `TaskItem` + factory/methods → 2. EF migration → 3. Update repository if needed
+- Task creation behavior (immediate vs. asking for confirmation)
+- Presentation format guidelines (Markdown tables, emojis)
+- Response style (professional, efficient, contextual suggestions)
+
+### Extending Content Safety
+
+To add a new safety layer:
+
+1. Add method to `IContentSafetyService` interface
+2. Implement in `Infrastructure/Services/ContentSafetyService.cs`
+3. Call in `ContentSafetyMiddleware.InvokeAsync()` (add to `Task.WhenAll` for parallel execution)
+4. Update blocking logic in middleware
 
 ## Anti-Patterns
 
 ❌ `new TaskItem()` → Use `TaskItem.Create()` factory  
 ❌ Singleton agent → Must be scoped per request  
-❌ Throw from function tools → Return error strings  
-❌ Skip `AsNoTracking()` → Query performance degradation  
-❌ Multiple instruction sources → Single string in `CreateAgent()`
+❌ Throw from function tools → Return user-friendly error strings  
+❌ Skip `.AsNoTracking()` on read queries → Performance degradation  
+❌ Multiple instruction sources → Single string in `CreateAgent()`  
+❌ Magic strings/numbers → Use constants from appropriate layer  
+❌ Domain layer dependencies → Keep it dependency-free  
+❌ Sequential safety checks → Use `Task.WhenAll` for parallel execution
 
-## Key Files
+## Key Files Reference
 
-`Program.cs` (DI), `TaskAgentService.cs` (170-line instructions), `TaskFunctions.cs` (6 tools), `ContentSafetyMiddleware.cs` (4 layers), `TaskItem.cs` (factory + business rules)
+| File                                              | Purpose                                               |
+| ------------------------------------------------- | ----------------------------------------------------- |
+| `Program.cs`                                      | Application entry, middleware pipeline, DI bootstrap  |
+| `WebApp/DependencyInjection.cs`                   | WebApp layer services, AIAgent factory registration   |
+| `WebApp/Services/TaskAgentService.cs`             | Agent factory method, 170-line instructions, chat API |
+| `Application/Functions/TaskFunctions.cs`          | 6 function tools for AI agent                         |
+| `Domain/Entities/TaskItem.cs`                     | Core entity, factory method, business rules           |
+| `Infrastructure/Services/ContentSafetyService.cs` | 2-layer content safety (Prompt Shield + Moderation)   |
+| `WebApp/Middleware/ContentSafetyMiddleware.cs`    | Middleware applying safety checks to `/api/chat`      |
+| `Infrastructure/Data/TaskDbContext.cs`            | EF Core DbContext, entity configurations              |
+| `Infrastructure/Repositories/TaskRepository.cs`   | Repository pattern implementation                     |
+
+## Testing Guidance
+
+**Content Safety**: See `CONTENT_SAFETY.md` for 75+ test cases including prompt injections, harmful content, edge cases, and troubleshooting.
+
+**AI Agent**: Test via web UI at `http://localhost:5000` or POST to `/api/chat` endpoint with `{"message": "your message"}`
+
+**Database**: Auto-created on first run. To reset: `dotnet ef database drop --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp`
