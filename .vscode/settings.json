@@ -1,5 +1,15 @@
 {
-    "github.copilot.chat.commitMessageGeneration.instructions": [
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "file": "./.github/code-generation-instructions.md"
+    }
+  ],
+  "github.copilot.chat.reviewSelection.instructions": [
+    {
+      "file": "./.github/code-review-instructions.md"
+    }
+  ],
+  "github.copilot.chat.commitMessageGeneration.instructions": [
     {
       "file": "./.github/git-commit-messages-instructions.md"
     }
