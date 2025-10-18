@@ -5,6 +5,7 @@ namespace TaskAgent.Domain.Enums;
 /// </summary>
 public enum TaskStatus
 {
+    None = 0,
     Pending = 1,
     InProgress = 2,
     Completed = 3,
