@@ -1,17 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <Description>TaskAgent Infrastructure Layer - Data access and external services</Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.AI.ContentSafety" Version="1.0.0" />
-    <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.10" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.10" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.10" />
+    <PackageReference Include="Azure.AI.ContentSafety" />
+    <PackageReference Include="Azure.AI.OpenAI" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
   </ItemGroup>
 
   <ItemGroup>

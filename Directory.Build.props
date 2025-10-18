@@ -1,0 +1,45 @@
+<Project>
+  <!-- Common properties for all projects -->
+  <PropertyGroup>
+    <!-- Target Framework -->
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+
+    <!-- General Settings -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Code Analysis -->
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>All</AnalysisMode>
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!-- Assembly Information -->
+    <Company>TaskAgent</Company>
+    <Product>TaskAgent - AI-Powered Task Management</Product>
+    <Copyright>Copyright © 2025 TaskAgent</Copyright>
+    <Authors>TaskAgent Development Team</Authors>
+
+    <!-- Versioning -->
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+
+    <!-- Build Configuration -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- NuGet Package Settings -->
+    <PackageProjectUrl>https://github.com/cristofima/TaskAgent-AgenticAI</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cristofima/TaskAgent-AgenticAI</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <!-- Code Analysis Packages -->
+  <ItemGroup>
+    <PackageReference Include="SonarAnalyzer.CSharp" />
+  </ItemGroup>
+</Project>
