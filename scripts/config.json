@@ -1,0 +1,21 @@
+{
+  "SemanticVersion": {
+    "DefaultVersion": "1.0.0",
+    "CommitTypes": {
+      "Major": ["breaking", "BREAKING CHANGE"],
+      "Minor": ["feat", "feature"],
+      "Patch": [
+        "fix",
+        "refactor",
+        "perf",
+        "security",
+        "docs",
+        "chore",
+        "style",
+        "test",
+        "ci",
+        "build"
+      ]
+    }
+  }
+}
