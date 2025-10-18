@@ -352,7 +352,14 @@ Contributors: $($Stats.Authors.Count)
         foreach ($commit in $groupedCommits.breaking) {
             $output += "  - [$($commit.Hash)] $($commit.Message) by $($commit.Author)`n"
             if ($commit.Body) {
-                $output += "    Details: $($commit.Body)`n"
+                # Format body with proper indentation, preserving line breaks
+                $bodyLines = $commit.Body -split "`n"
+                foreach ($line in $bodyLines) {
+                    $trimmedLine = $line.Trim()
+                    if ($trimmedLine) {
+                        $output += "    $trimmedLine`n"
+                    }
+                }
             }
         }
     }
@@ -363,7 +370,14 @@ Contributors: $($Stats.Authors.Count)
         foreach ($commit in $groupedCommits.feat) {
             $output += "  - [$($commit.Hash)] $($commit.Message)`n"
             if ($commit.Body) {
-                $output += "    Details: $($commit.Body)`n"
+                # Format body with proper indentation, preserving line breaks
+                $bodyLines = $commit.Body -split "`n"
+                foreach ($line in $bodyLines) {
+                    $trimmedLine = $line.Trim()
+                    if ($trimmedLine) {
+                        $output += "    $trimmedLine`n"
+                    }
+                }
             }
         }
     }
@@ -374,7 +388,14 @@ Contributors: $($Stats.Authors.Count)
         foreach ($commit in $groupedCommits.fix) {
             $output += "  - [$($commit.Hash)] $($commit.Message)`n"
             if ($commit.Body) {
-                $output += "    Details: $($commit.Body)`n"
+                # Format body with proper indentation, preserving line breaks
+                $bodyLines = $commit.Body -split "`n"
+                foreach ($line in $bodyLines) {
+                    $trimmedLine = $line.Trim()
+                    if ($trimmedLine) {
+                        $output += "    $trimmedLine`n"
+                    }
+                }
             }
         }
     }
@@ -386,7 +407,14 @@ Contributors: $($Stats.Authors.Count)
         foreach ($commit in $improvements) {
             $output += "  - [$($commit.Hash)] $($commit.Message)`n"
             if ($commit.Body) {
-                $output += "    Details: $($commit.Body)`n"
+                # Format body with proper indentation, preserving line breaks
+                $bodyLines = $commit.Body -split "`n"
+                foreach ($line in $bodyLines) {
+                    $trimmedLine = $line.Trim()
+                    if ($trimmedLine) {
+                        $output += "    $trimmedLine`n"
+                    }
+                }
             }
         }
     }
@@ -396,6 +424,16 @@ Contributors: $($Stats.Authors.Count)
         $output += "`n📚 Documentation ($($groupedCommits.docs.Count)):`n"
         foreach ($commit in $groupedCommits.docs) {
             $output += "  - [$($commit.Hash)] $($commit.Message)`n"
+            if ($commit.Body) {
+                # Format body with proper indentation, preserving line breaks
+                $bodyLines = $commit.Body -split "`n"
+                foreach ($line in $bodyLines) {
+                    $trimmedLine = $line.Trim()
+                    if ($trimmedLine) {
+                        $output += "    $trimmedLine`n"
+                    }
+                }
+            }
         }
     }
     
@@ -410,6 +448,16 @@ Contributors: $($Stats.Authors.Count)
         $output += "`n🔨 Other Changes ($($otherCommits.Count)):`n"
         foreach ($commit in $otherCommits) {
             $output += "  - [$($commit.Hash)] $($commit.Message)`n"
+            if ($commit.Body) {
+                # Format body with proper indentation, preserving line breaks
+                $bodyLines = $commit.Body -split "`n"
+                foreach ($line in $bodyLines) {
+                    $trimmedLine = $line.Trim()
+                    if ($trimmedLine) {
+                        $output += "    $trimmedLine`n"
+                    }
+                }
+            }
         }
     }
     
