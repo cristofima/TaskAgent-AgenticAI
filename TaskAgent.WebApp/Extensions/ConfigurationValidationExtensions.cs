@@ -10,14 +10,14 @@ public static class ConfigurationValidationExtensions
     /// </summary>
     public static void ValidateConfiguration(this WebApplication app)
     {
-        var configuration = app.Configuration;
-        var logger = app.Logger;
+        IConfiguration configuration = app.Configuration;
+        ILogger logger = app.Logger;
         var errors = new List<string>();
 
         ValidateAzureOpenAIConfiguration(configuration, errors);
         ValidateContentSafetyConfiguration(configuration, logger);
 
-        if (errors.Any())
+        if (errors.Count > 0)
         {
             ThrowConfigurationException(errors, logger);
         }
@@ -30,18 +30,24 @@ public static class ConfigurationValidationExtensions
         List<string> errors
     )
     {
-        var azureOpenAiEndpoint = configuration["AzureOpenAI:Endpoint"];
-        var azureOpenAiKey = configuration["AzureOpenAI:ApiKey"];
-        var azureOpenAiDeployment = configuration["AzureOpenAI:DeploymentName"];
+        string? azureOpenAiEndpoint = configuration["AzureOpenAI:Endpoint"];
+        string? azureOpenAiKey = configuration["AzureOpenAI:ApiKey"];
+        string? azureOpenAiDeployment = configuration["AzureOpenAI:DeploymentName"];
 
         if (string.IsNullOrWhiteSpace(azureOpenAiEndpoint))
+        {
             errors.Add("AzureOpenAI:Endpoint is not configured");
+        }
 
         if (string.IsNullOrWhiteSpace(azureOpenAiKey))
+        {
             errors.Add("AzureOpenAI:ApiKey is not configured");
+        }
 
         if (string.IsNullOrWhiteSpace(azureOpenAiDeployment))
+        {
             errors.Add("AzureOpenAI:DeploymentName is not configured");
+        }
     }
 
     private static void ValidateContentSafetyConfiguration(
@@ -49,8 +55,8 @@ public static class ConfigurationValidationExtensions
         ILogger logger
     )
     {
-        var contentSafetyEndpoint = configuration["ContentSafety:Endpoint"];
-        var contentSafetyKey = configuration["ContentSafety:ApiKey"];
+        string? contentSafetyEndpoint = configuration["ContentSafety:Endpoint"];
+        string? contentSafetyKey = configuration["ContentSafety:ApiKey"];
 
         if (
             string.IsNullOrWhiteSpace(contentSafetyEndpoint)
@@ -66,7 +72,7 @@ public static class ConfigurationValidationExtensions
 
     private static void ThrowConfigurationException(List<string> errors, ILogger logger)
     {
-        var errorMessage = string.Join(Environment.NewLine, errors);
+        string? errorMessage = string.Join(Environment.NewLine, errors);
         logger.LogCritical(
             "Application cannot start due to missing configuration:{NewLine}{Errors}",
             Environment.NewLine,

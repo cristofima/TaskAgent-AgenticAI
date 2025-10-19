@@ -1,5 +1,6 @@
-﻿using Azure;
+using Azure;
 using Azure.AI.OpenAI;
+using Microsoft.Agents.AI;
 using TaskAgent.Application.Interfaces;
 using TaskAgent.WebApp.Services;
 
@@ -25,26 +26,32 @@ public static class DependencyInjection
     /// </summary>
     private static void RegisterTaskAgent(IServiceCollection services, IConfiguration configuration)
     {
-        var azureOpenAiEndpoint = configuration["AzureOpenAI:Endpoint"];
-        var modelDeployment = configuration["AzureOpenAI:DeploymentName"];
-        var apiKey = configuration["AzureOpenAI:ApiKey"];
+        string? azureOpenAiEndpoint = configuration["AzureOpenAI:Endpoint"];
+        string? modelDeployment = configuration["AzureOpenAI:DeploymentName"];
+        string? apiKey = configuration["AzureOpenAI:ApiKey"];
 
-        if (string.IsNullOrWhiteSpace(azureOpenAiEndpoint) || 
-            string.IsNullOrWhiteSpace(modelDeployment) || 
-            string.IsNullOrWhiteSpace(apiKey))
+        if (
+            string.IsNullOrWhiteSpace(azureOpenAiEndpoint)
+            || string.IsNullOrWhiteSpace(modelDeployment)
+            || string.IsNullOrWhiteSpace(apiKey)
+        )
         {
             throw new InvalidOperationException(
                 "Missing required Azure OpenAI configuration. Please check appsettings.json and appsettings.Development.json"
             );
         }
 
-        var client = new AzureOpenAIClient(new Uri(azureOpenAiEndpoint), new AzureKeyCredential(apiKey));
+        var client = new AzureOpenAIClient(
+            new Uri(azureOpenAiEndpoint),
+            new AzureKeyCredential(apiKey)
+        );
 
         services.AddScoped<ITaskAgentService>(sp =>
         {
-            var taskRepository = sp.GetRequiredService<ITaskRepository>();
-            var agent = TaskAgentService.CreateAgent(client, modelDeployment, taskRepository);
-            return new TaskAgentService(agent);
+            ITaskRepository taskRepository = sp.GetRequiredService<ITaskRepository>();
+            ILogger<TaskAgentService> logger = sp.GetRequiredService<ILogger<TaskAgentService>>();
+            AIAgent agent = TaskAgentService.CreateAgent(client, modelDeployment, taskRepository);
+            return new TaskAgentService(agent, logger);
         });
     }
 }

@@ -2,8 +2,8 @@ namespace TaskAgent.Infrastructure.Models;
 
 internal class ContentSafetyConfig
 {
-    public int HateSeverityThreshold { get; set; }
-    public int ViolenceSeverityThreshold { get; set; }
-    public int SexualSeverityThreshold { get; set; }
-    public int SelfHarmSeverityThreshold { get; set; }
+    public int HateSeverityThreshold { get; init; }
+    public int ViolenceSeverityThreshold { get; init; }
+    public int SexualSeverityThreshold { get; init; }
+    public int SelfHarmSeverityThreshold { get; init; }
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using TaskAgent.Application.DTOs;
 using TaskAgent.Application.Interfaces;
 using TaskAgent.WebApp.Constants;
+using TaskAgent.WebApp.Models;
 using TaskAgent.WebApp.Services;
 
 namespace TaskAgent.WebApp.Controllers;
@@ -20,9 +21,22 @@ public class ChatController : ControllerBase
     }
 
     [HttpPost("send")]
-    public async Task<IActionResult> SendMessage([FromBody] ChatRequest request)
+    public async Task<IActionResult> SendMessageAsync([FromBody] ChatRequest? request)
     {
-        if (string.IsNullOrWhiteSpace(request.Message))
+        // Try to get the request from HttpContext.Items first (set by middleware)
+        if (
+            HttpContext.Items.TryGetValue("ChatRequest", out object? storedRequest)
+            && storedRequest is ChatRequestDto chatRequestDto
+        )
+        {
+            request = new ChatRequest
+            {
+                Message = chatRequestDto.Message ?? string.Empty,
+                ThreadId = chatRequestDto.ThreadId,
+            };
+        }
+
+        if (request == null || string.IsNullOrWhiteSpace(request.Message))
         {
             return ErrorResponseFactory.CreateBadRequest(
                 ErrorCodes.INVALID_INPUT,
@@ -32,12 +46,13 @@ public class ChatController : ControllerBase
 
         try
         {
-            var response = await _taskAgent.SendMessageAsync(request.Message, request.ThreadId);
-            var threadId = string.IsNullOrWhiteSpace(request.ThreadId)
-                ? _taskAgent.GetNewThreadId()
-                : request.ThreadId;
+            // Send message to agent - service handles thread management
+            (string response, string activeThreadId) = await _taskAgent.SendMessageAsync(
+                request.Message,
+                request.ThreadId
+            );
 
-            return Ok(new ChatResponse { Message = response, ThreadId = threadId });
+            return Ok(new ChatResponse { Message = response, ThreadId = activeThreadId });
         }
         catch (Exception ex)
         {
@@ -54,7 +69,7 @@ public class ChatController : ControllerBase
     {
         try
         {
-            var threadId = _taskAgent.GetNewThreadId();
+            string threadId = _taskAgent.GetNewThreadId();
             return Ok(new { threadId });
         }
         catch (Exception ex)

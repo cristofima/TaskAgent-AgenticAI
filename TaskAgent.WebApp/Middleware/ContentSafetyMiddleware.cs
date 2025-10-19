@@ -30,55 +30,56 @@ public class ContentSafetyMiddleware
 
         try
         {
-            var userMessage = await ExtractUserMessage(context);
+            // Extract and store the request for reuse
+            (string? userMessage, ChatRequestDto? chatRequest) = await ExtractUserMessageAsync(
+                context
+            );
+
             if (userMessage == null)
             {
                 await _next(context);
                 return;
             }
 
-            _logger.LogInformation("Applying 2-layer content safety checks (parallel execution)");
+            // Store the parsed request in HttpContext.Items so the controller can reuse it
+            context.Items["ChatRequest"] = chatRequest;
 
             // Execute both safety checks in parallel for better performance
-            var injectionTask = contentSafetyService.DetectPromptInjectionAsync(userMessage);
-            var contentTask = contentSafetyService.AnalyzeTextAsync(userMessage);
+            Task<PromptInjectionResult> injectionTask =
+                contentSafetyService.DetectPromptInjectionAsync(userMessage);
+            Task<ContentSafetyResult> contentTask = contentSafetyService.AnalyzeTextAsync(
+                userMessage
+            );
 
             // Wait for both tasks to complete
             await Task.WhenAll(injectionTask, contentTask);
 
             // Get results (tasks are already completed, no additional await needed)
-            var injectionResult = await injectionTask;
-            var contentResult = await contentTask;
-
-            _logger.LogInformation(
-                "Prompt Shield result - AttackDetected: {Detected}, Type: {Type}",
-                injectionResult.InjectionDetected,
-                injectionResult.DetectedAttackType
-            );
-
-            _logger.LogInformation(
-                "Content moderation result - IsSafe: {Safe}, Violations: {Count}",
-                contentResult.IsSafe,
-                contentResult.ViolatedCategories?.Count ?? 0
-            );
+            PromptInjectionResult injectionResult = await injectionTask;
+            ContentSafetyResult contentResult = await contentTask;
 
             // Check prompt injection first (security priority)
             if (!injectionResult.IsSafe)
             {
-                _logger.LogWarning("Blocking request - Prompt injection detected");
-                await BlockSecurityViolation(context, injectionResult);
+                _logger.LogWarning(
+                    "Prompt injection blocked: {Type}",
+                    injectionResult.DetectedAttackType
+                );
+                await BlockSecurityViolationAsync(context, injectionResult);
                 return;
             }
 
             // Then check content safety
             if (!contentResult.IsSafe)
             {
-                _logger.LogWarning("Blocking request - Content policy violation");
-                await BlockContentViolation(context, contentResult);
+                _logger.LogWarning(
+                    "Content policy violation: {Categories}",
+                    string.Join(", ", contentResult.ViolatedCategories ?? [])
+                );
+                await BlockContentViolationAsync(context, contentResult);
                 return;
             }
 
-            _logger.LogInformation("Content safety checks passed");
             await _next(context);
         }
         catch (Exception ex)
@@ -100,24 +101,45 @@ public class ContentSafetyMiddleware
     /// <summary>
     /// Extracts user message from request body
     /// </summary>
-    private static async Task<string?> ExtractUserMessage(HttpContext context)
+    private static async Task<(string? message, ChatRequestDto? request)> ExtractUserMessageAsync(
+        HttpContext context
+    )
     {
         context.Request.EnableBuffering();
-        var requestBody = await new StreamReader(context.Request.Body).ReadToEndAsync();
-        context.Request.Body.Position = 0;
 
-        var chatRequest = JsonSerializer.Deserialize<ChatRequestDto>(
+        // Read the request body
+        using var reader = new StreamReader(
+            context.Request.Body,
+            encoding: System.Text.Encoding.UTF8,
+            detectEncodingFromByteOrderMarks: false,
+            leaveOpen: true // Critical: Don't close the stream
+        );
+
+        string requestBody = await reader.ReadToEndAsync();
+
+        // Reset stream position for next middleware/controller
+        context.Request.Body.Seek(0, SeekOrigin.Begin);
+
+        if (string.IsNullOrWhiteSpace(requestBody))
+        {
+            return (null, null);
+        }
+
+        ChatRequestDto? chatRequest = JsonSerializer.Deserialize<ChatRequestDto>(
             requestBody,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
         );
 
-        return chatRequest?.Message;
+        return (chatRequest?.Message, chatRequest);
     }
 
     /// <summary>
     /// Blocks request due to security violation
     /// </summary>
-    private async Task BlockSecurityViolation(HttpContext context, PromptInjectionResult result)
+    private async Task BlockSecurityViolationAsync(
+        HttpContext context,
+        PromptInjectionResult result
+    )
     {
         _logger.LogWarning("Prompt injection blocked: {AttackType}", result.DetectedAttackType);
 
@@ -136,7 +158,7 @@ public class ContentSafetyMiddleware
     /// <summary>
     /// Blocks request due to content policy violation
     /// </summary>
-    private async Task BlockContentViolation(HttpContext context, ContentSafetyResult result)
+    private async Task BlockContentViolationAsync(HttpContext context, ContentSafetyResult result)
     {
         _logger.LogWarning(
             "Content violation blocked: {Violations}",

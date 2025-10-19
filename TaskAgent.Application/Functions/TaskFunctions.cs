@@ -23,7 +23,7 @@ public class TaskFunctions
     }
 
     [Description("Create a new task with title, description, and priority level.")]
-    public async Task<string> CreateTask(
+    public async Task<string> CreateTaskAsync(
         [Description("The title of the task")] string title,
         [Description("Detailed description of the task")] string description,
         [Description("Priority level: Low, Medium, or High")] string priority = "Medium"
@@ -32,10 +32,12 @@ public class TaskFunctions
         try
         {
             if (string.IsNullOrWhiteSpace(title))
+            {
                 return ErrorMessages.TASK_TITLE_EMPTY;
+            }
 
             // Parse priority
-            if (!Enum.TryParse<TaskPriority>(priority, true, out var taskPriority))
+            if (!Enum.TryParse<TaskPriority>(priority, true, out TaskPriority taskPriority))
             {
                 return string.Format(ErrorMessages.INVALID_PRIORITY_FORMAT, priority);
             }
@@ -69,7 +71,7 @@ public class TaskFunctions
     }
 
     [Description("Get a list of all tasks or filter by status and priority.")]
-    public async Task<string> ListTasks(
+    public async Task<string> ListTasksAsync(
         [Description("Filter by status: Pending, InProgress, or Completed (optional)")]
             string? status = null,
         [Description("Filter by priority: Low, Medium, or High (optional)")] string? priority = null
@@ -83,40 +85,54 @@ public class TaskFunctions
             // Parse filters
             if (!string.IsNullOrEmpty(status))
             {
-                if (!Enum.TryParse<DomainTaskStatus>(status, true, out var parsedStatus))
+                if (!Enum.TryParse(status, true, out DomainTaskStatus parsedStatus))
+                {
                     return string.Format(ErrorMessages.INVALID_STATUS_FORMAT, status);
+                }
+
                 taskStatus = parsedStatus;
             }
 
             if (!string.IsNullOrEmpty(priority))
             {
-                if (!Enum.TryParse<TaskPriority>(priority, true, out var parsedPriority))
+                if (!Enum.TryParse(priority, true, out TaskPriority parsedPriority))
+                {
                     return string.Format(ErrorMessages.INVALID_PRIORITY_FORMAT, priority);
+                }
+
                 taskPriority = parsedPriority;
             }
 
             // Fetch tasks from repository
-            var tasks = await _taskRepository.SearchAsync(taskStatus, taskPriority);
+            IEnumerable<TaskItem> tasks = await _taskRepository.SearchAsync(
+                taskStatus,
+                taskPriority
+            );
             var taskList = tasks.ToList();
 
             if (!taskList.Any())
             {
                 var filters = new List<string>();
                 if (taskStatus.HasValue)
+                {
                     filters.Add($"status={taskStatus}");
-                if (taskPriority.HasValue)
-                    filters.Add($"priority={taskPriority}");
+                }
 
-                var filterText = filters.Any() ? $" matching {string.Join(", ", filters)}" : "";
+                if (taskPriority.HasValue)
+                {
+                    filters.Add($"priority={taskPriority}");
+                }
+
+                string filterText = filters.Any() ? $" matching {string.Join(", ", filters)}" : "";
                 return string.Format(ErrorMessages.NO_TASKS_FOUND, filterText);
             }
 
             var result = new StringBuilder();
             result.AppendLine($"📋 Found {taskList.Count} task(s):\n");
 
-            foreach (var task in taskList)
+            foreach (TaskItem task in taskList)
             {
-                var priorityEmoji = task.Priority switch
+                string priorityEmoji = task.Priority switch
                 {
                     TaskPriority.High => "🔴",
                     TaskPriority.Medium => "🟡",
@@ -124,7 +140,7 @@ public class TaskFunctions
                     _ => "⚪",
                 };
 
-                var statusEmoji = task.Status switch
+                string statusEmoji = task.Status switch
                 {
                     DomainTaskStatus.Completed => "✅",
                     DomainTaskStatus.InProgress => "🔄",
@@ -148,16 +164,18 @@ public class TaskFunctions
     }
 
     [Description("Get detailed information about a specific task by its ID.")]
-    public async Task<string> GetTaskDetails(
+    public async Task<string> GetTaskDetailsAsync(
         [Description("The ID of the task to retrieve")] int taskId
     )
     {
         try
         {
-            var task = await _taskRepository.GetByIdAsync(taskId);
+            TaskItem? task = await _taskRepository.GetByIdAsync(taskId);
 
             if (task == null)
+            {
                 return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
+            }
 
             return $"""
                 📝 Task Details:
@@ -178,7 +196,7 @@ public class TaskFunctions
     }
 
     [Description("Update the status or priority of an existing task.")]
-    public async Task<string> UpdateTask(
+    public async Task<string> UpdateTaskAsync(
         [Description("The ID of the task to update")] int taskId,
         [Description("New status: Pending, InProgress, or Completed (optional)")]
             string? status = null,
@@ -188,20 +206,26 @@ public class TaskFunctions
         try
         {
             if (status == null && priority == null)
+            {
                 return ErrorMessages.UPDATE_REQUIRES_FIELDS;
+            }
 
             // Fetch task
-            var task = await _taskRepository.GetByIdAsync(taskId);
+            TaskItem? task = await _taskRepository.GetByIdAsync(taskId);
             if (task == null)
+            {
                 return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
+            }
 
             var updates = new List<string>();
 
             // Update status if provided
             if (status != null)
             {
-                if (!Enum.TryParse<DomainTaskStatus>(status, true, out var newStatus))
+                if (!Enum.TryParse(status, true, out DomainTaskStatus newStatus))
+                {
                     return string.Format(ErrorMessages.INVALID_STATUS_FORMAT, status);
+                }
 
                 task.UpdateStatus(newStatus);
                 updates.Add($"status to '{newStatus}'");
@@ -210,8 +234,10 @@ public class TaskFunctions
             // Update priority if provided
             if (priority != null)
             {
-                if (!Enum.TryParse<TaskPriority>(priority, true, out var newPriority))
+                if (!Enum.TryParse(priority, true, out TaskPriority newPriority))
+                {
                     return string.Format(ErrorMessages.INVALID_PRIORITY_FORMAT, priority);
+                }
 
                 task.UpdatePriority(newPriority);
                 updates.Add($"priority to '{newPriority}'");
@@ -221,7 +247,11 @@ public class TaskFunctions
             await _taskRepository.UpdateAsync(task);
             await _taskRepository.SaveChangesAsync();
 
-            return string.Format(ErrorMessages.TASK_UPDATED_SUCCESS, taskId, string.Join(" and ", updates));
+            return string.Format(
+                ErrorMessages.TASK_UPDATED_SUCCESS,
+                taskId,
+                string.Join(" and ", updates)
+            );
         }
         catch (InvalidOperationException ex)
         {
@@ -234,13 +264,17 @@ public class TaskFunctions
     }
 
     [Description("Delete a task permanently by its ID.")]
-    public async Task<string> DeleteTask([Description("The ID of the task to delete")] int taskId)
+    public async Task<string> DeleteTaskAsync(
+        [Description("The ID of the task to delete")] int taskId
+    )
     {
         try
         {
-            var task = await _taskRepository.GetByIdAsync(taskId);
+            TaskItem? task = await _taskRepository.GetByIdAsync(taskId);
             if (task == null)
+            {
                 return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
+            }
 
             await _taskRepository.DeleteAsync(taskId);
             await _taskRepository.SaveChangesAsync();
@@ -254,24 +288,26 @@ public class TaskFunctions
     }
 
     [Description("Get a summary of all tasks grouped by status.")]
-    public async Task<string> GetTaskSummary()
+    public async Task<string> GetTaskSummaryAsync()
     {
         try
         {
             var allTasks = (await _taskRepository.GetAllAsync()).ToList();
 
-            if (!allTasks.Any())
+            if (allTasks.Count == 0)
+            {
                 return ErrorMessages.NO_TASKS_IN_SYSTEM;
+            }
 
-            var pending = allTasks.Count(t => t.Status == DomainTaskStatus.Pending);
-            var inProgress = allTasks.Count(t => t.Status == DomainTaskStatus.InProgress);
-            var completed = allTasks.Count(t => t.Status == DomainTaskStatus.Completed);
+            int pending = allTasks.Count(t => t.Status == DomainTaskStatus.Pending);
+            int inProgress = allTasks.Count(t => t.Status == DomainTaskStatus.InProgress);
+            int completed = allTasks.Count(t => t.Status == DomainTaskStatus.Completed);
 
-            var highPriority = allTasks.Count(t =>
+            int highPriority = allTasks.Count(t =>
                 t.Status != DomainTaskStatus.Completed && t.IsHighPriority()
             );
 
-            var completionRate = allTasks.Count > 0 ? (completed * 100 / allTasks.Count) : 0;
+            int completionRate = completed * 100 / allTasks.Count;
 
             return $"""
                 📊 Task Summary:

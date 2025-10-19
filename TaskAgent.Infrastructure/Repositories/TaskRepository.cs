@@ -21,10 +21,8 @@ public class TaskRepository : ITaskRepository
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public async Task<TaskItem?> GetByIdAsync(int id)
-    {
-        return await _context.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
-    }
+    public async Task<TaskItem?> GetByIdAsync(int id) =>
+        await _context.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
 
     public async Task<IEnumerable<TaskItem>> GetAllAsync()
     {
@@ -39,7 +37,7 @@ public class TaskRepository : ITaskRepository
         TaskPriority? priority = null
     )
     {
-        var query = _context.Tasks.AsNoTracking().AsQueryable();
+        IQueryable<TaskItem> query = _context.Tasks.AsNoTracking().AsQueryable();
 
         if (status.HasValue)
         {
@@ -57,7 +55,9 @@ public class TaskRepository : ITaskRepository
     public async Task<TaskItem> AddAsync(TaskItem task)
     {
         if (task == null)
+        {
             throw new ArgumentNullException(nameof(task));
+        }
 
         await _context.Tasks.AddAsync(task);
         return task;
@@ -66,7 +66,9 @@ public class TaskRepository : ITaskRepository
     public Task UpdateAsync(TaskItem task)
     {
         if (task == null)
+        {
             throw new ArgumentNullException(nameof(task));
+        }
 
         _context.Tasks.Update(task);
         return Task.CompletedTask;
@@ -74,15 +76,12 @@ public class TaskRepository : ITaskRepository
 
     public async Task DeleteAsync(int id)
     {
-        var task = await _context.Tasks.FindAsync(id);
+        TaskItem? task = await _context.Tasks.FindAsync(id);
         if (task != null)
         {
             _context.Tasks.Remove(task);
         }
     }
 
-    public async Task<int> SaveChangesAsync()
-    {
-        return await _context.SaveChangesAsync();
-    }
+    public async Task<int> SaveChangesAsync() => await _context.SaveChangesAsync();
 }

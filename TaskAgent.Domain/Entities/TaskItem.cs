@@ -18,10 +18,14 @@ public class TaskItem
         private set
         {
             if (string.IsNullOrWhiteSpace(value))
+            {
                 throw new ArgumentException(ValidationMessages.TITLE_REQUIRED, nameof(Title));
+            }
 
             if (value.Length > TaskConstants.MAX_TITLE_LENGTH)
+            {
                 throw new ArgumentException(ValidationMessages.TITLE_TOO_LONG, nameof(Title));
+            }
 
             _title = value;
         }
@@ -59,10 +63,14 @@ public class TaskItem
     public void UpdateStatus(DomainTaskStatus newStatus)
     {
         if (Status == newStatus)
+        {
             return;
+        }
 
         if (Status == DomainTaskStatus.Completed && newStatus == DomainTaskStatus.Pending)
+        {
             throw new InvalidOperationException(ValidationMessages.CANNOT_REOPEN_COMPLETED_TASK);
+        }
 
         Status = newStatus;
         UpdatedAt = DateTime.UtcNow;
@@ -74,7 +82,9 @@ public class TaskItem
     public void UpdatePriority(TaskPriority newPriority)
     {
         if (Priority == newPriority)
+        {
             return;
+        }
 
         Priority = newPriority;
         UpdatedAt = DateTime.UtcNow;

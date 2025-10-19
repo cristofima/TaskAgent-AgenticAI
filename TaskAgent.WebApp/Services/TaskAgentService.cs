@@ -2,6 +2,7 @@ using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
+using OpenAI.Chat;
 using TaskAgent.Application.Functions;
 using TaskAgent.Application.Interfaces;
 
@@ -14,10 +15,12 @@ public class TaskAgentService : ITaskAgentService
 {
     private readonly AIAgent _agent;
     private readonly Dictionary<string, object> _threads = new();
+    private readonly ILogger<TaskAgentService> _logger;
 
-    public TaskAgentService(AIAgent agent)
+    public TaskAgentService(AIAgent agent, ILogger<TaskAgentService> logger)
     {
         _agent = agent ?? throw new ArgumentNullException(nameof(agent));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
@@ -31,26 +34,34 @@ public class TaskAgentService : ITaskAgentService
     )
     {
         if (client == null)
+        {
             throw new ArgumentNullException(nameof(client));
+        }
+
         if (string.IsNullOrWhiteSpace(modelDeployment))
+        {
             throw new ArgumentException(
                 "Model deployment cannot be empty",
                 nameof(modelDeployment)
             );
-        if (taskRepository == null)
-            throw new ArgumentNullException(nameof(taskRepository));
+        }
 
-        var chatClient = client.GetChatClient(modelDeployment);
+        if (taskRepository == null)
+        {
+            throw new ArgumentNullException(nameof(taskRepository));
+        }
+
+        ChatClient chatClient = client.GetChatClient(modelDeployment);
 
         // Create function tools with injected repository
         var taskFunctions = new TaskFunctions(taskRepository);
 
-        var createTaskTool = AIFunctionFactory.Create(taskFunctions.CreateTask);
-        var listTasksTool = AIFunctionFactory.Create(taskFunctions.ListTasks);
-        var getTaskDetailsTool = AIFunctionFactory.Create(taskFunctions.GetTaskDetails);
-        var updateTaskTool = AIFunctionFactory.Create(taskFunctions.UpdateTask);
-        var deleteTaskTool = AIFunctionFactory.Create(taskFunctions.DeleteTask);
-        var getTaskSummaryTool = AIFunctionFactory.Create(taskFunctions.GetTaskSummary);
+        AIFunction createTaskTool = AIFunctionFactory.Create(taskFunctions.CreateTaskAsync);
+        AIFunction listTasksTool = AIFunctionFactory.Create(taskFunctions.ListTasksAsync);
+        AIFunction getTaskDetailsTool = AIFunctionFactory.Create(taskFunctions.GetTaskDetailsAsync);
+        AIFunction updateTaskTool = AIFunctionFactory.Create(taskFunctions.UpdateTaskAsync);
+        AIFunction deleteTaskTool = AIFunctionFactory.Create(taskFunctions.DeleteTaskAsync);
+        AIFunction getTaskSummaryTool = AIFunctionFactory.Create(taskFunctions.GetTaskSummaryAsync);
 
         // Create agent with clear instructions
         return chatClient.CreateAIAgent(
@@ -183,42 +194,43 @@ public class TaskAgentService : ITaskAgentService
         );
     }
 
-    public async Task<string> SendMessageAsync(string message, string? threadId = null)
+    public async Task<string> SendMessageAsync(string message, string threadId)
     {
         if (string.IsNullOrWhiteSpace(message))
+        {
             throw new ArgumentException("Message cannot be empty", nameof(message));
-
-        object thread;
-
-        if (
-            string.IsNullOrWhiteSpace(threadId)
-            || !_threads.TryGetValue(threadId, out var existingThread)
-        )
-        {
-            thread = _agent.GetNewThread();
-            var newThreadId = Guid.NewGuid().ToString();
-            _threads[newThreadId] = thread;
         }
-        else
+
+        if (string.IsNullOrWhiteSpace(threadId))
         {
-            thread = existingThread;
+            throw new ArgumentException("Thread ID cannot be empty", nameof(threadId));
+        }
+
+        // Get existing thread or use the one passed in
+        if (!_threads.TryGetValue(threadId, out object? thread))
+        {
+            throw new ArgumentException(
+                $"Thread ID '{threadId}' not found. Create a thread first using GetNewThreadId()",
+                nameof(threadId)
+            );
         }
 
         try
         {
-            var response = await _agent.RunAsync(message, (dynamic)thread);
-            return response.Text ?? "I'm sorry, I couldn't process that request.";
+            dynamic? response = await _agent.RunAsync(message, (dynamic)thread);
+            string? responseText = response.Text;
+            return responseText ?? "I'm sorry, I couldn't process that request.";
         }
         catch (Exception ex)
         {
-            // Log exception here in production
+            _logger.LogError(ex, "Error in agent execution");
             return $"An error occurred while processing your request: {ex.Message}";
         }
     }
 
     public string GetNewThreadId()
     {
-        var threadId = Guid.NewGuid().ToString();
+        string threadId = Guid.NewGuid().ToString();
         _threads[threadId] = _agent.GetNewThread();
         return threadId;
     }

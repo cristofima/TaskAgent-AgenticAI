@@ -1,4 +1,4 @@
-﻿using TaskAgent.WebApp.Middleware;
+using TaskAgent.WebApp.Middleware;
 
 namespace TaskAgent.WebApp.Extensions;
 
@@ -7,8 +7,6 @@ namespace TaskAgent.WebApp.Extensions;
 /// </summary>
 public static class ContentSafetyMiddlewareExtensions
 {
-    public static IApplicationBuilder UseContentSafety(this IApplicationBuilder builder)
-    {
-        return builder.UseMiddleware<ContentSafetyMiddleware>();
-    }
+    public static IApplicationBuilder UseContentSafety(this IApplicationBuilder builder) =>
+        builder.UseMiddleware<ContentSafetyMiddleware>();
 }

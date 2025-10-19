@@ -1,4 +1,4 @@
-﻿using Azure;
+using Azure;
 using Azure.AI.ContentSafety;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -20,7 +20,7 @@ public static class DependencyInjection
         IConfiguration configuration
     )
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        string? connectionString = configuration.GetConnectionString("DefaultConnection");
         services.AddDbContext<TaskDbContext>(options => options.UseSqlServer(connectionString));
 
         services.AddScoped<ITaskRepository, TaskRepository>();
@@ -38,8 +38,8 @@ public static class DependencyInjection
         IConfiguration configuration
     )
     {
-        var contentSafetyEndpoint = configuration["ContentSafety:Endpoint"];
-        var contentSafetyApiKey = configuration["ContentSafety:ApiKey"];
+        string? contentSafetyEndpoint = configuration["ContentSafety:Endpoint"];
+        string? contentSafetyApiKey = configuration["ContentSafety:ApiKey"];
 
         if (
             string.IsNullOrWhiteSpace(contentSafetyEndpoint)

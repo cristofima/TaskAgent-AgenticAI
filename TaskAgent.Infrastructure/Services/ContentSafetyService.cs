@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Azure;
 using Azure.AI.ContentSafety;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -46,7 +47,9 @@ public class ContentSafetyService : IContentSafetyService
             _logger.LogInformation("Analyzing text for content safety");
 
             var request = new AnalyzeTextOptions(text);
-            var response = await _contentSafetyClient.AnalyzeTextAsync(request);
+            Response<AnalyzeTextResult>? response = await _contentSafetyClient.AnalyzeTextAsync(
+                request
+            );
 
             return BuildContentSafetyResult(response.Value);
         }
@@ -72,14 +75,14 @@ public class ContentSafetyService : IContentSafetyService
 
             var requestBody = new { userPrompt };
 
-            var jsonContent = JsonSerializer.Serialize(requestBody);
+            string jsonContent = JsonSerializer.Serialize(requestBody);
             var httpContent = new StringContent(
                 jsonContent,
                 Encoding.UTF8,
                 ContentSafetyConstants.CONTENT_TYPE_JSON
             );
 
-            var httpResponse = await _httpClient.PostAsync(apiUrl, httpContent);
+            HttpResponseMessage httpResponse = await _httpClient.PostAsync(apiUrl, httpContent);
 
             if (!httpResponse.IsSuccessStatusCode)
             {
@@ -98,8 +101,8 @@ public class ContentSafetyService : IContentSafetyService
                 };
             }
 
-            var responseContent = await httpResponse.Content.ReadAsStringAsync();
-            var apiResponse = JsonSerializer.Deserialize<PromptShieldResponse>(
+            string responseContent = await httpResponse.Content.ReadAsStringAsync();
+            PromptShieldResponse? apiResponse = JsonSerializer.Deserialize<PromptShieldResponse>(
                 responseContent,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
             );
@@ -116,7 +119,7 @@ public class ContentSafetyService : IContentSafetyService
                 };
             }
 
-            var attackDetected = apiResponse.UserPromptAnalysis?.AttackDetected ?? false;
+            bool attackDetected = apiResponse.UserPromptAnalysis?.AttackDetected ?? false;
 
             var result = new PromptInjectionResult
             {
@@ -170,20 +173,15 @@ public class ContentSafetyService : IContentSafetyService
         };
     }
 
-    private static ContentSafetyResult CreateSafeResult()
-    {
-        return new ContentSafetyResult { IsSafe = true };
-    }
+    private static ContentSafetyResult CreateSafeResult() => new() { IsSafe = true };
 
-    private static PromptInjectionResult CreateSafeInjectionResult()
-    {
-        return new PromptInjectionResult { IsSafe = true, InjectionDetected = false };
-    }
+    private static PromptInjectionResult CreateSafeInjectionResult() =>
+        new() { IsSafe = true, InjectionDetected = false };
 
     private ContentSafetyResult BuildContentSafetyResult(AnalyzeTextResult azureResult)
     {
-        var categoryScores = ExtractCategoryScores(azureResult);
-        var violations = FindViolations(categoryScores);
+        Dictionary<string, int> categoryScores = ExtractCategoryScores(azureResult);
+        List<string> violations = FindViolations(categoryScores);
 
         return new ContentSafetyResult
         {
@@ -228,13 +226,24 @@ public class ContentSafetyService : IContentSafetyService
         var violations = new List<string>();
 
         if (scores["Hate"] >= _config.HateSeverityThreshold)
+        {
             violations.Add("Hate");
+        }
+
         if (scores["Violence"] >= _config.ViolenceSeverityThreshold)
+        {
             violations.Add("Violence");
+        }
+
         if (scores["Sexual"] >= _config.SexualSeverityThreshold)
+        {
             violations.Add("Sexual");
+        }
+
         if (scores["SelfHarm"] >= _config.SelfHarmSeverityThreshold)
+        {
             violations.Add("SelfHarm");
+        }
 
         return violations;
     }

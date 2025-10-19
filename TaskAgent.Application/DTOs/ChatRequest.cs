@@ -5,6 +5,6 @@ namespace TaskAgent.Application.DTOs;
 /// </summary>
 public record ChatRequest
 {
-    public string Message { get; set; } = string.Empty;
-    public string? ThreadId { get; set; }
+    public string Message { get; init; } = string.Empty;
+    public string? ThreadId { get; init; }
 }

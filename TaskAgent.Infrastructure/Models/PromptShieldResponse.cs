@@ -2,13 +2,18 @@ namespace TaskAgent.Infrastructure.Models;
 
 internal record PromptShieldResponse
 {
-    public UserPromptAnalysis? UserPromptAnalysis { get; set; }
-    public DocumentAnalysis[]? DocumentsAnalysis { get; set; }
+    public UserPromptAnalysis? UserPromptAnalysis { get; init; }
+    public DocumentAnalysis[]? DocumentsAnalysis { get; init; }
 }
 
 internal record UserPromptAnalysis
 {
-    public bool AttackDetected { get; set; }
+    public UserPromptAnalysis(bool attackDetected)
+    {
+        AttackDetected = attackDetected;
+    }
+
+    public bool AttackDetected { get; }
 }
 
 internal record DocumentAnalysis

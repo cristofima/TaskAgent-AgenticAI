@@ -5,8 +5,8 @@ namespace TaskAgent.Application.DTOs;
 /// </summary>
 public record PromptInjectionResult
 {
-    public bool IsSafe { get; set; }
-    public bool InjectionDetected { get; set; }
-    public string DetectedAttackType { get; set; } = "None";
+    public bool IsSafe { get; init; }
+    public bool InjectionDetected { get; init; }
+    public string DetectedAttackType { get; init; } = "None";
     public string? Reason { get; set; }
 }

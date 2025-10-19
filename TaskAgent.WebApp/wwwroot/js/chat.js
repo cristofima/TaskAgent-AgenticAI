@@ -52,10 +52,8 @@ async function sendMessage() {
             return;
         }
 
-        // Success - store thread ID and display response
-        if (!threadId) {
-            threadId = result.data.threadId;
-        }
+        // Success - always update thread ID from response (backend manages lifecycle)
+        threadId = result.data.threadId;
 
         addMessageToChat(messageRenderer.renderBotMessage(result.data.message));
 
@@ -80,7 +78,7 @@ async function sendMessage() {
 function handleError(error) {
     const errorMessage = errorHandler.formatErrorMessage(error);
     const severity = errorHandler.getErrorSeverity(error);
-    
+
     addMessageToChat(messageRenderer.renderErrorMessage(errorMessage, severity));
 
     // Log to console for debugging

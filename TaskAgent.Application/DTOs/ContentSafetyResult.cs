@@ -5,8 +5,8 @@ namespace TaskAgent.Application.DTOs;
 /// </summary>
 public record ContentSafetyResult
 {
-    public bool IsSafe { get; set; }
-    public Dictionary<string, int> CategoryScores { get; set; } = new();
-    public List<string> ViolatedCategories { get; set; } = new();
-    public string? BlockReason { get; set; }
+    public bool IsSafe { get; init; }
+    public Dictionary<string, int> CategoryScores { get; init; } = new();
+    public List<string> ViolatedCategories { get; init; } = [];
+    public string? BlockReason { get; init; }
 }

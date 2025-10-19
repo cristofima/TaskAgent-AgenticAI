@@ -6,7 +6,7 @@ namespace TaskAgent.WebApp.Services;
 /// <summary>
 /// Factory for creating standardized error responses
 /// </summary>
-public class ErrorResponseFactory
+public static class ErrorResponseFactory
 {
     /// <summary>
     /// Creates a BadRequest (400) response with structured error data
@@ -43,20 +43,5 @@ public class ErrorResponseFactory
         {
             StatusCode = StatusCodes.Status500InternalServerError,
         };
-    }
-
-    /// <summary>
-    /// Creates a validation error response (422 Unprocessable Entity)
-    /// </summary>
-    public static IActionResult CreateValidationError(string message, object? details = null)
-    {
-        return new UnprocessableEntityObjectResult(
-            new ErrorResponse
-            {
-                Error = "ValidationError",
-                Message = message,
-                Details = details,
-            }
-        );
     }
 }
