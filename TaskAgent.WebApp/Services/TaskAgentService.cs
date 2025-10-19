@@ -3,24 +3,30 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using OpenAI.Chat;
+using System.Text.Json;
 using TaskAgent.Application.Functions;
 using TaskAgent.Application.Interfaces;
 
 namespace TaskAgent.WebApp.Services;
 
 /// <summary>
-/// Service for managing AI Agent lifecycle and interactions
+/// Service for managing AI Agent lifecycle and interactions.
+/// Uses thread persistence to maintain conversation context across requests.
 /// </summary>
 public class TaskAgentService : ITaskAgentService
 {
     private readonly AIAgent _agent;
-    private readonly Dictionary<string, object> _threads = new();
     private readonly ILogger<TaskAgentService> _logger;
+    private readonly IThreadPersistenceService _threadPersistence;
 
-    public TaskAgentService(AIAgent agent, ILogger<TaskAgentService> logger)
+    public TaskAgentService(
+        AIAgent agent,
+        ILogger<TaskAgentService> logger,
+        IThreadPersistenceService threadPersistence)
     {
         _agent = agent ?? throw new ArgumentNullException(nameof(agent));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _threadPersistence = threadPersistence ?? throw new ArgumentNullException(nameof(threadPersistence));
     }
 
     /// <summary>
@@ -194,44 +200,80 @@ public class TaskAgentService : ITaskAgentService
         );
     }
 
-    public async Task<string> SendMessageAsync(string message, string threadId)
+    public async Task<(string response, string threadId)> SendMessageAsync(
+        string message,
+        string? threadId = null
+    )
     {
         if (string.IsNullOrWhiteSpace(message))
         {
             throw new ArgumentException("Message cannot be empty", nameof(message));
         }
 
-        if (string.IsNullOrWhiteSpace(threadId))
-        {
-            throw new ArgumentException("Thread ID cannot be empty", nameof(threadId));
-        }
+        // For Chat Completion agents, conversation history is IN THE THREAD OBJECT
+        // We serialize/deserialize it to maintain context across stateless HTTP requests
+        AgentThread thread;
+        string activeThreadId;
 
-        // Get existing thread or use the one passed in
-        if (!_threads.TryGetValue(threadId, out object? thread))
+        if (!string.IsNullOrWhiteSpace(threadId))
         {
-            throw new ArgumentException(
-                $"Thread ID '{threadId}' not found. Create a thread first using GetNewThreadId()",
-                nameof(threadId)
-            );
+            // Try to restore previous conversation
+            string? serializedThread = await _threadPersistence.GetThreadAsync(threadId);
+
+            if (serializedThread != null)
+            {
+                // Deserialize existing thread to continue conversation
+                JsonElement threadJson = JsonSerializer.Deserialize<JsonElement>(serializedThread);
+                thread = _agent.DeserializeThread(threadJson);
+                activeThreadId = threadId;
+            }
+            else
+            {
+                // Thread not found - create new one but keep the threadId
+                thread = _agent.GetNewThread();
+                activeThreadId = threadId;
+                _logger.LogWarning("ThreadId {ThreadId} not found in storage, creating new thread", threadId);
+            }
+        }
+        else
+        {
+            // First message - create new thread
+            thread = _agent.GetNewThread();
+            activeThreadId = Guid.NewGuid().ToString();
         }
 
         try
         {
+            // Run the agent with the thread
             dynamic? response = await _agent.RunAsync(message, (dynamic)thread);
-            string? responseText = response.Text;
-            return responseText ?? "I'm sorry, I couldn't process that request.";
+            string? responseText = response?.Text;
+
+            // Serialize and persist the updated thread for next request
+            JsonElement serializedThread = thread.Serialize();
+            string serializedJson = JsonSerializer.Serialize(
+                serializedThread,
+                JsonSerializerOptions.Web
+            );
+            await _threadPersistence.SaveThreadAsync(activeThreadId, serializedJson);
+
+            return (
+                responseText ?? "I'm sorry, I couldn't process that request.",
+                activeThreadId
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in agent execution");
-            return $"An error occurred while processing your request: {ex.Message}";
+            _logger.LogError(ex, "Error in agent execution for thread {ThreadId}", activeThreadId);
+            return (
+                $"An error occurred while processing your request: {ex.Message}",
+                activeThreadId
+            );
         }
     }
 
     public string GetNewThreadId()
     {
-        string threadId = Guid.NewGuid().ToString();
-        _threads[threadId] = _agent.GetNewThread();
-        return threadId;
+        // Simply return a new GUID - client manages thread persistence
+        return Guid.NewGuid().ToString();
     }
 }

@@ -25,6 +25,9 @@ public static class DependencyInjection
 
         services.AddScoped<ITaskRepository, TaskRepository>();
 
+        // For production: replace with Redis/SQL implementation and use Scoped/Transient
+        services.AddSingleton<IThreadPersistenceService, InMemoryThreadPersistenceService>();
+
         RegisterContentSafety(services, configuration);
 
         return services;
