@@ -1,10 +1,4 @@
-# Release Notes - Version {VERSION}
-
-**Release Date**: {DATE}  
-**Release Type**: {RELEASE_TYPE}  
-**Previous Version**: {PREVIOUS_VERSION}
-
----
+# Release Notes
 
 ## 🎯 Overview
 
@@ -58,14 +52,6 @@
 
 ---
 
-## 🔗 Links
-
-- **Full Changelog**: {REPO_URL}/compare/{PREVIOUS_TAG}...{NEW_TAG}
-- **All Issues**: {REPO_URL}/milestone/{MILESTONE_NUMBER}
-- **Download**: {REPO_URL}/releases/tag/{NEW_TAG}
-
----
-
 ## 📦 Installation
 
 ```bash
@@ -88,8 +74,3 @@ dotnet ef database update --project TaskAgent.Infrastructure --startup-project T
 ## 🙏 Acknowledgments
 
 {ACKNOWLEDGMENTS}
-
----
-
-_Generated with ❤️ using GitHub Copilot_  
-_Release Date: {GENERATION_DATE}_
