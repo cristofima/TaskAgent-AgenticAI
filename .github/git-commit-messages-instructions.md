@@ -94,9 +94,24 @@ These instructions guide GitHub Copilot in generating Git commit messages that a
     - "Simple, self-explanatory single-file changes"
     - "The title completely describes the change"
     - "Trivial fixes or updates (e.g., 'docs: fix typo in README')"
-  - "Include a longer description of the changes, if necessary. Use complete sentences."
+  - "**BODY FORMAT AND STYLE:**"
+    - "Write in **past tense** (describe what was done, not what to do)"
+    - "Examples: 'Added feature X', 'Implemented Y', 'Fixed Z', 'Updated configuration'"
+    - "Use complete sentences with proper capitalization and punctuation"
+    - "Wrap lines at 72 characters for readability"
+    - "Separate paragraphs with blank lines for better structure"
+  - "**LISTING MODIFIED FILES:**"
+    - "For **2-10 files**: List files with brief description of changes"
+    - "Format: 'Modified files (X):' or 'Affected files (X):' followed by bulleted list"
+    - "Use `-` (hyphen) for bullet points, not `•`"
+    - "Example format: `- FileName.cs: Brief description of change`"
+    - "File descriptions should use past tense (e.g., 'Added method', 'Updated logic')"
+    - "For **>10 files**: Group by layer/component instead of listing all files"
+    - "Example: 'This change spans multiple layers (15 files modified):'"
+    - "Then list high-level changes by component/layer, not individual files"
+    - "For **1 file**: Generally omit file listing (it's in the commit diff)"
   - "Explain the motivation for the change and how it differs from previous behavior."
-  - "Wrap lines at 72 characters."
+  - "For significant changes, include performance metrics, testing notes, or migration guidance."
 - **Footer (Optional):**
   - "Use the footer to reference issue trackers, breaking changes, or other metadata."
   - "**Breaking Changes:** Start with `BREAKING CHANGE: ` (or `BREAKING-CHANGE:`) followed by a description. Alternatively, append `!` after type/scope (e.g., `feat!:` or `feat(api)!:`)."
@@ -324,14 +339,14 @@ Fixes #156
 ```
 feat(WebApp.Middleware): add prompt injection detection
 
-Implement Azure Content Safety prompt shield to detect
+Implemented Azure Content Safety prompt shield to detect
 and block jailbreak attempts before reaching the AI agent.
-Returns 400 status with descriptive error message.
+Added 400 status response with descriptive error message.
 
-Modified files:
-- ContentSafetyMiddleware.cs: Add prompt shield check
-- ContentSafetyService.cs: Implement shield API call
-- IContentSafetyService.cs: Add interface method
+Modified files (3):
+- ContentSafetyMiddleware.cs: Added prompt shield check
+- ContentSafetyService.cs: Implemented shield API call
+- IContentSafetyService.cs: Added interface method
 
 Closes #42
 ```
@@ -339,37 +354,69 @@ Closes #42
 ```
 refactor(Domain): extract task validation to factory method
 
-Move validation logic from constructor to TaskItem.Create()
+Moved validation logic from constructor to TaskItem.Create()
 factory method following domain-driven design principles.
-Ensures all task creation goes through proper validation.
+This ensures all task creation goes through proper validation.
 
-This change affects TaskItem entity and all places where
-tasks are created, but maintains the same validation behavior.
+Affected files (2):
+- TaskItem.cs: Extracted Create() factory method
+- TaskRepository.cs: Updated to use factory method
+
+This change maintains the same validation behavior while
+improving code organization and testability.
 ```
 
 ```
 perf(Infrastructure): add database indexes for task queries
 
-Add composite index on Status, Priority, and CreatedAt columns
-to optimize filtering queries. Reduces query time by 75% for
-GetAllTasksAsync with multiple filters.
+Added composite index on Status, Priority, and CreatedAt
+columns to optimize filtering queries. Performance tests
+showed 75% reduction in query time for GetAllTasksAsync
+with multiple filters applied.
 
-Modified:
-- TaskDbContext.cs: Add index configuration
-- New migration: 20251018_AddTaskIndexes.cs
+Modified files (2):
+- TaskDbContext.cs: Added index configuration
+- 20251018_AddTaskIndexes.cs: New EF migration
+
+Refs: #89
+```
+
+```
+feat(Application): implement task search and filtering
+
+Added comprehensive search and filtering capabilities for
+tasks including full-text search, status filtering, priority
+filtering, and date range queries.
+
+This change spans multiple layers (12 files modified):
+- Application layer: New DTOs, interfaces, and service methods
+- Infrastructure layer: Repository implementations and queries
+- WebApp layer: New API endpoints and request validators
+
+Key changes:
+- Created SearchTasksDto with filter parameters
+- Implemented full-text search on Title and Description
+- Added composite indexes for performance
+- Created GET /api/tasks/search endpoint
+- Added pagination support (page size, page number)
+
+Performance: Search queries execute in <100ms for 10k records.
+
+Closes #45, #67, #89
 ```
 
 ```
 docs: update architecture and setup documentation
 
-Update README.md with new setup steps, add CONTENT_SAFETY.md
-with comprehensive testing guide, and update copilot
-instructions with latest conventions.
+Updated project documentation to reflect current architecture
+patterns and setup requirements. Added comprehensive content
+safety testing guide with 75+ test cases.
 
-Modified files:
-- README.md: Add Azure OpenAI setup section
-- CONTENT_SAFETY.md: New file with 75+ test cases
-- .github/copilot-instructions.md: Update DI patterns
+Modified files (4):
+- README.md: Added Azure OpenAI setup section
+- CONTENT_SAFETY.md: New file with testing guide
+- .github/copilot-instructions.md: Updated DI patterns
+- .github/git-commit-messages-instructions.md: Added examples
 ```
 
 **Cross-Layer Examples:**
@@ -419,6 +466,19 @@ Modified files:
   - "Single file, simple change"
   - "Title is completely self-explanatory"
   - "Trivial updates (e.g., 'docs: fix typo')"
+- "**BODY WRITING STYLE - CRITICAL:**"
+  - "**Header (title)**: Use IMPERATIVE PRESENT tense (e.g., 'add feature', 'fix bug', 'update config')"
+  - "**Body**: Use PAST TENSE (e.g., 'Added feature', 'Fixed bug', 'Updated config')"
+  - "Body describes what WAS done, header describes what the commit DOES"
+  - "Use `-` (hyphen) for bullet points in body, NEVER `•` or other symbols"
+  - "File listings format:"
+    - "2-10 files: List each file with hyphen. Example: `- FileName.cs: Added method`"
+    - ">10 files: Group by layer/component, don't list all files individually"
+  - "Example for many files:"
+    - "❌ DON'T: List all 15 files individually (too verbose)"
+    - "✅ DO: 'This change spans multiple layers (15 files modified):'"
+    - "Then describe by component: 'Application layer: New DTOs and services'"
+  - "Wrap lines at 72 characters for readability"
 - "**BREAKING CHANGES - Critical Decision Guide:**"
   - "Use `BREAKING CHANGE:` footer or `!` suffix when consumers MUST modify their code"
   - "**Ask yourself**: Would existing code that uses this API/endpoint/interface still work?"
@@ -511,7 +571,7 @@ Modified files:
 **Multi-File Changes - Body Guidelines:**
 
 - **Include body if:**
-  - 2+ files modified (list affected files/components)
+  - 2+ files modified (describe changes and list files if ≤10)
   - Change spans multiple layers or scopes
   - Explanation needed for WHY (not just WHAT)
   - Breaking changes or migrations involved
@@ -519,3 +579,29 @@ Modified files:
   - Single file, straightforward change
   - Title like "docs: fix typo in README" is self-explanatory
   - Trivial formatting or style changes
+
+**File Listing Best Practices:**
+
+- **2-10 files modified:**
+  - Include section: "Modified files (X):" or "Affected files (X):"
+  - List each file with hyphen and brief description
+  - Example: `- TaskService.cs: Added search method`
+  - Use past tense for descriptions
+- **>10 files modified:**
+  - DON'T list all files individually (commit becomes too long)
+  - State total count: "This change spans multiple layers (15 files modified):"
+  - Group changes by layer/component/category
+  - Example: "Application layer: New DTOs, interfaces, and service methods"
+  - Example: "Infrastructure layer: Repository implementations and queries"
+  - Focus on WHAT changed in each component, not listing every file
+- **1 file modified:**
+  - Generally omit file listing (obvious from commit diff)
+  - Use body to explain WHY and HOW, not WHAT file
+
+**Body Writing Style:**
+
+- Header (title): Imperative present ("add feature", "fix bug")
+- Body: Past tense ("Added feature", "Implemented logic", "Fixed validation")
+- Bullet points: Use `-` (hyphen), not `•` or other symbols
+- Line length: Wrap at 72 characters
+- Paragraphs: Separate with blank lines for readability

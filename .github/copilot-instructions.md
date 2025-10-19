@@ -19,6 +19,41 @@ WebApp/          - Controllers, Middleware, DI setup, Agent factory (TaskAgentSe
 
 ## AI Agent Pattern
 
+### Microsoft Agentic AI Framework
+
+This project uses `Microsoft.Agents.AI.OpenAI` (preview) - Microsoft's framework for building autonomous AI agents with function calling.
+
+**Key APIs**:
+
+```csharp
+// 1. Get chat client from Azure OpenAI
+ChatClient chatClient = azureClient.GetChatClient(deploymentName);
+
+// 2. Create agent with tools and instructions
+AIAgent agent = chatClient.CreateAIAgent(
+    instructions: "System prompt with behavioral rules...",
+    tools: [createTaskTool, listTasksTool, ...]
+);
+
+// 3. Create conversation thread
+AgentThread thread = await agent.CreateThreadAsync();
+
+// 4. Add user message
+await thread.AddUserMessageAsync("Create a high priority task");
+
+// 5. Invoke agent (streams responses)
+await foreach (StreamingResponse response in thread.InvokeAsync(agent)) {
+    if (response is StreamingTextResponse textResponse) {
+        // Process streamed text
+    }
+}
+
+// 6. Serialize thread for persistence
+string serialized = thread.Serialize();
+```
+
+**Thread lifecycle**: Each HTTP request loads thread, processes message, saves updated thread.
+
 ### Factory Method (`TaskAgentService.CreateAgent`)
 
 ```csharp
@@ -29,7 +64,7 @@ var agent = chatClient.CreateAIAgent(instructions: "...", tools: [...]);
 **Key Points**:
 
 - Agent is **scoped per request** (registered in `DependencyInjection.AddPresentation()`) - never singleton
-- Each conversation gets a **thread ID** for context persistence via `_threads` dictionary
+- Each conversation gets a **thread ID** for context persistence via thread serialization
 - Instructions embed behavioral rules: immediate task creation, Markdown tables with emojis, contextual suggestions
 - Tools created with `AIFunctionFactory.Create(taskFunctions.MethodName)`
 - Agent factory is a static method that takes `AzureOpenAIClient`, `modelDeployment`, and `ITaskRepository`
@@ -272,10 +307,90 @@ To add a new safety layer:
 | `Infrastructure/Data/TaskDbContext.cs`            | EF Core DbContext, entity configurations              |
 | `Infrastructure/Repositories/TaskRepository.cs`   | Repository pattern implementation                     |
 
+## Package Management - Central Version Control
+
+**CRITICAL**: This project uses **Central Package Management** (CPM) via `Directory.Packages.props`.
+
+**How it works**:
+
+- `Directory.Build.props` → Common project settings (target framework, nullable, code analysis)
+- `Directory.Packages.props` → Centralized NuGet package versions
+- Individual `.csproj` files → Package references WITHOUT version numbers
+
+**Adding a new package**:
+
+```powershell
+# 1. Add to Directory.Packages.props
+<PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+
+# 2. Reference in .csproj (NO version attribute)
+<PackageReference Include="Newtonsoft.Json" />
+```
+
+**Key packages**:
+
+- `Microsoft.Agents.AI.OpenAI` (1.0.0-preview) - Agentic AI Framework
+- `Azure.AI.OpenAI` (2.1.0) - Azure OpenAI SDK
+- `Azure.AI.ContentSafety` (1.0.0) - Content Safety SDK
+- `Microsoft.EntityFrameworkCore.SqlServer` (9.0.10)
+- `SonarAnalyzer.CSharp` (9.32.0) - Code quality analysis
+
+**Why CPM?**: Ensures version consistency across all projects, prevents dependency conflicts, simplifies upgrades.
+
+## Thread Persistence & Conversation State
+
+**Architecture**: Conversations are persisted using `IThreadPersistenceService` to maintain context across HTTP requests.
+
+**Flow**:
+
+1. User sends message with optional `threadId`
+2. If `threadId` exists → deserialize thread state: `AgentThread.Deserialize(serializedState)`
+3. Agent processes message with full conversation history
+4. After response → serialize thread state: `thread.Serialize()`
+5. Save to persistence layer: `await _threadPersistence.SaveThreadAsync(threadId, serializedState)`
+
+**Implementations**:
+
+- **Development**: `InMemoryThreadPersistenceService` (ConcurrentDictionary, singleton)
+- **Production**: Implement with Redis/SQL Server (scoped/transient)
+
+**Critical**: Thread state contains entire conversation history - must be serialized/deserialized for each request.
+
+**Code example** (see `TaskAgentService.SendMessageAsync`):
+
+```csharp
+// Load existing thread or create new
+string? serializedThread = await _threadPersistence.GetThreadAsync(threadId);
+AgentThread thread = string.IsNullOrEmpty(serializedThread)
+    ? await _agent.CreateThreadAsync()
+    : AgentThread.Deserialize(serializedThread);
+
+// Process message
+await thread.AddUserMessageAsync(message);
+await foreach (var response in thread.InvokeAsync(_agent)) { }
+
+// Save updated thread
+await _threadPersistence.SaveThreadAsync(threadId, thread.Serialize());
+```
+
+**Production considerations**:
+
+- Thread state grows with conversation length
+- Consider TTL/cleanup strategies for old threads
+- Scoped lifetime for multi-server scenarios
+
 ## Testing Guidance
 
 **Content Safety**: See `CONTENT_SAFETY.md` for 75+ test cases including prompt injections, harmful content, edge cases, and troubleshooting.
 
-**AI Agent**: Test via web UI at `http://localhost:5000` or POST to `/api/chat` endpoint with `{"message": "your message"}`
+**AI Agent**: Test via web UI at `http://localhost:5000` or POST to `/api/chat` endpoint with `{"message": "your message", "threadId": "optional-thread-id"}`
 
 **Database**: Auto-created on first run. To reset: `dotnet ef database drop --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp`
+
+**Key Test Scenarios**:
+
+1. Task creation with validation (title length, priority values)
+2. Business rule enforcement (can't reopen completed tasks)
+3. Thread persistence across multiple requests (same threadId)
+4. Content safety blocking (prompt injection, harmful content)
+5. Parallel safety checks performance (~200-400ms)

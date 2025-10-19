@@ -81,9 +81,16 @@ TaskAgent.WebApp (UI, Controllers, AI Agent)
 **Key Components**:
 
 - **Domain**: `TaskItem` entity with business rules, Status/Priority enums
-- **Application**: DTOs (using record types), `ITaskRepository`, 6 AI function tools
-- **Infrastructure**: `TaskDbContext`, `TaskRepository`, `ContentSafetyService` with HttpClientFactory
+- **Application**: DTOs (using record types), `ITaskRepository`, `IThreadPersistenceService`, 6 AI function tools
+- **Infrastructure**: `TaskDbContext`, `TaskRepository`, `ContentSafetyService` with HttpClientFactory, `InMemoryThreadPersistenceService`
 - **Presentation**: MVC controllers, Razor views, `TaskAgentService`, configuration validation extensions
+
+**Conversation Persistence**:
+
+- Thread state serialized/deserialized across requests using `AgentThread.Serialize()`
+- `IThreadPersistenceService` abstraction for storage flexibility
+- In-memory implementation for single-server deployments
+- Production: Use Redis/SQL for multi-server scenarios
 
 ---
 
@@ -208,8 +215,9 @@ Agent provides 1-2 smart suggestions after each operation:
 TaskAgentWeb/
 ├── TaskAgent.Domain/          # Entities, Enums
 ├── TaskAgent.Application/     # DTOs (record types), Interfaces, Functions
+│   └── Interfaces/           # ITaskRepository, IThreadPersistenceService
 ├── TaskAgent.Infrastructure/  # DbContext, Repositories, Azure Services
-│   ├── Services/             # ContentSafetyService (HttpClientFactory)
+│   ├── Services/             # ContentSafetyService, InMemoryThreadPersistenceService
 │   ├── Models/               # ContentSafetyConfig, PromptShieldResponse
 │   └── DependencyInjection.cs # Named HttpClient registration
 └── TaskAgent.WebApp/          # Controllers, Views, Services
