@@ -13,7 +13,7 @@ namespace TaskAgent.Infrastructure;
 /// <summary>
 /// Infrastructure layer dependency injection
 /// </summary>
-public static class DependencyInjection
+public static class InfrastructureServiceExtensions
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,

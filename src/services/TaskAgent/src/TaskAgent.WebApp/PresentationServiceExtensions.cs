@@ -9,7 +9,7 @@ namespace TaskAgent.WebApp;
 /// <summary>
 /// Presentation layer dependency injection
 /// </summary>
-public static class DependencyInjection
+public static class PresentationServiceExtensions
 {
     public static IServiceCollection AddPresentation(
         this IServiceCollection services,
@@ -50,7 +50,8 @@ public static class DependencyInjection
         {
             ITaskRepository taskRepository = sp.GetRequiredService<ITaskRepository>();
             ILogger<TaskAgentService> logger = sp.GetRequiredService<ILogger<TaskAgentService>>();
-            IThreadPersistenceService threadPersistence = sp.GetRequiredService<IThreadPersistenceService>();
+            IThreadPersistenceService threadPersistence =
+                sp.GetRequiredService<IThreadPersistenceService>();
             AIAgent agent = TaskAgentService.CreateAgent(client, modelDeployment, taskRepository);
             return new TaskAgentService(agent, logger, threadPersistence);
         });
