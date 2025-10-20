@@ -213,20 +213,21 @@ Agent provides 1-2 smart suggestions after each operation:
 
 ```
 TaskAgentWeb/
-├── TaskAgent.Domain/          # Entities, Enums
-├── TaskAgent.Application/     # DTOs (record types), Interfaces, Functions
-│   └── Interfaces/           # ITaskRepository, IThreadPersistenceService
-├── TaskAgent.Infrastructure/  # DbContext, Repositories, Azure Services
-│   ├── Services/             # ContentSafetyService, InMemoryThreadPersistenceService
-│   ├── Models/               # ContentSafetyConfig, PromptShieldResponse
-│   └── DependencyInjection.cs # Named HttpClient registration
-└── TaskAgent.WebApp/          # Controllers, Views, Services
-    ├── Controllers/           # ChatController, HomeController
-    ├── Services/             # TaskAgentService, ErrorResponseFactory
-    ├── Middleware/           # ContentSafetyMiddleware
-    ├── Extensions/           # ConfigurationValidationExtensions, etc.
-    ├── Views/                # Razor UI
-    └── wwwroot/              # CSS, JavaScript
+├── TaskAgent.Domain/                      # Entities, Enums
+├── TaskAgent.Application/                 # DTOs (record types), Interfaces, Functions
+│   └── Interfaces/                       # ITaskRepository, IThreadPersistenceService
+├── TaskAgent.Infrastructure/              # DbContext, Repositories, Azure Services
+│   ├── Services/                         # ContentSafetyService, InMemoryThreadPersistenceService
+│   ├── Models/                           # ContentSafetyConfig, PromptShieldResponse
+│   └── InfrastructureServiceExtensions.cs # Named HttpClient registration, DI
+└── TaskAgent.WebApp/                      # Controllers, Views, Services
+    ├── Controllers/                       # ChatController, HomeController
+    ├── Services/                         # TaskAgentService, ErrorResponseFactory
+    ├── Middleware/                       # ContentSafetyMiddleware
+    ├── Extensions/                       # ConfigurationValidationExtensions, etc.
+    ├── Views/                            # Razor UI
+    ├── wwwroot/                          # CSS, JavaScript
+    └── PresentationServiceExtensions.cs   # DI, AI Agent registration
 ```
 
 ---

@@ -112,15 +112,27 @@ task.UpdatePriority(TaskPriority.High);
 
 ## Critical Workflows
 
+### Working Directory
+
+**All commands must be run from the solution root**: `src/services/TaskAgent/src/`
+
+The project structure is: `src/services/TaskAgent/src/{ProjectName}/{ProjectName}.csproj`
+
 ### EF Migrations (Multi-Project Solution)
 
 ```powershell
+# Navigate to solution directory first
+cd src/services/TaskAgent/src
+
 # Always specify BOTH projects (Infrastructure has DbContext, WebApp has startup/DI):
 dotnet ef migrations add MigrationName --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
 dotnet ef database update --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
 
 # View migrations
 dotnet ef migrations list --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
+
+# Drop database (for reset)
+dotnet ef database drop --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
 ```
 
 **Why Both?**: Infrastructure contains `TaskDbContext`, but WebApp has configuration (`appsettings.json` connection string) and DI setup.
@@ -128,6 +140,10 @@ dotnet ef migrations list --project TaskAgent.Infrastructure --startup-project T
 ### Running the Application
 
 ```powershell
+# From repository root
+dotnet run --project src/services/TaskAgent/src/TaskAgent.WebApp
+
+# Or from src/services/TaskAgent/src/
 dotnet run --project TaskAgent.WebApp
 ```
 
@@ -206,13 +222,13 @@ All magic strings/numbers in constant files:
 
 ### Dependency Injection Pattern
 
-Each layer has a `DependencyInjection.cs` with extension methods:
+Each layer has a service extension class with extension methods:
 
 ```csharp
-// Infrastructure/DependencyInjection.cs
+// Infrastructure/InfrastructureServiceExtensions.cs
 services.AddInfrastructure(configuration);  // Registers DbContext, Repositories, ContentSafetyClient
 
-// WebApp/DependencyInjection.cs
+// WebApp/PresentationServiceExtensions.cs
 services.AddPresentation(configuration);    // Registers Controllers, AIAgent (scoped)
 ```
 
@@ -231,7 +247,7 @@ Called in `Program.cs`: `builder.Services.AddInfrastructure(builder.Configuratio
 ### Azure OpenAI Client Setup
 
 ```csharp
-// Registered in WebApp/DependencyInjection.cs
+// Registered in WebApp/PresentationServiceExtensions.cs
 var client = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
 var chatClient = client.GetChatClient(modelDeployment);
 var agent = chatClient.CreateAIAgent(instructions: "...", tools: [...]);
@@ -242,8 +258,8 @@ var agent = chatClient.CreateAIAgent(instructions: "...", tools: [...]);
 ### Content Safety HttpClient
 
 ```csharp
-// Infrastructure/DependencyInjection.cs
-services.AddHttpClient(ContentSafetyConstants.HTTP_CLIENT_NAME, client => {
+// Infrastructure/InfrastructureServiceExtensions.cs
+services.AddHttpClient("ContentSafety", client => {
     client.BaseAddress = new Uri(endpoint);
     client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", apiKey);
 });
@@ -261,7 +277,7 @@ Uses `IHttpClientFactory` for connection pooling and proper DNS refresh handling
 4. Run EF migration (see Critical Workflows)
 5. Create repository interface in `Application/Interfaces/`
 6. Implement repository in `Infrastructure/Repositories/`
-7. Register in `Infrastructure/DependencyInjection.cs`
+7. Register in `Infrastructure/InfrastructureServiceExtensions.cs`
 
 ### Modifying Agent Behavior
 
@@ -295,17 +311,18 @@ To add a new safety layer:
 
 ## Key Files Reference
 
-| File                                              | Purpose                                               |
-| ------------------------------------------------- | ----------------------------------------------------- |
-| `Program.cs`                                      | Application entry, middleware pipeline, DI bootstrap  |
-| `WebApp/DependencyInjection.cs`                   | WebApp layer services, AIAgent factory registration   |
-| `WebApp/Services/TaskAgentService.cs`             | Agent factory method, 170-line instructions, chat API |
-| `Application/Functions/TaskFunctions.cs`          | 6 function tools for AI agent                         |
-| `Domain/Entities/TaskItem.cs`                     | Core entity, factory method, business rules           |
-| `Infrastructure/Services/ContentSafetyService.cs` | 2-layer content safety (Prompt Shield + Moderation)   |
-| `WebApp/Middleware/ContentSafetyMiddleware.cs`    | Middleware applying safety checks to `/api/chat`      |
-| `Infrastructure/Data/TaskDbContext.cs`            | EF Core DbContext, entity configurations              |
-| `Infrastructure/Repositories/TaskRepository.cs`   | Repository pattern implementation                     |
+| File                                                          | Purpose                                               |
+| ------------------------------------------------------------- | ----------------------------------------------------- |
+| `Program.cs`                                                  | Application entry, middleware pipeline, DI bootstrap  |
+| `WebApp/PresentationServiceExtensions.cs`                     | WebApp layer services, AIAgent factory registration   |
+| `WebApp/Services/TaskAgentService.cs`                         | Agent factory method, 170-line instructions, chat API |
+| `Application/Functions/TaskFunctions.cs`                      | 6 function tools for AI agent                         |
+| `Domain/Entities/TaskItem.cs`                                 | Core entity, factory method, business rules           |
+| `Infrastructure/Services/ContentSafetyService.cs`             | 2-layer content safety (Prompt Shield + Moderation)   |
+| `WebApp/Middleware/ContentSafetyMiddleware.cs`                | Middleware applying safety checks to `/api/chat`      |
+| `Infrastructure/Data/TaskDbContext.cs`                        | EF Core DbContext, entity configurations              |
+| `Infrastructure/Repositories/TaskRepository.cs`               | Repository pattern implementation                     |
+| `Infrastructure/Services/InMemoryThreadPersistenceService.cs` | Thread state persistence (in-memory, singleton)       |
 
 ## Package Management - Central Version Control
 
