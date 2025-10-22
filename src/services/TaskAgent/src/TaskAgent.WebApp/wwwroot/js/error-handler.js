@@ -42,33 +42,34 @@ class ChatErrorHandler {
 
     /**
      * Formats Content Safety-specific error messages
+     * Following industry best practices:
+     * - No technical details exposed (security risk - enables attack iteration)
+     * - Generic, professional message (no alert styling)
+     * - Brief and conversational tone
      * @private
      */
     _formatContentSafetyError(data) {
         const errorType = data.error;
 
         switch (errorType) {
-            case 'SecurityViolation':
-                return `🛡️ **Security Alert**\n\n${data.message}\n\n` +
-                       `*Please rephrase your request for legitimate task management.*`;
-
-            case 'ContentViolation':
-                const categories = data.violatedCategories?.join(', ') || 'policy';
-                return `⚠️ **Content Policy Violation**\n\n${data.message}\n\n` +
-                       `**Violated Categories:** ${categories}\n\n` +
-                       `*Your message contains content that violates our policy. ` +
-                       `Please keep your messages professional and task-focused.*`;
+            case 'PromptInjectionDetected':
+            case 'ContentPolicyViolation':
+                // Generic response - don't expose attack details or violated categories
+                // This prevents attackers from iterating and refining their attempts
+                return "I'm sorry, but I can't assist with that request. Please try rephrasing your message to focus on task management.";
 
             case 'InvalidInput':
-                return `📝 ${data.message}`;
+                return data.message || 'Please check your message and try again.';
 
             default:
-                return `❌ ${data.message || 'Your request could not be processed.'}`;
+                return data.message || 'I cannot process this request at the moment. Please try again.';
         }
     }
 
     /**
      * Determines error severity for styling
+     * Following best practices: Content Safety violations use normal bot styling (not alerts)
+     * Red/orange alerts only for technical errors (network, server)
      * @param {object} error - Error object
      * @returns {string} - CSS class name for severity
      */
@@ -77,19 +78,14 @@ class ChatErrorHandler {
 
         const errorType = error.data.error;
 
-        if (errorType === 'SecurityViolation') {
-            return 'security-error'; // Highest severity - red
+        // Content Safety violations: Use normal bot message style
+        // They respond naturally as if it's a conversational boundary
+        if (errorType === 'PromptInjectionDetected' || errorType === 'ContentPolicyViolation') {
+            return 'normal'; // Will render as regular bot message
         }
 
-        if (errorType === 'ContentViolation') {
-            return 'warning-error'; // Medium severity - orange
-        }
-
-        if (error.data.containsPii) {
-            return 'info-error'; // Informational - blue
-        }
-
-        return 'error'; // Default - standard error styling
+        // Technical errors use error styling
+        return 'error';
     }
 
     /**
@@ -104,7 +100,7 @@ class ChatErrorHandler {
         const errorType = error.data?.error;
 
         // Security and content violations are recoverable - user can rephrase
-        if (status === 400 && (errorType === 'SecurityViolation' || errorType === 'ContentViolation')) {
+        if (status === 400 && (errorType === 'PromptInjectionDetected' || errorType === 'ContentPolicyViolation')) {
             return true;
         }
 

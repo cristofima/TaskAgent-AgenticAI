@@ -270,58 +270,39 @@ body {
   color: #c9d1d9;
 }
 
-/* Content Safety Error Styling */
-/* SRP: Separate styles for different error severities */
+/* System Error Styling (Technical Failures Only) */
+/* Following best practices:
+ * - Content safety violations render as normal bot messages (no special styling)
+ * - Error alerts are ONLY for technical failures (API errors, connection issues, etc.)
+ * - Security violations don't use error styling to maintain conversational tone
+ */
 
-/* Security violations - Highest severity (red) */
-.bot-message.security-error .message-content {
-  background-color: #fff5f5;
-  border: 2px solid #fc8181;
-  border-left: 5px solid #e53e3e;
-}
-
-.bot-message.security-error .message-content strong {
-  color: #c53030;
-}
-
-/* Content policy violations - Medium severity (orange/amber) */
-.bot-message.warning-error .message-content {
-  background-color: #fffbeb;
-  border: 2px solid #fbbf24;
-  border-left: 5px solid #f59e0b;
-}
-
-.bot-message.warning-error .message-content strong {
-  color: #d97706;
-}
-
-/* PII warnings - Informational (blue) */
-.bot-message.info-error .message-content {
-  background-color: #eff6ff;
-  border: 2px solid #60a5fa;
-  border-left: 5px solid #3b82f6;
-}
-
-.bot-message.info-error .message-content strong {
-  color: #2563eb;
-}
-
-/* Generic errors - Standard error styling */
-.bot-message.error .message-content {
+.system-message.error .message-content {
   background-color: #fef2f2;
   border: 2px solid #fca5a5;
   border-left: 5px solid #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+  max-width: 90%;
+  animation: fadeIn 0.3s ease-in;
 }
 
-.bot-message.error .message-content strong {
+.system-message.error .message-content strong {
   color: #dc2626;
+  font-size: 1.05em;
 }
 
-/* Error message text styling */
-.bot-message.security-error .message-content em,
-.bot-message.warning-error .message-content em,
-.bot-message.info-error .message-content em,
-.bot-message.error .message-content em {
-  font-size: 0.9em;
-  opacity: 0.9;
+.system-message.error .message-content p {
+  color: #991b1b;
+}
+
+.system-message {
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* Mobile responsiveness for error messages */
+@media (max-width: 768px) {
+  .system-message.error .message-content {
+    max-width: 95%;
+  }
 }

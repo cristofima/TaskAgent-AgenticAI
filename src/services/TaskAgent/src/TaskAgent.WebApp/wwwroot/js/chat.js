@@ -82,9 +82,9 @@ function handleError(error) {
     addMessageToChat(messageRenderer.renderErrorMessage(errorMessage, severity));
 
     // Log to console for debugging
-    if (error.status === 400 && error.data?.error === 'SecurityViolation') {
-        console.warn('Security violation detected:', error.data);
-    } else if (error.status === 400 && error.data?.error === 'ContentViolation') {
+    if (error.status === 400 && error.data?.error === 'PromptInjectionDetected') {
+        console.warn('Prompt injection detected:', error.data);
+    } else if (error.status === 400 && error.data?.error === 'ContentPolicyViolation') {
         console.warn('Content policy violation:', error.data);
     }
 }
