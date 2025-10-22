@@ -5,6 +5,9 @@
     <TargetFramework>net9.0</TargetFramework>
     <LangVersion>latest</LangVersion>
 
+    <!-- .NET Aspire Version -->
+    <AspireVersion>9.5.1</AspireVersion>
+
     <!-- General Settings -->
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

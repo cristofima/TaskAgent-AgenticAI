@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/global.json",
+  "sdk": {
+    "version": "9.0.0",
+    "rollForward": "latestMinor"
+  },
+  "msbuild-sdks": {
+    "Aspire.AppHost.Sdk": "9.5.1"
+  }
+}
