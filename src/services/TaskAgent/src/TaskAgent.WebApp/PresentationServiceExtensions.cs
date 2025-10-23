@@ -1,7 +1,9 @@
 using Azure;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
+using TaskAgent.Application.Functions;
 using TaskAgent.Application.Interfaces;
+using TaskAgent.Application.Telemetry;
 using TaskAgent.WebApp.Services;
 
 namespace TaskAgent.WebApp;
@@ -52,8 +54,18 @@ public static class PresentationServiceExtensions
             ILogger<TaskAgentService> logger = sp.GetRequiredService<ILogger<TaskAgentService>>();
             IThreadPersistenceService threadPersistence =
                 sp.GetRequiredService<IThreadPersistenceService>();
-            AIAgent agent = TaskAgentService.CreateAgent(client, modelDeployment, taskRepository);
-            return new TaskAgentService(agent, logger, threadPersistence);
+            AgentMetrics metrics = sp.GetRequiredService<AgentMetrics>();
+            ILogger<TaskFunctions> functionsLogger = sp.GetRequiredService<ILogger<TaskFunctions>>();
+
+            AIAgent agent = TaskAgentService.CreateAgent(
+                client,
+                modelDeployment,
+                taskRepository,
+                metrics,
+                functionsLogger
+            );
+
+            return new TaskAgentService(agent, logger, threadPersistence, metrics);
         });
     }
 }

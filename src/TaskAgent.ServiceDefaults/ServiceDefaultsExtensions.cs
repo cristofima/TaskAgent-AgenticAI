@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -48,16 +49,20 @@ namespace TaskAgent.ServiceDefaults
                 http.AddServiceDiscovery();
             });
 
-            // Uncomment the following to restrict the allowed schemes for service discovery.
-            // builder.Services.Configure<ServiceDiscoveryOptions>(options =>
-            // {
-            //     options.AllowedSchemes = ["https"];
-            // });
+            // Security: Restrict service discovery to HTTPS in production only
+            // Development allows both HTTP and HTTPS for local service-to-service communication
+            if (!builder.Environment.IsDevelopment())
+            {
+                builder.Services.Configure<ServiceDiscoveryOptions>(options =>
+                {
+                    options.AllowedSchemes = ["https"];
+                });
+            }
 
             return builder;
         }
 
-        public static TBuilder ConfigureOpenTelemetry<TBuilder>(this TBuilder builder)
+        private static TBuilder ConfigureOpenTelemetry<TBuilder>(this TBuilder builder)
             where TBuilder : IHostApplicationBuilder
         {
             builder.Logging.AddOpenTelemetry(logging =>

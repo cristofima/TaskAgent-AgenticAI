@@ -1,11 +1,13 @@
+using System.Diagnostics;
+using System.Text.Json;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using OpenAI.Chat;
-using System.Text.Json;
 using TaskAgent.Application.Functions;
 using TaskAgent.Application.Interfaces;
+using TaskAgent.Application.Telemetry;
 
 namespace TaskAgent.WebApp.Services;
 
@@ -18,15 +20,20 @@ public class TaskAgentService : ITaskAgentService
     private readonly AIAgent _agent;
     private readonly ILogger<TaskAgentService> _logger;
     private readonly IThreadPersistenceService _threadPersistence;
+    private readonly AgentMetrics _metrics;
 
     public TaskAgentService(
         AIAgent agent,
         ILogger<TaskAgentService> logger,
-        IThreadPersistenceService threadPersistence)
+        IThreadPersistenceService threadPersistence,
+        AgentMetrics metrics
+    )
     {
         _agent = agent ?? throw new ArgumentNullException(nameof(agent));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _threadPersistence = threadPersistence ?? throw new ArgumentNullException(nameof(threadPersistence));
+        _threadPersistence =
+            threadPersistence ?? throw new ArgumentNullException(nameof(threadPersistence));
+        _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
     }
 
     /// <summary>
@@ -36,7 +43,9 @@ public class TaskAgentService : ITaskAgentService
     public static AIAgent CreateAgent(
         AzureOpenAIClient client,
         string modelDeployment,
-        ITaskRepository taskRepository
+        ITaskRepository taskRepository,
+        AgentMetrics metrics,
+        ILogger<TaskFunctions> logger
     )
     {
         if (client == null)
@@ -57,10 +66,20 @@ public class TaskAgentService : ITaskAgentService
             throw new ArgumentNullException(nameof(taskRepository));
         }
 
+        if (metrics == null)
+        {
+            throw new ArgumentNullException(nameof(metrics));
+        }
+
+        if (logger == null)
+        {
+            throw new ArgumentNullException(nameof(logger));
+        }
+
         ChatClient chatClient = client.GetChatClient(modelDeployment);
 
-        // Create function tools with injected repository
-        var taskFunctions = new TaskFunctions(taskRepository);
+        // Create function tools with injected dependencies
+        var taskFunctions = new TaskFunctions(taskRepository, metrics, logger);
 
         AIFunction createTaskTool = AIFunctionFactory.Create(taskFunctions.CreateTaskAsync);
         AIFunction listTasksTool = AIFunctionFactory.Create(taskFunctions.ListTasksAsync);
@@ -210,60 +229,110 @@ public class TaskAgentService : ITaskAgentService
             throw new ArgumentException("Message cannot be empty", nameof(message));
         }
 
-        // For Chat Completion agents, conversation history is IN THE THREAD OBJECT
-        // We serialize/deserialize it to maintain context across stateless HTTP requests
-        AgentThread thread;
-        string activeThreadId;
+        var stopwatch = Stopwatch.StartNew();
+        string activeThreadId = threadId ?? Guid.NewGuid().ToString();
 
-        if (!string.IsNullOrWhiteSpace(threadId))
-        {
-            // Try to restore previous conversation
-            string? serializedThread = await _threadPersistence.GetThreadAsync(threadId);
-
-            if (serializedThread != null)
-            {
-                // Deserialize existing thread to continue conversation
-                JsonElement threadJson = JsonSerializer.Deserialize<JsonElement>(serializedThread);
-                thread = _agent.DeserializeThread(threadJson);
-                activeThreadId = threadId;
-            }
-            else
-            {
-                // Thread not found - create new one but keep the threadId
-                thread = _agent.GetNewThread();
-                activeThreadId = threadId;
-                _logger.LogWarning("ThreadId {ThreadId} not found in storage, creating new thread", threadId);
-            }
-        }
-        else
-        {
-            // First message - create new thread
-            thread = _agent.GetNewThread();
-            activeThreadId = Guid.NewGuid().ToString();
-        }
+        // Start distributed tracing activity
+        using Activity? activity = AgentActivitySource.StartMessageActivity(
+            activeThreadId,
+            message
+        );
 
         try
         {
+            // Record the request
+            _metrics.RecordRequest(activeThreadId);
+            _logger.LogInformation("Processing message for thread {ThreadId}", activeThreadId);
+
+            // For Chat Completion agents, conversation history is IN THE THREAD OBJECT
+            // We serialize/deserialize it to maintain context across stateless HTTP requests
+            AgentThread thread;
+
+            if (!string.IsNullOrWhiteSpace(threadId))
+            {
+                // Try to restore previous conversation
+                string? serializedThread = await _threadPersistence.GetThreadAsync(threadId);
+
+                if (serializedThread != null)
+                {
+                    // Deserialize existing thread to continue conversation
+                    JsonElement threadJson = JsonSerializer.Deserialize<JsonElement>(
+                        serializedThread
+                    );
+                    thread = _agent.DeserializeThread(threadJson);
+                    activeThreadId = threadId;
+
+                    _logger.LogDebug("Restored thread {ThreadId} from persistence", activeThreadId);
+                }
+                else
+                {
+                    // Thread not found - create new one but keep the threadId
+                    thread = _agent.GetNewThread();
+                    activeThreadId = threadId;
+                    _logger.LogWarning(
+                        "ThreadId {ThreadId} not found in storage, creating new thread",
+                        threadId
+                    );
+                }
+            }
+            else
+            {
+                // First message - create new thread
+                thread = _agent.GetNewThread();
+                _logger.LogInformation("Created new thread {ThreadId}", activeThreadId);
+            }
+
             // Run the agent with the thread
             dynamic? response = await _agent.RunAsync(message, (dynamic)thread);
             string? responseText = response?.Text;
 
             // Serialize and persist the updated thread for next request
-            JsonElement serializedThread = thread.Serialize();
-            string serializedJson = JsonSerializer.Serialize(
-                serializedThread,
+            JsonElement updatedThreadJson = thread.Serialize();
+            string updatedThreadSerialized = JsonSerializer.Serialize(
+                updatedThreadJson,
                 JsonSerializerOptions.Web
             );
-            await _threadPersistence.SaveThreadAsync(activeThreadId, serializedJson);
+            await _threadPersistence.SaveThreadAsync(activeThreadId, updatedThreadSerialized);
 
-            return (
-                responseText ?? "I'm sorry, I couldn't process that request.",
-                activeThreadId
+            stopwatch.Stop();
+
+            // Record successful response metrics
+            _metrics.RecordResponseDuration(stopwatch.Elapsed.TotalMilliseconds, activeThreadId);
+
+            activity?.SetTag("response.length", responseText?.Length ?? 0);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
+            _logger.LogInformation(
+                "Successfully processed message for thread {ThreadId} in {ElapsedMs}ms",
+                activeThreadId,
+                stopwatch.ElapsedMilliseconds
             );
+
+            return (responseText ?? "I'm sorry, I couldn't process that request.", activeThreadId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in agent execution for thread {ThreadId}", activeThreadId);
+            stopwatch.Stop();
+
+            // Record error metrics
+            _metrics.RecordError(ex.GetType().Name, activeThreadId);
+            _metrics.RecordResponseDuration(
+                stopwatch.Elapsed.TotalMilliseconds,
+                activeThreadId,
+                success: false
+            );
+
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.SetTag("exception.type", ex.GetType().Name);
+            activity?.SetTag("exception.message", ex.Message);
+
+            _logger.LogError(
+                ex,
+                "Error in agent execution for thread {ThreadId} after {ElapsedMs}ms",
+                activeThreadId,
+                stopwatch.ElapsedMilliseconds
+            );
+
             return (
                 $"An error occurred while processing your request: {ex.Message}",
                 activeThreadId

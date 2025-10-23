@@ -1,7 +1,10 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using TaskAgent.Application.Constants;
 using TaskAgent.Application.Interfaces;
+using TaskAgent.Application.Telemetry;
 using TaskAgent.Domain.Entities;
 using TaskAgent.Domain.Enums;
 using DomainTaskStatus = TaskAgent.Domain.Enums.TaskStatus;
@@ -16,10 +19,18 @@ namespace TaskAgent.Application.Functions;
 public class TaskFunctions
 {
     private readonly ITaskRepository _taskRepository;
+    private readonly AgentMetrics _metrics;
+    private readonly ILogger<TaskFunctions> _logger;
 
-    public TaskFunctions(ITaskRepository taskRepository)
+    public TaskFunctions(
+        ITaskRepository taskRepository,
+        AgentMetrics metrics,
+        ILogger<TaskFunctions> logger
+    )
     {
         _taskRepository = taskRepository ?? throw new ArgumentNullException(nameof(taskRepository));
+        _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     [Description("Create a new task with title, description, and priority level.")]
@@ -29,16 +40,30 @@ public class TaskFunctions
         [Description("Priority level: Low, Medium, or High")] string priority = "Medium"
     )
     {
+        using Activity? activity = AgentActivitySource.StartFunctionActivity(
+            "CreateTask",
+            new Dictionary<string, object?> { ["task.title"] = title, ["task.priority"] = priority }
+        );
+
         try
         {
+            _metrics.RecordFunctionCall("CreateTask");
+            _logger.LogInformation(
+                "CreateTask function called with title: {Title}, priority: {Priority}",
+                title,
+                priority
+            );
+
             if (string.IsNullOrWhiteSpace(title))
             {
+                activity?.SetStatus(ActivityStatusCode.Error, "Title is empty");
                 return ErrorMessages.TASK_TITLE_EMPTY;
             }
 
             // Parse priority
-            if (!Enum.TryParse<TaskPriority>(priority, true, out TaskPriority taskPriority))
+            if (!Enum.TryParse(priority, true, out TaskPriority taskPriority))
             {
+                activity?.SetStatus(ActivityStatusCode.Error, $"Invalid priority: {priority}");
                 return string.Format(ErrorMessages.INVALID_PRIORITY_FORMAT, priority);
             }
 
@@ -48,6 +73,11 @@ public class TaskFunctions
             // Persist to database
             await _taskRepository.AddAsync(task);
             await _taskRepository.SaveChangesAsync();
+
+            activity?.SetTag("task.id", task.Id);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
+            _logger.LogInformation("Task created successfully with ID: {TaskId}", task.Id);
 
             return $"""
                 {ErrorMessages.TASK_CREATED_SUCCESS}
@@ -62,10 +92,14 @@ public class TaskFunctions
         }
         catch (ArgumentException ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.LogWarning(ex, "Validation error in CreateTask: {Message}", ex.Message);
             return $"{ErrorMessages.VALIDATION_ERROR_PREFIX}{ex.Message}";
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.LogError(ex, "Error creating task");
             return $"{ErrorMessages.ERROR_CREATING_TASK}{ex.Message}";
         }
     }
@@ -77,8 +111,24 @@ public class TaskFunctions
         [Description("Filter by priority: Low, Medium, or High (optional)")] string? priority = null
     )
     {
+        using Activity? activity = AgentActivitySource.StartFunctionActivity(
+            "ListTasks",
+            new Dictionary<string, object?>
+            {
+                ["filter.status"] = status,
+                ["filter.priority"] = priority,
+            }
+        );
+
         try
         {
+            _metrics.RecordFunctionCall("ListTasks");
+            _logger.LogInformation(
+                "ListTasks function called with filters - status: {Status}, priority: {Priority}",
+                status,
+                priority
+            );
+
             DomainTaskStatus? taskStatus = null;
             TaskPriority? taskPriority = null;
 
@@ -87,6 +137,7 @@ public class TaskFunctions
             {
                 if (!Enum.TryParse(status, true, out DomainTaskStatus parsedStatus))
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error, $"Invalid status: {status}");
                     return string.Format(ErrorMessages.INVALID_STATUS_FORMAT, status);
                 }
 
@@ -97,6 +148,7 @@ public class TaskFunctions
             {
                 if (!Enum.TryParse(priority, true, out TaskPriority parsedPriority))
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error, $"Invalid priority: {priority}");
                     return string.Format(ErrorMessages.INVALID_PRIORITY_FORMAT, priority);
                 }
 
@@ -110,7 +162,15 @@ public class TaskFunctions
             );
             var taskList = tasks.ToList();
 
-            if (!taskList.Any())
+            activity?.SetTag("result.count", taskList.Count);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
+            _logger.LogInformation(
+                "ListTasks completed successfully - found {Count} tasks",
+                taskList.Count
+            );
+
+            if (taskList.Count == 0)
             {
                 var filters = new List<string>();
                 if (taskStatus.HasValue)
@@ -159,6 +219,8 @@ public class TaskFunctions
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.LogError(ex, "Error listing tasks");
             return $"{ErrorMessages.ERROR_LISTING_TASKS}{ex.Message}";
         }
     }
@@ -168,14 +230,30 @@ public class TaskFunctions
         [Description("The ID of the task to retrieve")] int taskId
     )
     {
+        using Activity? activity = AgentActivitySource.StartFunctionActivity(
+            "GetTaskDetails",
+            new Dictionary<string, object?> { ["task.id"] = taskId }
+        );
+
         try
         {
+            _metrics.RecordFunctionCall("GetTaskDetails");
+            _logger.LogInformation("GetTaskDetails function called for task ID: {TaskId}", taskId);
+
             TaskItem? task = await _taskRepository.GetByIdAsync(taskId);
 
             if (task == null)
             {
+                activity?.SetStatus(ActivityStatusCode.Error, "Task not found");
+                _logger.LogWarning("Task not found with ID: {TaskId}", taskId);
                 return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
             }
+
+            activity?.SetTag("task.title", task.Title);
+            activity?.SetTag("task.status", task.Status.ToString());
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
+            _logger.LogInformation("Task details retrieved successfully for ID: {TaskId}", taskId);
 
             return $"""
                 📝 Task Details:
@@ -191,6 +269,8 @@ public class TaskFunctions
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.LogError(ex, "Error retrieving task details for ID: {TaskId}", taskId);
             return $"{ErrorMessages.ERROR_RETRIEVING_TASK}{ex.Message}";
         }
     }
@@ -203,10 +283,29 @@ public class TaskFunctions
         [Description("New priority: Low, Medium, or High (optional)")] string? priority = null
     )
     {
+        using Activity? activity = AgentActivitySource.StartFunctionActivity(
+            "UpdateTask",
+            new Dictionary<string, object?>
+            {
+                ["task.id"] = taskId,
+                ["update.status"] = status,
+                ["update.priority"] = priority,
+            }
+        );
+
         try
         {
+            _metrics.RecordFunctionCall("UpdateTask");
+            _logger.LogInformation(
+                "UpdateTask function called for task ID: {TaskId} - status: {Status}, priority: {Priority}",
+                taskId,
+                status,
+                priority
+            );
+
             if (status == null && priority == null)
             {
+                activity?.SetStatus(ActivityStatusCode.Error, "No fields to update");
                 return ErrorMessages.UPDATE_REQUIRES_FIELDS;
             }
 
@@ -214,6 +313,8 @@ public class TaskFunctions
             TaskItem? task = await _taskRepository.GetByIdAsync(taskId);
             if (task == null)
             {
+                activity?.SetStatus(ActivityStatusCode.Error, "Task not found");
+                _logger.LogWarning("Task not found with ID: {TaskId}", taskId);
                 return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
             }
 
@@ -224,6 +325,7 @@ public class TaskFunctions
             {
                 if (!Enum.TryParse(status, true, out DomainTaskStatus newStatus))
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error, $"Invalid status: {status}");
                     return string.Format(ErrorMessages.INVALID_STATUS_FORMAT, status);
                 }
 
@@ -236,6 +338,7 @@ public class TaskFunctions
             {
                 if (!Enum.TryParse(priority, true, out TaskPriority newPriority))
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error, $"Invalid priority: {priority}");
                     return string.Format(ErrorMessages.INVALID_PRIORITY_FORMAT, priority);
                 }
 
@@ -247,6 +350,15 @@ public class TaskFunctions
             await _taskRepository.UpdateAsync(task);
             await _taskRepository.SaveChangesAsync();
 
+            activity?.SetTag("updates.applied", string.Join(", ", updates));
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
+            _logger.LogInformation(
+                "Task {TaskId} updated successfully - {Updates}",
+                taskId,
+                string.Join(", ", updates)
+            );
+
             return string.Format(
                 ErrorMessages.TASK_UPDATED_SUCCESS,
                 taskId,
@@ -255,10 +367,14 @@ public class TaskFunctions
         }
         catch (InvalidOperationException ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.LogWarning(ex, "Business rule violation in UpdateTask: {Message}", ex.Message);
             return $"{ErrorMessages.BUSINESS_RULE_ERROR_PREFIX}{ex.Message}";
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.LogError(ex, "Error updating task ID: {TaskId}", taskId);
             return $"{ErrorMessages.ERROR_UPDATING_TASK}{ex.Message}";
         }
     }
@@ -268,21 +384,42 @@ public class TaskFunctions
         [Description("The ID of the task to delete")] int taskId
     )
     {
+        using Activity? activity = AgentActivitySource.StartFunctionActivity(
+            "DeleteTask",
+            new Dictionary<string, object?> { ["task.id"] = taskId }
+        );
+
         try
         {
+            _metrics.RecordFunctionCall("DeleteTask");
+            _logger.LogInformation("DeleteTask function called for task ID: {TaskId}", taskId);
+
             TaskItem? task = await _taskRepository.GetByIdAsync(taskId);
             if (task == null)
             {
+                activity?.SetStatus(ActivityStatusCode.Error, "Task not found");
+                _logger.LogWarning("Task not found with ID: {TaskId}", taskId);
                 return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
             }
 
             await _taskRepository.DeleteAsync(taskId);
             await _taskRepository.SaveChangesAsync();
 
+            activity?.SetTag("task.title", task.Title);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
+            _logger.LogInformation(
+                "Task {TaskId} deleted successfully - title: {Title}",
+                taskId,
+                task.Title
+            );
+
             return string.Format(ErrorMessages.TASK_DELETED_SUCCESS, taskId, task.Title);
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.LogError(ex, "Error deleting task ID: {TaskId}", taskId);
             return $"{ErrorMessages.ERROR_DELETING_TASK}{ex.Message}";
         }
     }
@@ -290,12 +427,23 @@ public class TaskFunctions
     [Description("Get a summary of all tasks grouped by status.")]
     public async Task<string> GetTaskSummaryAsync()
     {
+        using Activity? activity = AgentActivitySource.StartFunctionActivity(
+            "GetTaskSummary",
+            new Dictionary<string, object?>()
+        );
+
         try
         {
+            _metrics.RecordFunctionCall("GetTaskSummary");
+            _logger.LogInformation("GetTaskSummary function called");
+
             var allTasks = (await _taskRepository.GetAllAsync()).ToList();
 
             if (allTasks.Count == 0)
             {
+                activity?.SetTag("result.count", 0);
+                activity?.SetStatus(ActivityStatusCode.Ok);
+                _logger.LogInformation("GetTaskSummary completed - no tasks in system");
                 return ErrorMessages.NO_TASKS_IN_SYSTEM;
             }
 
@@ -308,6 +456,21 @@ public class TaskFunctions
             );
 
             int completionRate = completed * 100 / allTasks.Count;
+
+            activity?.SetTag("result.total", allTasks.Count);
+            activity?.SetTag("result.pending", pending);
+            activity?.SetTag("result.inProgress", inProgress);
+            activity?.SetTag("result.completed", completed);
+            activity?.SetTag("result.completionRate", completionRate);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
+            _logger.LogInformation(
+                "GetTaskSummary completed successfully - total: {Total}, pending: {Pending}, inProgress: {InProgress}, completed: {Completed}",
+                allTasks.Count,
+                pending,
+                inProgress,
+                completed
+            );
 
             return $"""
                 📊 Task Summary:
@@ -326,6 +489,8 @@ public class TaskFunctions
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.LogError(ex, "Error generating task summary");
             return $"{ErrorMessages.ERROR_GENERATING_SUMMARY}{ex.Message}";
         }
     }

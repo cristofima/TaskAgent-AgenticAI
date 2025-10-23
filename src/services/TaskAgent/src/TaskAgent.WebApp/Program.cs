@@ -1,12 +1,21 @@
+using TaskAgent.Application;
 using TaskAgent.Infrastructure;
+using TaskAgent.ServiceDefaults;
 using TaskAgent.WebApp;
 using TaskAgent.WebApp.Extensions;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddInfrastructure(builder.Configuration).AddPresentation(builder.Configuration);
+builder.AddServiceDefaults();
+
+builder.Services
+    .AddApplication()
+    .AddInfrastructure(builder.Configuration)
+    .AddPresentation(builder.Configuration);
 
 WebApplication app = builder.Build();
+
+app.MapDefaultEndpoints();
 
 app.ValidateConfiguration();
 
