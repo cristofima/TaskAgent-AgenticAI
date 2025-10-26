@@ -1,0 +1,65 @@
+name: Build and deploy .NET Core application to Web App app-taskagent-prod
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/services/TaskAgent/src/**/*.cs"
+      - "src/services/TaskAgent/src/**/*.csproj"
+      - "src/services/TaskAgent/src/**/*.json"
+      - "src/services/TaskAgent/src/**/*.cshtml"
+      - "src/services/TaskAgent/src/**/*.css"
+      - "src/services/TaskAgent/src/**/*.js"
+      - "src/TaskAgent.ServiceDefaults/**/*.cs"
+      - "src/TaskAgent.ServiceDefaults/**/*.csproj"
+      - "src/Directory.Build.props"
+      - "src/Directory.Packages.props"
+      - "src/global.json"
+      - "src/TaskAgentWeb.sln"
+      - ".github/workflows/app-taskagent-prod.yml"
+env:
+  AZURE_WEBAPP_NAME: app-taskagent-prod
+  AZURE_WEBAPP_PACKAGE_PATH: services/TaskAgent/src/TaskAgent.WebApp/published
+  CONFIGURATION: Release
+  DOTNET_CORE_VERSION: 9.0.x
+  WORKING_DIRECTORY: services/TaskAgent/src/TaskAgent.WebApp
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
+      - name: Restore
+        run: dotnet restore "${{ env.WORKING_DIRECTORY }}"
+      - name: Build
+        run: dotnet build "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-restore
+      - name: Test
+        run: dotnet test "${{ env.WORKING_DIRECTORY }}" --no-build
+      - name: Publish
+        run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}"
+      - name: Publish Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: webapp
+          path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: webapp
+          path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.app_taskagent_prod_SPN }}
+      - name: Deploy to Azure WebApp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
