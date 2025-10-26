@@ -7,6 +7,13 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
 
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
@@ -23,6 +30,10 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# Visual Studio cache/options directory
+.vs/
+.vscode/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json
@@ -32,23 +43,34 @@ artifacts/
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 
+# Configuration files with secrets (DO NOT COMMIT)
+**/appsettings.Development.json
+**/appsettings.Production.json
+*.key
+*.secret
+
 # NuGet Packages
 *.nupkg
-# NuGet Symbol Packages
 *.snupkg
 
-# Others
-~$*
-*~
+# Test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+TestResults/
 CodeCoverage/
 CoverageReport/
 
 # MSBuild Binary and Structured Log
 *.binlog
 
-# MSTest test Results
-[Tt]est[Rr]esult*/
-[Bb]uild[Ll]og.*
+# Node modules (if using npm for frontend)
+node_modules/
+npm-debug.log*
 
-# Visual Code
-.vs
+# Rider
+.idea/
+*.sln.iml
+
+# Others
+~$*
+*~
