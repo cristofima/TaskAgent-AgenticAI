@@ -7,14 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Remove="appsettings.Development.json" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="appsettings.Development.json" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" />
     <PackageReference Include="Azure.AI.ContentSafety" />
     <PackageReference Include="Microsoft.Agents.AI.OpenAI" />
@@ -27,12 +19,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\TaskAgent.ServiceDefaults\TaskAgent.ServiceDefaults.csproj" />
     <ProjectReference Include="..\TaskAgent.Infrastructure\TaskAgent.Infrastructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="appsettings*.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
   <ItemGroup>
