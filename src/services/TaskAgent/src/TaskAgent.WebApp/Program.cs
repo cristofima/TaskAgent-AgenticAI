@@ -19,6 +19,9 @@ app.MapDefaultEndpoints();
 
 app.ValidateConfiguration();
 
+// Apply database migrations automatically on startup (all environments)
+await app.ApplyDatabaseMigrationsAsync();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
