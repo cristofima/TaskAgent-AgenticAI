@@ -17,7 +17,7 @@ namespace TaskAgent.ServiceDefaults
     /// This project should be referenced by each service project in your solution.
     ///
     /// Telemetry Architecture:
-    /// - DEVELOPMENT: Uses OTLP exporter → Aspire Dashboard (localhost:18888)
+    /// - DEVELOPMENT: Uses OTLP exporter → Aspire Dashboard (localhost:17198)
     /// - PRODUCTION: Uses Azure Monitor → Application Insights
     ///
     /// The appropriate exporter is selected based on configuration:
