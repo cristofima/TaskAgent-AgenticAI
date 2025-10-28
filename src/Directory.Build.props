@@ -26,9 +26,9 @@
     <Authors>TaskAgent Development Team</Authors>
 
     <!-- Versioning -->
-    <Version>1.1.0</Version>
-    <FileVersion>1.1.0.0</FileVersion>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <!-- Application version (update before creating Git tags/releases) -->
+    <!-- MSBuild automatically derives FileVersion and AssemblyVersion from this -->
+    <Version>1.2.0</Version>
 
     <!-- Build Configuration -->
     <Deterministic>true</Deterministic>
