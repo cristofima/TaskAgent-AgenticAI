@@ -1,0 +1,10 @@
+# Architecture Documentation
+
+Esta carpeta contendrá diagramas de arquitectura y documentación técnica.
+
+## Diagramas Futuros
+
+- Diagrama de Clean Architecture (Domain → Application → Infrastructure → WebApp)
+- Flujo de datos de observabilidad (OpenTelemetry → Aspire/Azure Monitor)
+- Arquitectura de seguridad (Content Safety middleware)
+- Diagrama de deployment en Azure
