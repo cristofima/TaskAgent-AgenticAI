@@ -137,7 +137,32 @@ dotnet ef database drop --project TaskAgent.Infrastructure --startup-project Tas
 
 **Why Both?**: Infrastructure contains `TaskDbContext`, but WebApp has configuration (`appsettings.json` connection string) and DI setup.
 
+**Automatic Migrations on Startup**:
+
+The application **automatically applies pending migrations** on startup in ALL environments via:
+
+```csharp
+// Program.cs
+await app.ApplyDatabaseMigrationsAsync();
+```
+
+This calls `DatabaseMigrationService.ApplyDatabaseMigrationsAsync()` in the Infrastructure layer, which creates/updates the database without manual intervention. No need to run `dotnet ef database update` manually unless troubleshooting.
+
 ### Running the Application
+
+**With .NET Aspire (Recommended)**:
+
+```powershell
+# From repository root - includes Aspire Dashboard at https://localhost:17198
+dotnet run --project src/TaskAgent.AppHost
+
+# Provides:
+# - Application at https://localhost:5001
+# - Aspire Dashboard at https://localhost:17198 (OTLP telemetry visualization)
+# - Automatic service orchestration
+```
+
+**Standalone (Without Aspire)**:
 
 ```powershell
 # From repository root
@@ -225,6 +250,9 @@ All magic strings/numbers in constant files:
 Each layer has a service extension class with extension methods:
 
 ```csharp
+// Application/ApplicationServiceExtensions.cs
+services.AddApplication();                  // Registers telemetry (AgentMetrics singleton)
+
 // Infrastructure/InfrastructureServiceExtensions.cs
 services.AddInfrastructure(configuration);  // Registers DbContext, Repositories, ContentSafetyClient
 
@@ -232,7 +260,18 @@ services.AddInfrastructure(configuration);  // Registers DbContext, Repositories
 services.AddPresentation(configuration);    // Registers Controllers, AIAgent (scoped)
 ```
 
-Called in `Program.cs`: `builder.Services.AddInfrastructure(builder.Configuration).AddPresentation(builder.Configuration);`
+Called in `Program.cs`:
+
+```csharp
+builder.AddServiceDefaults();  // Aspire: OpenTelemetry, health checks, resilience
+
+builder.Services
+    .AddApplication()
+    .AddInfrastructure(builder.Configuration)
+    .AddPresentation(builder.Configuration);
+```
+
+**Layer Registration Order**: Application → Infrastructure → Presentation (following dependency direction).
 
 ## Integration Points
 
@@ -330,8 +369,9 @@ To add a new safety layer:
 
 **How it works**:
 
-- `Directory.Build.props` → Common project settings (target framework, nullable, code analysis)
-- `Directory.Packages.props` → Centralized NuGet package versions
+- `Directory.Build.props` → Common project settings (target framework, nullable, code analysis, **`$(AspireVersion)` property**)
+- `global.json` → MSBuild SDK versions (Aspire.AppHost.Sdk version **must match `$(AspireVersion)`**)
+- `Directory.Packages.props` → Centralized NuGet package versions (uses `$(AspireVersion)` variable)
 - Individual `.csproj` files → Package references WITHOUT version numbers
 
 **Adding a new package**:
@@ -344,15 +384,71 @@ To add a new safety layer:
 <PackageReference Include="Newtonsoft.Json" />
 ```
 
+**Updating Aspire version** (see `ASPIRE_VERSION.md`):
+
+```powershell
+# 1. Update Directory.Build.props
+<AspireVersion>9.5.2</AspireVersion>
+
+# 2. Update global.json (must match!)
+"Aspire.AppHost.Sdk": "9.5.2"
+
+# 3. Restore
+dotnet restore
+```
+
 **Key packages**:
 
-- `Microsoft.Agents.AI.OpenAI` (1.0.0-preview) - Agentic AI Framework
+- `Microsoft.Agents.AI.OpenAI` (1.0.0-preview.251001.2) - Agentic AI Framework
 - `Azure.AI.OpenAI` (2.1.0) - Azure OpenAI SDK
 - `Azure.AI.ContentSafety` (1.0.0) - Content Safety SDK
 - `Microsoft.EntityFrameworkCore.SqlServer` (9.0.10)
-- `SonarAnalyzer.CSharp` (9.32.0) - Code quality analysis
+- `Aspire.Hosting.AppHost` (via `$(AspireVersion)`) - .NET Aspire orchestration
+- `SonarAnalyzer.CSharp` (10.15.0) - Code quality analysis
 
 **Why CPM?**: Ensures version consistency across all projects, prevents dependency conflicts, simplifies upgrades.
+
+## .NET Aspire & Observability Architecture
+
+**Three-Project Aspire Structure**:
+
+1. **`TaskAgent.AppHost`** - Orchestration layer (runs via `dotnet run --project src/TaskAgent.AppHost`)
+   - Entry point: `AppHost.cs` with `builder.AddProject<Projects.TaskAgent_WebApp>("taskagent-webapp")`
+   - Provides Aspire Dashboard at https://localhost:17198
+   - Manages service lifecycle and discovery
+2. **`TaskAgent.ServiceDefaults`** - Shared telemetry configuration
+   - `ServiceDefaultsExtensions.AddServiceDefaults()` registers OpenTelemetry, health checks, resilience
+   - **Hybrid telemetry**: Auto-detects exporter based on environment
+     - Development: `OTEL_EXPORTER_OTLP_ENDPOINT` → OTLP → Aspire Dashboard
+     - Production: `APPLICATIONINSIGHTS_CONNECTION_STRING` → Azure Monitor → Application Insights
+   - Registered custom sources: `"TaskAgent.Agent"`, `"TaskAgent.Functions"`
+   - Security: HTTPS-only service discovery in production
+3. **`TaskAgent.WebApp`** - Application (calls `builder.AddServiceDefaults()` in `Program.cs`)
+
+**Custom Telemetry Components** (Application layer):
+
+- `AgentMetrics` (singleton) - Custom OpenTelemetry meter (`"TaskAgent.Agent"`)
+  - Counters: `agent.requests`, `agent.function_calls`, `agent.errors`
+  - Histogram: `agent.response.duration` (ms)
+- `AgentActivitySource` (static) - Custom activity source for distributed tracing
+  - Span: `Agent.ProcessMessage` - end-to-end message processing
+  - Span: `Function.{FunctionName}` - individual function tool calls
+  - Tags: `thread.id`, `function.name`, `message.length`, `response.length`
+
+**Usage in code**:
+
+```csharp
+// Metrics - injected via DI (singleton)
+_metrics.RecordRequest(threadId, "success");
+_metrics.RecordFunctionCall("CreateTask", "success");
+_metrics.RecordResponseDuration(durationMs, threadId, success: true);
+
+// Tracing - static utility
+using Activity? activity = AgentActivitySource.StartMessageActivity(threadId, message);
+using Activity? funcActivity = AgentActivitySource.StartFunctionActivity("CreateTask");
+```
+
+**Important**: EF Core SQL command logging is **disabled in production** via environment check in `ServiceDefaultsExtensions.cs` to prevent sensitive data leakage.
 
 ## Thread Persistence & Conversation State
 
