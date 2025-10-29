@@ -530,7 +530,14 @@ Comprehensive guides covering concepts, best practices, and step-by-step tutoria
 
 ## 📖 License
 
-Educational sample project for learning Microsoft Agent Framework and .NET Aspire.
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+### What this means:
+
+- ✅ Free to use for personal and commercial projects
+- ✅ Free to modify and distribute
+- ✅ Free to use in your own educational content
+- ℹ️ Just keep the copyright notice
 
 ---
 
