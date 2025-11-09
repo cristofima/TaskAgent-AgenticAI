@@ -112,17 +112,31 @@ task.UpdatePriority(TaskPriority.High);
 
 ## Critical Workflows
 
-### Working Directory
+### Working Directory & Project Structure
 
-**All commands must be run from the solution root**: `src/services/TaskAgent/src/`
+**Repository structure**:
 
-The project structure is: `src/services/TaskAgent/src/{ProjectName}/{ProjectName}.csproj`
+```
+src/
+├── TaskAgent.AppHost/                  # Aspire orchestrator (root level)
+├── backend/
+│   ├── TaskAgent.ServiceDefaults/      # Shared telemetry config
+│   ├── TaskAgentWeb.sln                # Backend solution file
+│   └── services/TaskAgent/src/         # Clean Architecture projects
+│       ├── TaskAgent.Domain/
+│       ├── TaskAgent.Application/
+│       ├── TaskAgent.Infrastructure/
+│       └── TaskAgent.WebApp/
+└── frontend/                           # Next.js frontend (future)
+```
+
+**Working directory for EF commands**: `src/backend/services/TaskAgent/src/`
 
 ### EF Migrations (Multi-Project Solution)
 
 ```powershell
-# Navigate to solution directory first
-cd src/services/TaskAgent/src
+# Navigate to backend service directory first
+cd src/backend/services/TaskAgent/src
 
 # Always specify BOTH projects (Infrastructure has DbContext, WebApp has startup/DI):
 dotnet ef migrations add MigrationName --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
@@ -166,9 +180,9 @@ dotnet run --project src/TaskAgent.AppHost
 
 ```powershell
 # From repository root
-dotnet run --project src/services/TaskAgent/src/TaskAgent.WebApp
+dotnet run --project src/backend/services/TaskAgent/src/TaskAgent.WebApp
 
-# Or from src/services/TaskAgent/src/
+# Or from src/backend/services/TaskAgent/src/
 dotnet run --project TaskAgent.WebApp
 ```
 
@@ -399,7 +413,7 @@ dotnet restore
 
 **Key packages**:
 
-- `Microsoft.Agents.AI.OpenAI` (1.0.0-preview.251001.2) - Agentic AI Framework
+- `Microsoft.Agents.AI.OpenAI` (1.0.0-preview.251107.1) - Agentic AI Framework
 - `Azure.AI.OpenAI` (2.1.0) - Azure OpenAI SDK
 - `Azure.AI.ContentSafety` (1.0.0) - Content Safety SDK
 - `Microsoft.EntityFrameworkCore.SqlServer` (9.0.10)
@@ -416,7 +430,7 @@ dotnet restore
    - Entry point: `AppHost.cs` with `builder.AddProject<Projects.TaskAgent_WebApp>("taskagent-webapp")`
    - Provides Aspire Dashboard at https://localhost:17198
    - Manages service lifecycle and discovery
-2. **`TaskAgent.ServiceDefaults`** - Shared telemetry configuration
+2. **`TaskAgent.ServiceDefaults`** - Shared telemetry configuration (inside `src/backend/`)
    - `ServiceDefaultsExtensions.AddServiceDefaults()` registers OpenTelemetry, health checks, resilience
    - **Hybrid telemetry**: Auto-detects exporter based on environment
      - Development: `OTEL_EXPORTER_OTLP_ENDPOINT` → OTLP → Aspire Dashboard

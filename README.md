@@ -376,67 +376,80 @@ Agent provides 1-2 smart suggestions after each operation:
 
 ```
 TaskAgentWeb/
-├── src/
-│   ├── TaskAgent.AppHost/                         # .NET Aspire orchestration
-│   │   ├── AppHost.cs                            # Aspire app host configuration
-│   │   └── appsettings.json                      # Aspire settings
+├── src/                                           # Source code root
 │   │
-│   ├── TaskAgent.ServiceDefaults/                 # Shared observability configuration
-│   │   └── ServiceDefaultsExtensions.cs          # OpenTelemetry setup
+│   ├── .editorconfig                              # C# code style rules (shared)
+│   ├── Directory.Build.props                      # ⭐ MSBuild properties (MUST be at src/ level)
+│   ├── Directory.Packages.props                   # ⭐ Central Package Management (MUST be at src/ level)
+│   ├── global.json                                # ⭐ .NET SDK + Aspire SDK versions (MUST be at src/ level)
 │   │
-│   └── services/TaskAgent/src/
-│       ├── TaskAgent.Domain/                      # Core business logic (NO dependencies)
-│       │   ├── Entities/                         # TaskItem with business rules
-│       │   ├── Enums/                            # TaskStatus, TaskPriority
-│       │   └── Constants/                        # Domain constants
-│       │
-│       ├── TaskAgent.Application/                 # Use cases & interfaces
-│       │   ├── DTOs/                             # Record types for immutability
-│       │   ├── Functions/                        # 6 AI function tools
-│       │   ├── Interfaces/                       # ITaskRepository, IContentSafetyService
-│       │   └── Telemetry/                        # Custom metrics & activity sources
-│       │       ├── AgentMetrics.cs               # Custom Meter
-│       │       └── AgentActivitySource.cs        # Custom ActivitySource
-│       │
-│       ├── TaskAgent.Infrastructure/              # External concerns
-│       │   ├── Data/                             # TaskDbContext, EF configurations
-│       │   ├── Repositories/                     # Repository implementations
-│       │   ├── Services/                         # ContentSafetyService, ThreadPersistence
-│       │   └── InfrastructureServiceExtensions.cs # HttpClientFactory, DI
-│       │
-│       └── TaskAgent.WebApp/                      # Presentation layer
-│           ├── Controllers/                       # ChatController, HomeController
-│           ├── Services/                         # TaskAgentService (AI orchestration)
-│           ├── Middleware/                       # ContentSafetyMiddleware
-│           ├── Extensions/                       # Configuration validation
-│           ├── Views/                            # Razor UI
-│           ├── wwwroot/                          # Static assets
-│           └── PresentationServiceExtensions.cs   # AI Agent registration
+│   ├── TaskAgent.AppHost/                         # .NET Aspire orchestration (root level)
+│   │   ├── AppHost.cs                             # Orchestrates backend (+ future frontend)
+│   │   ├── appsettings.json                       # Aspire settings
+│   │   └── Properties/launchSettings.json         # Aspire Dashboard launch config
+│   │
+│   ├── backend/                                   # Backend services (Visual Studio)
+│   │   │
+│   │   ├── TaskAgentWeb.sln                       # Visual Studio solution
+│   │   │
+│   │   ├── TaskAgent.ServiceDefaults/             # Backend-only telemetry config
+│   │   │   └── ServiceDefaultsExtensions.cs       # OpenTelemetry, health checks, resilience
+│   │   │
+│   │   └── services/TaskAgent/src/                # Clean Architecture layers
+│   │       │
+│   │       ├── TaskAgent.Domain/                  # 🟢 Core business logic (NO dependencies)
+│   │       │   ├── Entities/                      # TaskItem with business rules
+│   │       │   ├── Enums/                         # TaskStatus, TaskPriority
+│   │       │   └── Constants/                     # Domain constants
+│   │       │
+│   │       ├── TaskAgent.Application/             # 🟡 Use cases & interfaces
+│   │       │   ├── DTOs/                          # Record types for immutability
+│   │       │   ├── Functions/                     # 6 AI function tools
+│   │       │   ├── Interfaces/                    # ITaskRepository, IContentSafetyService
+│   │       │   └── Telemetry/                     # Custom metrics & activity sources
+│   │       │       ├── AgentMetrics.cs            # Custom Meter
+│   │       │       └── AgentActivitySource.cs     # Custom ActivitySource
+│   │       │
+│   │       ├── TaskAgent.Infrastructure/          # 🔵 External concerns
+│   │       │   ├── Data/                          # TaskDbContext, EF configurations
+│   │       │   ├── Repositories/                  # Repository implementations
+│   │       │   ├── Services/                      # ContentSafetyService, ThreadPersistence
+│   │       │   └── InfrastructureServiceExtensions.cs # HttpClientFactory, DI
+│   │       │
+│   │       └── TaskAgent.WebApp/                  # 🔴 Presentation layer
+│   │           ├── Controllers/                   # ChatController, HomeController
+│   │           ├── Services/                      # TaskAgentService (AI orchestration)
+│   │           ├── Middleware/                    # ContentSafetyMiddleware
+│   │           ├── Extensions/                    # Configuration validation
+│   │           ├── Views/                         # Razor UI
+│   │           ├── wwwroot/                       # Static assets
+│   │           └── PresentationServiceExtensions.cs # AI Agent registration
+│   │
+│   └── frontend/                                  # Frontend applications (VS Code)
+│       └── (Future: Next.js project)              # Orchestrated by AppHost via npm
 │
 ├── docs/                                          # Documentation
-│   ├── screenshots/                              # Application screenshots
-│   ├── architecture/                             # Architecture diagrams (planned)
-│   └── CONTENT_SAFETY.md                         # Content Safety testing guide
+│   ├── screenshots/                               # Application screenshots
+│   ├── architecture/                              # Architecture documentation
+│   │   └── FOLDER_STRUCTURE.md                    # Detailed folder structure guide
+│   └── CONTENT_SAFETY.md                          # Content Safety testing guide
 │
-└── scripts/                                       # PowerShell scripts
-    ├── Analyze-Commits.ps1                       # Commit analysis tool
-    └── config.json                               # Script configuration
-│   ├── terraform.tfvars.example                  # Example configuration
-│   ├── .gitignore                                # Exclude state files
-│   └── README.md                                 # Terraform documentation
-│
-├── docs/                                          # Documentation
-│   ├── screenshots/                              # Application & observability screenshots
-│   ├── deployment/                               # Deployment guides
-│   ├── architecture/                             # Architecture diagrams
-│   └── CONTENT_SAFETY.md                         # Security testing guide
+├── scripts/                                       # Build/deployment scripts
+│   ├── Analyze-Commits.ps1                        # Commit analysis tool
+│   └── config.json                                # Script configuration
 │
 └── README.md                                      # This file
 ```
 
 ### Key Architectural Decisions
 
-**Clean Architecture**: Domain → Application → Infrastructure → WebApp (strict dependency flow)
+**MSBuild Configuration at Root**: `Directory.Build.props`, `Directory.Packages.props`, and `global.json` live at `src/` level (not in `backend/`). MSBuild searches upward from each project directory - this ensures both `TaskAgent.AppHost` (at `src/`) and backend projects (at `src/backend/services/`) can access them. **No duplicates needed**.
+
+**Clean Architecture**: Domain → Application → Infrastructure → WebApp (strict dependency flow, Domain has NO external dependencies)
+
+**Aspire Orchestration at Root**: `TaskAgent.AppHost` lives outside `backend/` because it orchestrates both backend and future frontend services
+
+**Backend-Only Telemetry**: `TaskAgent.ServiceDefaults` is .NET-specific OpenTelemetry, lives in `backend/`, NOT used by frontend
 
 **Observability-First**: OpenTelemetry instrumentation at every layer via ServiceDefaults
 
