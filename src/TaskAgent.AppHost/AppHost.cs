@@ -2,4 +2,4 @@ IDistributedApplicationBuilder builder = DistributedApplication.CreateBuilder(ar
 
 builder.AddProject<Projects.TaskAgent_WebApp>("taskagent-webapp");
 
-await builder.Build().RunAsync();
+await builder.Build().RunAsync().ConfigureAwait(false);

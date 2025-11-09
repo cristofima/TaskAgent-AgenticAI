@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\services\TaskAgent\src\TaskAgent.WebApp\TaskAgent.WebApp.csproj" />
+    <ProjectReference Include="..\backend\services\TaskAgent\src\TaskAgent.WebApp\TaskAgent.WebApp.csproj" />
   </ItemGroup>
 
   <ItemGroup>
