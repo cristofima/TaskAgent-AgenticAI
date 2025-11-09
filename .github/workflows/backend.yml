@@ -1,28 +1,28 @@
-name: Build and deploy .NET application to Web App
+name: Build and deploy backend .NET application to Web App
 on:
   push:
     branches:
       - main
     paths:
-      - "src/services/TaskAgent/src/**/*.cs"
-      - "src/services/TaskAgent/src/**/*.csproj"
-      - "src/services/TaskAgent/src/**/*.json"
-      - "src/services/TaskAgent/src/**/*.cshtml"
-      - "src/services/TaskAgent/src/**/*.css"
-      - "src/services/TaskAgent/src/**/*.js"
-      - "src/TaskAgent.ServiceDefaults/**/*.cs"
-      - "src/TaskAgent.ServiceDefaults/**/*.csproj"
-      - "src/Directory.Build.props"
-      - "src/Directory.Packages.props"
-      - "src/global.json"
-      - "src/TaskAgentWeb.sln"
-      - ".github/workflows/app-taskagent-prod.yml"
+      - "src/backend/services/TaskAgent/src/**/*.cs"
+      - "src/backend/services/TaskAgent/src/**/*.csproj"
+      - "src/backend/services/TaskAgent/src/**/*.json"
+      - "src/backend/services/TaskAgent/src/**/*.cshtml"
+      - "src/backend/services/TaskAgent/src/**/*.css"
+      - "src/backend/services/TaskAgent/src/**/*.js"
+      - "src/backend/TaskAgent.ServiceDefaults/**/*.cs"
+      - "src/backend/TaskAgent.ServiceDefaults/**/*.csproj"
+      - "src/backend/Directory.Build.props"
+      - "src/backend/Directory.Packages.props"
+      - "src/backend/global.json"
+      - "src/backend/TaskAgentWeb.sln"
+      - ".github/workflows/backend.yml"
 env:
   AZURE_WEBAPP_NAME: app-taskagent-prod
-  AZURE_WEBAPP_PACKAGE_PATH: src/services/TaskAgent/src/TaskAgent.WebApp/published
+  AZURE_WEBAPP_PACKAGE_PATH: src/backend/services/TaskAgent/src/TaskAgent.WebApp/published
   CONFIGURATION: Release
   DOTNET_CORE_VERSION: 9.0.x
-  WORKING_DIRECTORY: src/services/TaskAgent/src/TaskAgent.WebApp
+  WORKING_DIRECTORY: src/backend/services/TaskAgent/src/TaskAgent.WebApp
 jobs:
   build:
     runs-on: ubuntu-latest
