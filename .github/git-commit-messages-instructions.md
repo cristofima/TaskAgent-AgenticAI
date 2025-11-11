@@ -49,8 +49,8 @@ These instructions guide GitHub Copilot in generating Git commit messages that a
         - Implementing caching mechanisms
         - Reducing memory allocations
         - Improving algorithm efficiency
-      - `build`: Changes that affect the build system or external dependencies (e.g., NuGet packages, MSBuild, Docker).
-      - `ci`: Changes to CI/CD configuration files and scripts (e.g., Azure Pipelines, GitHub Actions, YML files).
+      - `build`: Changes that affect the build system or external dependencies (e.g., NuGet packages, MSBuild, Docker). **IMPORTANT**: Changes to CI/CD configuration files (`.yml`, `.yaml`) should use `ci` type, NOT `build`.
+      - `ci`: Changes to CI/CD configuration files and scripts (e.g., Azure Pipelines, GitHub Actions, `.yml`/`.yaml` files in `.github/workflows/`). **Examples**: Updating SDK versions in pipelines, modifying deployment steps, changing environment variables in workflows.
       - `docs`: **DOCUMENTATION ONLY** - Changes exclusively to documentation files. Examples:
         - Modifying Markdown (.md) files (README.md, CONTENT_SAFETY.md, etc.)
         - Updating inline code comments or XML documentation
@@ -333,6 +333,8 @@ Fixes #156
 
 - `feat(api)!: change task response format to include metadata`
 - `refactor!: rename ITaskService to ITaskAgentService`
+- `build!: upgrade to .NET 10`
+- `ci!: upgrade to .NET 10 SDK in deployment pipeline`
 
 **Detailed Examples with Body (Multi-file or Complex Changes):**
 
@@ -419,6 +421,20 @@ Modified files (4):
 - .github/git-commit-messages-instructions.md: Added examples
 ```
 
+```
+ci!: upgrade to .NET 10 SDK in deployment pipeline
+
+BREAKING CHANGE: Updated GitHub Actions workflow to use .NET 10 SDK.
+Projects deployed through this pipeline must target .NET 10.
+
+Modified files (1):
+- .github/workflows/backend.yml: Updated DOTNET_CORE_VERSION to 10.0.x
+
+Deployment requirements:
+- Azure App Service must support .NET 10 runtime
+- Local development environment must have .NET 10 SDK installed
+```
+
 **Cross-Layer Examples:**
 
 - `feat: add content safety middleware with 4-layer protection`
@@ -480,6 +496,7 @@ Modified files (4):
     - "Then describe by component: 'Application layer: New DTOs and services'"
   - "Wrap lines at 72 characters for readability"
 - "**BREAKING CHANGES - Critical Decision Guide:**"
+  - "**CRITICAL FOR FRAMEWORK UPGRADES**: Major framework upgrades (e.g., .NET 9 → .NET 10, EF Core 8 → 9) are ALWAYS breaking changes and MUST use `!` suffix or `BREAKING CHANGE:` footer. This applies to changes in `Directory.Build.props`, `global.json`, `.csproj` files, or CI/CD pipelines that upgrade framework versions."
   - "Use `BREAKING CHANGE:` footer or `!` suffix when consumers MUST modify their code"
   - "**Ask yourself**: Would existing code that uses this API/endpoint/interface still work?"
   - "**If NO** (requires consumer changes) → BREAKING CHANGE"
@@ -488,7 +505,7 @@ Modified files (4):
     - "Removing/renaming public APIs, methods, properties, endpoints"
     - "Changing HTTP response structures (removing/renaming fields)"
     - "Changing method signatures (parameters, return types)"
-    - "Major framework upgrades (.NET 9 → .NET 10)"
+    - "**Major framework upgrades (.NET 9 → .NET 10, EF Core 8 → 9)** - ALWAYS breaking, even if only in build files or CI/CD pipelines"
     - "Removing/renaming configuration keys in appsettings.json"
     - "Changing database schema (removing columns, changing types)"
     - "Changing authentication/authorization requirements"
@@ -558,15 +575,16 @@ Modified files (4):
 **Decision Tree for Commit Types:**
 
 1. **Does it modify ONLY .md files or documentation?** → `docs` (NEVER `refactor(docs)`)
-2. **Does it add new user-facing functionality?** → `feat`
-3. **Does it fix broken functionality?** → `fix`
-4. **Does it improve performance measurably?** → `perf`
-5. **Does it change code structure without changing behavior?** → `refactor`
-6. **Does it add/modify tests only?** → `test`
-7. **Does it change CI/CD configuration?** → `ci`
-8. **Does it change build system or dependencies?** → `build`
-9. **Does it revert a previous commit?** → `revert`
-10. **Everything else** → `chore`
+2. **Does it modify CI/CD files (.yml, .yaml in .github/workflows/)?** → `ci` (NOT `build`)
+3. **Does it upgrade major framework versions (.NET 9 → 10)?** → `build!` or `ci!` (BREAKING CHANGE - use `!` suffix)
+4. **Does it add new user-facing functionality?** → `feat`
+5. **Does it fix broken functionality?** → `fix`
+6. **Does it improve performance measurably?** → `perf`
+7. **Does it change code structure without changing behavior?** → `refactor`
+8. **Does it add/modify tests only?** → `test`
+9. **Does it change build system or dependencies (not CI/CD)?** → `build`
+10. **Does it revert a previous commit?** → `revert`
+11. **Everything else** → `chore`
 
 **Multi-File Changes - Body Guidelines:**
 
