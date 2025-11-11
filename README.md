@@ -224,7 +224,7 @@ TaskAgent.WebApp (UI, Controllers, AI Agent)
 
 | Technology                 | Purpose                    |
 | -------------------------- | -------------------------- |
-| .NET 9.0                   | Modern web framework       |
+| .NET 10                    | Modern web framework       |
 | ASP.NET Core MVC           | Web application            |
 | .NET Aspire                | Cloud-native orchestration |
 | OpenTelemetry              | Observability framework    |
@@ -242,7 +242,7 @@ TaskAgent.WebApp (UI, Controllers, AI Agent)
 
 ### Prerequisites
 
-- .NET 9.0 SDK
+- .NET 10 SDK
 - SQL Server LocalDB (included with Visual Studio)
 - Azure OpenAI resource with deployed model (GPT-4o-mini recommended)
 - Azure AI Content Safety resource
@@ -512,7 +512,7 @@ _Production distributed tracing_
 
 Comprehensive guides covering concepts, best practices, and step-by-step tutorials:
 
-1. **[Building an AI Task Management Agent using Microsoft Agentic AI Framework](https://www.c-sharpcorner.com/article/building-an-ai-task-management-agent-using-microsoft-agentic-ai-framework/)**
+1. **[Building an AI Task Management Agent using Microsoft Agent Framework](https://www.c-sharpcorner.com/article/building-an-ai-task-management-agent-using-microsoft-agentic-ai-framework/)**
 
    - Understanding the Microsoft Agent Framework
    - Implementing autonomous AI agents with function calling
