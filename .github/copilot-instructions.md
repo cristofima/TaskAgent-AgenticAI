@@ -1,5 +1,11 @@
 # Task Agent - Copilot Instructions
 
+## Project Overview
+
+AI-powered task management system built with **Microsoft Agent Framework** (preview), demonstrating autonomous AI agents with function calling, Clean Architecture, and production-grade observability.
+
+**Tech Stack**: .NET 10, ASP.NET Core MVC, Azure OpenAI (GPT-4o-mini), Azure AI Content Safety, Entity Framework Core, .NET Aspire 13.0.0, OpenTelemetry
+
 ## Architecture
 
 **Clean Architecture** with strict downward dependencies: `Domain` → `Application` → `Infrastructure` → `WebApp`
@@ -15,11 +21,17 @@ Infrastructure/  - EF Core (TaskDbContext), Repositories, Azure Services (Conten
 WebApp/          - Controllers, Middleware, DI setup, Agent factory (TaskAgentService)
 ```
 
-**Dependency Flow**: Each layer only references the one below. Infrastructure and WebApp both depend on Application, but NOT on each other.
+**Dependency Flow**: Each layer references only the one below. Infrastructure and WebApp both depend on Application, but NOT on each other.
+
+**Service Extension Pattern**: Each layer has `{Layer}ServiceExtensions.cs` with extension methods:
+
+- `ApplicationServiceExtensions.AddApplication()` - Registers telemetry (AgentMetrics singleton)
+- `InfrastructureServiceExtensions.AddInfrastructure(configuration)` - DbContext, Repositories, ContentSafetyClient
+- `PresentationServiceExtensions.AddPresentation(configuration)` - Controllers, AIAgent (scoped)
 
 ## AI Agent Pattern
 
-### Microsoft Agentic AI Framework
+### Microsoft Agent Framework
 
 This project uses `Microsoft.Agents.AI.OpenAI` (preview) - Microsoft's framework for building autonomous AI agents with function calling.
 
@@ -402,10 +414,10 @@ To add a new safety layer:
 
 ```powershell
 # 1. Update Directory.Build.props
-<AspireVersion>9.5.2</AspireVersion>
+<AspireVersion>13.0.0</AspireVersion>
 
 # 2. Update global.json (must match!)
-"Aspire.AppHost.Sdk": "9.5.2"
+"Aspire.AppHost.Sdk": "13.0.0"
 
 # 3. Restore
 dotnet restore
@@ -413,14 +425,43 @@ dotnet restore
 
 **Key packages**:
 
-- `Microsoft.Agents.AI.OpenAI` (1.0.0-preview.251107.1) - Agentic AI Framework
+- `Microsoft.Agents.AI.OpenAI` (1.0.0-preview.251110.2) - Agent Framework
 - `Azure.AI.OpenAI` (2.1.0) - Azure OpenAI SDK
 - `Azure.AI.ContentSafety` (1.0.0) - Content Safety SDK
-- `Microsoft.EntityFrameworkCore.SqlServer` (9.0.10)
-- `Aspire.Hosting.AppHost` (via `$(AspireVersion)`) - .NET Aspire orchestration
-- `SonarAnalyzer.CSharp` (10.15.0) - Code quality analysis
+- `Microsoft.EntityFrameworkCore.SqlServer` (10.0.0)
+- `Aspire.Hosting.AppHost` (via `$(AspireVersion)` = 13.0.0) - .NET Aspire orchestration
+- `SonarAnalyzer.CSharp` (10.15.0.120848) - Code quality analysis
 
 **Why CPM?**: Ensures version consistency across all projects, prevents dependency conflicts, simplifies upgrades.
+
+## MSBuild & Solution Structure
+
+**Critical Understanding**: MSBuild configuration files are at `src/` level (NOT in `backend/` or `frontend/`):
+
+- `src/Directory.Build.props` - Common project settings (target framework, Aspire version, code analysis)
+- `src/Directory.Packages.props` - Centralized NuGet package versions
+- `src/global.json` - SDK versions and MSBuild SDK versions
+
+**Why at `src/`?**: MSBuild searches upward from each project directory. This location ensures BOTH:
+
+1. `TaskAgent.AppHost` (at `src/TaskAgent.AppHost/`)
+2. Backend projects (at `src/backend/services/TaskAgent/src/`)
+
+...can access the same configuration without duplication.
+
+**Solution Files**:
+
+- `src/backend/TaskAgentWeb.sln` - Backend solution (4 projects: Domain, Application, Infrastructure, WebApp)
+- AppHost is NOT in the backend solution - it's orchestration, not part of the backend
+
+**Adding New Projects**:
+
+When adding new backend projects, add them to `TaskAgentWeb.sln`:
+
+```powershell
+cd src/backend
+dotnet sln add services/TaskAgent/src/TaskAgent.NewProject/TaskAgent.NewProject.csproj
+```
 
 ## .NET Aspire & Observability Architecture
 
@@ -521,3 +562,35 @@ await _threadPersistence.SaveThreadAsync(threadId, thread.Serialize());
 3. Thread persistence across multiple requests (same threadId)
 4. Content safety blocking (prompt injection, harmful content)
 5. Parallel safety checks performance (~200-400ms)
+
+## Frontend Development
+
+**Next.js Application**: Located in `src/frontend/task-agent-web/`
+
+**Tech Stack**: Next.js 15+, TypeScript, Tailwind CSS, React
+
+**Working Directory**: `src/frontend/task-agent-web/`
+
+**Common Commands**:
+
+```powershell
+# From src/frontend/task-agent-web/
+pnpm install           # Install dependencies
+pnpm dev              # Run dev server (http://localhost:3000)
+pnpm build            # Build for production
+pnpm start            # Start production server
+pnpm lint             # Run ESLint
+```
+
+**Integration with Backend**:
+
+- API calls to backend at `http://localhost:5000/api/chat`
+- Shared types for DTOs (future: consider shared TypeScript definitions)
+- Aspire orchestration (future: AppHost will manage both frontend and backend)
+
+**Key Files**:
+
+- `app/page.tsx` - Main page component
+- `app/layout.tsx` - Root layout
+- `next.config.ts` - Next.js configuration
+- `tailwind.config.ts` - Tailwind CSS configuration
