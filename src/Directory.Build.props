@@ -2,11 +2,11 @@
   <!-- Common properties for all projects -->
   <PropertyGroup>
     <!-- Target Framework -->
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
 
     <!-- .NET Aspire Version -->
-    <AspireVersion>9.5.2</AspireVersion>
+    <AspireVersion>13.0.0</AspireVersion>
 
     <!-- General Settings -->
     <ImplicitUsings>enable</ImplicitUsings>
@@ -28,7 +28,7 @@
     <!-- Versioning -->
     <!-- Application version (update before creating Git tags/releases) -->
     <!-- MSBuild automatically derives FileVersion and AssemblyVersion from this -->
-    <Version>1.2.0</Version>
+    <Version>2.0.0</Version>
 
     <!-- Build Configuration -->
     <Deterministic>true</Deterministic>
