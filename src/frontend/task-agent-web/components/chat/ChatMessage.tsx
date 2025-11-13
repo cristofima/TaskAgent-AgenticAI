@@ -1,15 +1,12 @@
 "use client";
 
-import { type UIMessage } from "ai";
 import ReactMarkdown from "react-markdown";
-
-interface TextPart {
-  type: "text";
-  text: string;
-}
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import type { ChatMessage as ChatMessageType } from "@/types/chat";
 
 interface ChatMessageProps {
-  message: UIMessage;
+  message: ChatMessageType;
 }
 
 /**
@@ -17,13 +14,8 @@ interface ChatMessageProps {
  */
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
-
-  // Extract text content from message parts
-  const textContent =
-    message.parts
-      ?.filter((part): part is TextPart => part.type === "text")
-      .map((part) => part.text)
-      .join("\n") || "";
+  // Process content: convert \n to actual newlines for proper Markdown rendering
+  const textContent = (message.content || "").replace(/\\n/g, "\n");
 
   return (
     <div
@@ -49,7 +41,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
             isUser ? "text-white" : "text-gray-800"
           }`}
         >
-          <ReactMarkdown>{textContent}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeRaw]}
+          >
+            {textContent}
+          </ReactMarkdown>
         </div>
       </div>
     </div>

@@ -1,10 +1,10 @@
 "use client";
 
-import { type UIMessage } from "ai";
 import { ChatMessage } from "./ChatMessage";
+import type { ChatMessage as ChatMessageType } from "@/types/chat";
 
 interface ChatMessagesListProps {
-  messages: UIMessage[];
+  messages: ChatMessageType[];
   isLoading: boolean;
 }
 

@@ -71,8 +71,10 @@ body {
 /* Markdown content styling for chat messages */
 .markdown-content {
   line-height: 1.6;
+  word-wrap: break-word;
 }
 
+/* Headers */
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3,
@@ -82,50 +84,65 @@ body {
   margin-top: 1em;
   margin-bottom: 0.5em;
   font-weight: 600;
-  color: #333;
 }
 
 .markdown-content h1 {
   font-size: 1.75em;
-  border-bottom: 2px solid #e1e4e8;
+  border-bottom: 2px solid currentColor;
   padding-bottom: 0.3em;
+  opacity: 0.9;
 }
 
 .markdown-content h2 {
   font-size: 1.5em;
-  border-bottom: 1px solid #e1e4e8;
+  border-bottom: 1px solid currentColor;
   padding-bottom: 0.3em;
+  opacity: 0.9;
 }
 
 .markdown-content h3 {
   font-size: 1.25em;
 }
 
+/* Paragraphs */
 .markdown-content p {
   margin-bottom: 0.8em;
 }
 
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Lists */
 .markdown-content ul,
 .markdown-content ol {
   margin-left: 1.5em;
   margin-bottom: 0.8em;
+  padding-left: 0.5em;
+}
+
+.markdown-content ul {
+  list-style-type: disc;
+}
+
+.markdown-content ol {
+  list-style-type: decimal;
 }
 
 .markdown-content li {
   margin-bottom: 0.3em;
 }
 
+/* Inline code */
 .markdown-content code {
-  background-color: #f6f8fa;
   padding: 0.2em 0.4em;
   border-radius: 3px;
   font-size: 85%;
-  font-family: "Courier New", monospace;
-  color: #e83e8c;
+  font-family: "Courier New", Consolas, Monaco, monospace;
 }
 
+/* Code blocks */
 .markdown-content pre {
-  background-color: #0d1117;
   border-radius: 6px;
   padding: 16px;
   overflow-x: auto;
@@ -135,11 +152,11 @@ body {
 .markdown-content pre code {
   background-color: transparent;
   padding: 0;
-  color: #c9d1d9;
   font-size: 90%;
   line-height: 1.45;
 }
 
+/* Tables */
 .markdown-content table {
   border-collapse: collapse;
   width: 100%;
@@ -150,33 +167,106 @@ body {
 
 .markdown-content table th,
 .markdown-content table td {
-  border: 1px solid #dfe2e5;
+  border: 1px solid currentColor;
   padding: 8px 12px;
   text-align: left;
+  opacity: 0.8;
 }
 
 .markdown-content table th {
-  background-color: #f6f8fa;
   font-weight: 600;
+  opacity: 0.9;
 }
 
 .markdown-content table tr:nth-child(even) {
-  background-color: #f9f9f9;
+  opacity: 0.95;
 }
 
+/* Links */
 .markdown-content a {
-  color: #0366d6;
-  text-decoration: none;
+  text-decoration: underline;
+  opacity: 0.9;
 }
 
 .markdown-content a:hover {
-  text-decoration: underline;
+  opacity: 1;
 }
 
+/* Bold and italic */
 .markdown-content strong {
   font-weight: 600;
 }
 
 .markdown-content em {
   font-style: italic;
+}
+
+/* Blockquotes */
+.markdown-content blockquote {
+  border-left: 4px solid currentColor;
+  padding-left: 1em;
+  margin-left: 0;
+  margin-right: 0;
+  opacity: 0.8;
+}
+
+/* Horizontal rules */
+.markdown-content hr {
+  border: none;
+  border-top: 2px solid currentColor;
+  margin: 1.5em 0;
+  opacity: 0.3;
+}
+
+/* Specific styling for assistant messages (white background) */
+.bg-white .markdown-content code {
+  background-color: #f6f8fa;
+  color: #e83e8c;
+}
+
+.bg-white .markdown-content pre {
+  background-color: #0d1117;
+}
+
+.bg-white .markdown-content pre code {
+  color: #c9d1d9;
+}
+
+.bg-white .markdown-content table th {
+  background-color: #f6f8fa;
+}
+
+.bg-white .markdown-content table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+/* Specific styling for user messages (blue background) */
+.bg-gradient-to-br .markdown-content code {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.bg-gradient-to-br .markdown-content pre {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.bg-gradient-to-br .markdown-content pre code {
+  color: #fff;
+}
+
+.bg-gradient-to-br .markdown-content table {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.bg-gradient-to-br .markdown-content table th,
+.bg-gradient-to-br .markdown-content table td {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.bg-gradient-to-br .markdown-content table th {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.bg-gradient-to-br .markdown-content table tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.05);
 }

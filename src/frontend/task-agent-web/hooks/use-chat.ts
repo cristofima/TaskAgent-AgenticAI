@@ -1,24 +1,26 @@
 "use client";
 
 /**
- * Custom hook for chat functionality using Vercel AI SDK
- * Configured to work with external .NET backend API with streaming support
+ * Custom hook for chat functionality
+ * Manages chat state and API communication with .NET backend
+ *
+ * TODO: Implement streaming support - see STREAMING_ROADMAP.md
  */
 
-import { useChat as useVercelChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import type { UIMessage } from "ai";
 import { useState, useCallback, FormEvent } from "react";
+import { sendMessage } from "@/lib/api/chat-service";
+import type { ChatMessage } from "@/types/chat";
 
 export interface UseChatOptions {
     onError?: (error: Error) => void;
 }
 
 export interface UseChatReturn {
-    messages: UIMessage[];
+    messages: ChatMessage[];
     input: string;
     isLoading: boolean;
     error: Error | undefined;
+    threadId: string | null;
     handleInputChange: (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
     ) => void;
@@ -28,18 +30,15 @@ export interface UseChatReturn {
 }
 
 /**
- * Hook for managing chat state and interactions with streaming support
- * Wraps Vercel AI SDK's useChat for compatibility with .NET backend
+ * Hook for managing chat state and interactions (non-streaming)
+ * Uses /api/Chat/send endpoint
  */
 export function useChat(options: UseChatOptions = {}): UseChatReturn {
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
-
-    const chat = useVercelChat({
-        transport: new DefaultChatTransport({
-            api: `${process.env.NEXT_PUBLIC_API_URL}/api/chat`,
-        }),
-        onError: options.onError,
-    });
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<Error | undefined>();
+    const [threadId, setThreadId] = useState<string | null>(null);
 
     const handleInputChange = useCallback(
         (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -51,28 +50,75 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     const handleSubmit = useCallback(
         async (e: FormEvent<HTMLFormElement>) => {
             e.preventDefault();
-            if (!input.trim()) return;
+            if (!input.trim() || isLoading) return;
 
-            const message = input.trim();
+            const userMessage = input.trim();
             setInput(""); // Clear input immediately
+            setError(undefined);
 
-            await chat.sendMessage({ text: message });
+            // Add user message to UI immediately
+            const userChatMessage: ChatMessage = {
+                id: `temp-${Date.now()}`,
+                role: "user",
+                content: userMessage,
+                createdAt: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, userChatMessage]);
+            setIsLoading(true);
+
+            try {
+                // Send message to backend
+                const response = await sendMessage({
+                    message: userMessage,
+                    threadId: threadId,
+                });
+
+                // Update threadId if new conversation
+                if (response.threadId && !threadId) {
+                    setThreadId(response.threadId);
+                }
+
+                // Add assistant response to messages
+                const assistantMessage: ChatMessage = {
+                    id: response.messageId || `msg-${Date.now()}`,
+                    role: "assistant",
+                    content: response.message || "",
+                    createdAt: response.createdAt,
+                    metadata: response.metadata,
+                };
+                setMessages((prev) => [...prev, assistantMessage]);
+            } catch (err) {
+                const errorObj = err instanceof Error ? err : new Error("Failed to send message");
+                setError(errorObj);
+                options.onError?.(errorObj);
+
+                // Remove the user message on error
+                setMessages((prev) => prev.slice(0, -1));
+            } finally {
+                setIsLoading(false);
+            }
         },
-        [input, chat]
+        [input, isLoading, threadId, options]
     );
 
+    const clearMessages = useCallback(() => {
+        setMessages([]);
+        setThreadId(null);
+        setError(undefined);
+    }, []);
+
     return {
-        messages: chat.messages,
+        messages,
         input,
-        isLoading: chat.status === "streaming" || chat.status === "submitted",
-        error: chat.error,
+        isLoading,
+        error,
+        threadId,
         handleInputChange,
         handleSubmit,
-        clearMessages: () => chat.setMessages([]),
+        clearMessages,
         setInput,
     };
 }
-
 
 
 
