@@ -8,8 +8,8 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-builder.Services
-    .AddApplication()
+builder
+    .Services.AddApplication()
     .AddInfrastructure(builder.Configuration)
     .AddPresentation(builder.Configuration);
 
@@ -22,20 +22,31 @@ app.ValidateConfiguration();
 // Apply database migrations automatically on startup (all environments)
 await app.ApplyDatabaseMigrationsAsync();
 
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "TaskAgent API v1");
+        options.RoutePrefix = "swagger";
+    });
+}
+else
+{
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
-app.UseRouting();
 
+// Enable CORS before authentication
+app.UseCors();
+
+// Content Safety middleware before authorization
 app.UseContentSafety();
 
 app.UseAuthorization();
 
-app.MapControllerRoute(name: "default", pattern: "{controller=Home}/{action=Index}/{id?}");
+// Map controllers for REST API
+app.MapControllers();
 
 await app.RunAsync();

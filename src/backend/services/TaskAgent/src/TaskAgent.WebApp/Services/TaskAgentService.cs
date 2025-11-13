@@ -5,9 +5,13 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using OpenAI.Chat;
+using TaskAgent.Application.DTOs;
 using TaskAgent.Application.Functions;
 using TaskAgent.Application.Interfaces;
 using TaskAgent.Application.Telemetry;
+using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
+using ChatMessageDto = TaskAgent.Application.DTOs.ChatMessage;
+using ChatResponseDto = TaskAgent.Application.DTOs.ChatResponse;
 
 namespace TaskAgent.WebApp.Services;
 
@@ -48,33 +52,11 @@ public class TaskAgentService : ITaskAgentService
         ILogger<TaskFunctions> logger
     )
     {
-        if (client == null)
-        {
-            throw new ArgumentNullException(nameof(client));
-        }
-
-        if (string.IsNullOrWhiteSpace(modelDeployment))
-        {
-            throw new ArgumentException(
-                "Model deployment cannot be empty",
-                nameof(modelDeployment)
-            );
-        }
-
-        if (taskRepository == null)
-        {
-            throw new ArgumentNullException(nameof(taskRepository));
-        }
-
-        if (metrics == null)
-        {
-            throw new ArgumentNullException(nameof(metrics));
-        }
-
-        if (logger == null)
-        {
-            throw new ArgumentNullException(nameof(logger));
-        }
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelDeployment);
+        ArgumentNullException.ThrowIfNull(taskRepository);
+        ArgumentNullException.ThrowIfNull(metrics);
+        ArgumentNullException.ThrowIfNull(logger);
 
         ChatClient chatClient = client.GetChatClient(modelDeployment);
 
@@ -149,40 +131,29 @@ public class TaskAgentService : ITaskAgentService
                 - Use bullet points for simple lists
                 - Include percentages and counts where relevant
 
-                CONTEXTUAL SUGGESTIONS:
+                CONTEXTUAL SUGGESTIONS (MANDATORY):
 
-                After each response, provide 1-2 helpful suggestions based on the context:
+                **ALWAYS end your response with 2-3 contextual suggestions for the user's next action.**
+                Format them EXACTLY like this at the very end of your response (after a blank line):
 
-                After creating a task:
-                - Suggest viewing all tasks or the specific task details
-                - Suggest creating related tasks if the title implies a project
-                - Example: '💡 Suggestions: • View all pending tasks • Create a follow-up task'
+                💡 Suggestions:
+                - [First suggestion]
+                - [Second suggestion]
+                - [Third suggestion (optional)]
 
-                After listing tasks:
-                - Suggest filtering by status or priority if showing all tasks
-                - Suggest updating the oldest pending task
-                - Suggest getting a summary
-                - Example: '💡 Suggestions: • Filter by high priority • Update task #X status'
+                Guidelines for suggestions:
+                - Keep each suggestion short and actionable (under 50 characters)
+                - Make them relevant to the current context and conversation
+                - Vary suggestions based on what the user just did
+                - Only provide 2-3 suggestions (never more, never less than 2)
+                - Use simple, direct language (e.g., 'Create a new task', 'View pending tasks')
 
-                After updating a task:
-                - Suggest viewing the updated task details
-                - If completed, suggest viewing remaining pending tasks
-                - Example: '💡 Suggestions: • View updated task details • List remaining pending tasks'
-
-                After deleting a task:
-                - Suggest viewing remaining tasks
-                - Suggest getting a fresh summary
-                - Example: '� Suggestions: • View remaining tasks • Get task summary'
-
-                After showing a summary:
-                - Suggest viewing the oldest pending tasks
-                - Suggest updating high priority tasks
-                - Example: '� Suggestions: • View all high priority tasks • Update oldest pending task'
-
-                When there are no tasks:
-                - Suggest creating their first task
-                - Provide examples of good task titles
-                - Example: '� Suggestions: • Create your first task • Start with a high priority task'
+                After creating a task → suggest: View all tasks, Create another task, Get summary
+                After listing tasks → suggest: Create new task, Filter by priority, Update task
+                After updating a task → suggest: View task details, List all tasks, Get summary
+                After deleting a task → suggest: View remaining tasks, Create task, Get summary
+                After showing a summary → suggest: View pending tasks, Create task, Update oldest
+                When there are no tasks → suggest: Create your first task, Get help, View examples
 
                 COMMUNICATION STYLE:
 
@@ -219,10 +190,7 @@ public class TaskAgentService : ITaskAgentService
         );
     }
 
-    public async Task<(string response, string threadId)> SendMessageAsync(
-        string message,
-        string? threadId = null
-    )
+    public async Task<ChatResponseDto> SendMessageAsync(string message, string? threadId = null)
     {
         if (string.IsNullOrWhiteSpace(message))
         {
@@ -231,6 +199,8 @@ public class TaskAgentService : ITaskAgentService
 
         var stopwatch = Stopwatch.StartNew();
         string activeThreadId = threadId ?? Guid.NewGuid().ToString();
+        string messageId = Guid.NewGuid().ToString();
+        DateTime createdAt = DateTime.UtcNow;
 
         // Start distributed tracing activity
         using Activity? activity = AgentActivitySource.StartMessageActivity(
@@ -286,6 +256,16 @@ public class TaskAgentService : ITaskAgentService
             dynamic? response = await _agent.RunAsync(message, (dynamic)thread);
             string? responseText = response?.Text;
 
+            // Extract metadata from agent response (function calls executed during processing)
+            MessageMetadata? metadata = ExtractMetadata(response);
+
+            // Extract contextual suggestions from agent response text (agent is instructed to include them)
+            IReadOnlyList<string>? suggestions = GenerateSuggestions(responseText);
+
+            // Remove suggestions section from message text to avoid duplication
+            // The suggestions will be in the separate 'suggestions' field
+            string cleanedMessage = RemoveSuggestionsFromMessage(responseText);
+
             // Serialize and persist the updated thread for next request
             JsonElement updatedThreadJson = thread.Serialize();
             string updatedThreadSerialized = JsonSerializer.Serialize(
@@ -308,7 +288,16 @@ public class TaskAgentService : ITaskAgentService
                 stopwatch.ElapsedMilliseconds
             );
 
-            return (responseText ?? "I'm sorry, I couldn't process that request.", activeThreadId);
+            // Return enriched ChatResponse with metadata
+            return new ChatResponseDto
+            {
+                Message = cleanedMessage ?? "I'm sorry, I couldn't process that request.",
+                ThreadId = activeThreadId,
+                MessageId = messageId,
+                CreatedAt = createdAt,
+                Metadata = metadata,
+                Suggestions = suggestions,
+            };
         }
         catch (Exception ex)
         {
@@ -333,10 +322,13 @@ public class TaskAgentService : ITaskAgentService
                 stopwatch.ElapsedMilliseconds
             );
 
-            return (
-                $"An error occurred while processing your request: {ex.Message}",
-                activeThreadId
-            );
+            return new ChatResponseDto
+            {
+                Message = $"An error occurred while processing your request: {ex.Message}",
+                ThreadId = activeThreadId,
+                MessageId = messageId,
+                CreatedAt = createdAt,
+            };
         }
     }
 
@@ -344,5 +336,359 @@ public class TaskAgentService : ITaskAgentService
     {
         // Simply return a new GUID - client manages thread persistence
         return Guid.NewGuid().ToString();
+    }
+
+    public async Task<GetConversationResponse> GetConversationHistoryAsync(
+        GetConversationRequest request
+    )
+    {
+        if (string.IsNullOrWhiteSpace(request.ThreadId))
+        {
+            throw new ArgumentException("ThreadId cannot be empty", nameof(request));
+        }
+
+        try
+        {
+            // Get serialized thread from persistence
+            string? serializedThread = await _threadPersistence.GetThreadAsync(request.ThreadId);
+
+            if (serializedThread == null)
+            {
+                _logger.LogWarning(
+                    "Thread {ThreadId} not found for conversation history",
+                    request.ThreadId
+                );
+                return new GetConversationResponse
+                {
+                    ThreadId = request.ThreadId,
+                    Messages = Array.Empty<ChatMessageDto>(),
+                    TotalCount = 0,
+                    Page = request.Page,
+                    PageSize = request.PageSize,
+                    HasMore = false,
+                };
+            }
+
+            // TODO: Parse thread JSON to extract messages
+            // For now, return empty response - will be implemented when we add proper message storage
+            _logger.LogWarning(
+                "Conversation history extraction not yet implemented for thread {ThreadId}",
+                request.ThreadId
+            );
+
+            return new GetConversationResponse
+            {
+                ThreadId = request.ThreadId,
+                Messages = Array.Empty<ChatMessageDto>(),
+                TotalCount = 0,
+                Page = request.Page,
+                PageSize = request.PageSize,
+                HasMore = false,
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error retrieving conversation history for thread {ThreadId}",
+                request.ThreadId
+            );
+            throw;
+        }
+    }
+
+    public async Task DeleteThreadAsync(string threadId)
+    {
+        if (string.IsNullOrWhiteSpace(threadId))
+        {
+            throw new ArgumentException("ThreadId cannot be empty", nameof(threadId));
+        }
+
+        try
+        {
+            await _threadPersistence.DeleteThreadAsync(threadId);
+            _logger.LogInformation("Deleted thread {ThreadId}", threadId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting thread {ThreadId}", threadId);
+            throw;
+        }
+    }
+
+    public async Task<ListThreadsResponse> ListThreadsAsync(ListThreadsRequest request)
+    {
+        try
+        {
+            return await _threadPersistence.GetThreadsAsync(request);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing threads");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Extracts metadata about function calls from AgentRunResponse.
+    /// Based on Microsoft Learn documentation: AgentRunResponse.Messages contains ChatMessageContent
+    /// with Contents that include FunctionCallContent and FunctionResultContent.
+    /// Documentation: https://learn.microsoft.com/en-us/dotnet/api/microsoft.agents.ai.agentrunresponse
+    /// </summary>
+    /// <param name="response">The agent run response containing messages with function calls.</param>
+    /// <returns>Metadata about function calls, or null if no function calls found.</returns>
+    private MessageMetadata? ExtractMetadata(dynamic? response)
+    {
+        try
+        {
+            // Cast to AgentRunResponse first to avoid dynamic invocation issues with ILogger extension methods
+            // Use pattern matching for cleaner null check
+            if (response is not AgentRunResponse agentRunResponse)
+            {
+                _logger.LogWarning(
+                    "Response is null or not an AgentRunResponse, cannot extract metadata"
+                );
+                return null;
+            }
+
+            _logger.LogInformation("=== EXTRACTING METADATA FROM AGENT RESPONSE ===");
+            _logger.LogInformation(
+                "AgentRunResponse has {MessageCount} messages",
+                agentRunResponse.Messages.Count
+            );
+
+            var functionCalls = new List<FunctionCallInfo>();
+
+            // Extract function calls from all messages in the response
+            foreach (ChatMessage message in agentRunResponse.Messages)
+            {
+                _logger.LogInformation(
+                    "Processing message - Role: {Role}, Contents count: {ContentCount}",
+                    message.Role,
+                    message.Contents.Count
+                );
+
+                foreach (AIContent content in message.Contents)
+                {
+                    if (content is FunctionCallContent functionCall)
+                    {
+                        _logger.LogInformation(
+                            "Found FunctionCallContent: {FunctionName}, CallId: {CallId}",
+                            functionCall.Name,
+                            functionCall.CallId
+                        );
+
+                        // Extract safe arguments (parameter names only, not values)
+                        string argumentsSummary = GetSafeArgumentsSummaryFromDict(
+                            functionCall.Arguments
+                        );
+
+                        // Check if there's a corresponding FunctionResultContent
+                        bool hasResult = agentRunResponse
+                            .Messages.SelectMany(m => m.Contents)
+                            .OfType<FunctionResultContent>()
+                            .Any(r => r.CallId == functionCall.CallId);
+
+                        _logger.LogInformation(
+                            "Function call '{FunctionName}' has result: {HasResult}",
+                            functionCall.Name,
+                            hasResult
+                        );
+
+                        functionCalls.Add(
+                            new FunctionCallInfo
+                            {
+                                Name = GetFriendlyFunctionName(functionCall.Name),
+                                Arguments = argumentsSummary, // Sanitized summary, not full data
+                                Result = hasResult ? "Success" : "Processing", // Safe status without emojis
+                                Timestamp = DateTime.UtcNow,
+                            }
+                        );
+                    }
+                    else if (content is FunctionResultContent functionResult)
+                    {
+                        _logger.LogInformation(
+                            "Found FunctionResultContent: CallId: {CallId}",
+                            functionResult.CallId
+                        );
+                    }
+                }
+            }
+
+            if (functionCalls.Count > 0)
+            {
+                _logger.LogInformation(
+                    "Successfully extracted {Count} function calls from response messages",
+                    functionCalls.Count
+                );
+
+                return new MessageMetadata
+                {
+                    FunctionCalls = functionCalls,
+                    AdditionalData = new Dictionary<string, object>
+                    {
+                        ["functionCallCount"] = functionCalls.Count,
+                        ["timestamp"] = DateTime.UtcNow,
+                    },
+                };
+            }
+
+            _logger.LogInformation("No function calls found in response messages");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error extracting metadata from agent response");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Creates a safe summary of function arguments for frontend display from dictionary.
+    /// Shows parameter names but not actual values (for security/privacy).
+    /// </summary>
+    /// <param name="arguments">Function arguments dictionary.</param>
+    /// <returns>Safe summary string like "title, description, priority".</returns>
+    private static string GetSafeArgumentsSummaryFromDict(IDictionary<string, object?>? arguments)
+    {
+        if (arguments == null || arguments.Count == 0)
+        {
+            return "no parameters";
+        }
+
+        // Only return parameter names, not values
+        return string.Join(", ", arguments.Keys);
+    }
+
+    /// <summary>
+    /// Converts internal function names to user-friendly display names
+    /// </summary>
+    private static string GetFriendlyFunctionName(string functionName)
+    {
+        return functionName switch
+        {
+            "CreateTask" => "Creating task",
+            "ListTasks" => "Listing tasks",
+            "GetTaskDetails" => "Getting task details",
+            "UpdateTask" => "Updating task",
+            "DeleteTask" => "Deleting task",
+            "GetTaskSummary" => "Getting summary",
+            _ => functionName,
+        };
+    }
+
+    /// <summary>
+    /// Extracts contextual suggestions from the agent's response text.
+    /// The agent is instructed to include suggestions in a specific format at the end of its response.
+    /// Maximum 3 suggestions as specified in the agent's instructions.
+    /// </summary>
+    private List<string>? GenerateSuggestions(string? responseText)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(responseText))
+            {
+                return null;
+            }
+
+            // Look for the suggestions section: "💡 Suggestions:"
+            const string suggestionsMarker = "💡 Suggestions:";
+            int suggestionsIndex = responseText.IndexOf(
+                suggestionsMarker,
+                StringComparison.Ordinal
+            );
+
+            if (suggestionsIndex == -1)
+            {
+                // Fallback: Try without emoji (in case of encoding issues)
+                const string fallbackMarker = "Suggestions:";
+                suggestionsIndex = responseText.IndexOf(
+                    fallbackMarker,
+                    StringComparison.OrdinalIgnoreCase
+                );
+
+                if (suggestionsIndex == -1)
+                {
+                    _logger.LogWarning("Agent response did not include suggestions section");
+                    return null;
+                }
+            }
+
+            // Extract text after the marker
+            string suggestionsText = responseText[suggestionsIndex..];
+
+            // Split by newlines and filter lines that start with "-" or "•"
+            string[] lines = suggestionsText.Split(
+                '\n',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            );
+
+            var suggestions = new List<string>();
+
+            foreach (string line in lines.Skip(1)) // Skip the "💡 Suggestions:" line itself
+            {
+                string trimmedLine = line.TrimStart();
+
+                // Check if line starts with "-" or "•"
+                if (trimmedLine.StartsWith('-') || trimmedLine.StartsWith('•'))
+                {
+                    // Remove the bullet and trim
+                    string suggestion = trimmedLine.TrimStart('-', '•').Trim();
+
+                    if (!string.IsNullOrWhiteSpace(suggestion))
+                    {
+                        suggestions.Add(suggestion);
+                    }
+                }
+                else if (!trimmedLine.Contains(':') && suggestions.Count > 0)
+                {
+                    // If we already have suggestions and hit a non-bullet line, we've reached the end
+                    break;
+                }
+            }
+
+            // Return max 3 suggestions as instructed in the agent prompt
+            return suggestions.Count > 0 ? suggestions.Take(3).ToList() : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to generate suggestions");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Removes the suggestions section from the message text to avoid duplication.
+    /// The suggestions are already extracted and returned in the 'suggestions' field.
+    /// </summary>
+    private static string RemoveSuggestionsFromMessage(string? responseText)
+    {
+        if (string.IsNullOrWhiteSpace(responseText))
+            return string.Empty;
+
+        // Look for the suggestions section: "💡 Suggestions:"
+        const string suggestionsMarker = "💡 Suggestions:";
+        int suggestionsIndex = responseText.IndexOf(suggestionsMarker, StringComparison.Ordinal);
+
+        if (suggestionsIndex == -1)
+        {
+            // Fallback: Try without emoji
+            const string fallbackMarker = "Suggestions:";
+            suggestionsIndex = responseText.IndexOf(
+                fallbackMarker,
+                StringComparison.OrdinalIgnoreCase
+            );
+        }
+
+        if (suggestionsIndex == -1)
+        {
+            // No suggestions section found, return original text
+            return responseText;
+        }
+
+        // Remove everything from the suggestions marker onwards
+        string cleanedText = responseText[..suggestionsIndex].TrimEnd();
+
+        return cleanedText;
     }
 }

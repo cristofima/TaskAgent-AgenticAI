@@ -1,6 +1,9 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Azure;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
+using Microsoft.OpenApi;
 using TaskAgent.Application.Functions;
 using TaskAgent.Application.Interfaces;
 using TaskAgent.Application.Telemetry;
@@ -18,8 +21,76 @@ public static class PresentationServiceExtensions
         IConfiguration configuration
     )
     {
-        services.AddControllersWithViews();
+        // Configure CORS for Next.js frontend
+        services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy
+                    .WithOrigins(
+                        "http://localhost:3000", // Next.js dev server
+                        "https://localhost:3000"
+                    )
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            });
+        });
+
+        // Configure API controllers with JSON options
+        services
+            .AddControllers()
+            .AddJsonOptions(options =>
+            {
+                // Use camelCase for JSON properties (JavaScript convention)
+                options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+
+                // Include null values in JSON responses
+                options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
+
+                // Pretty print in development
+                options.JsonSerializerOptions.WriteIndented = true;
+
+                // Handle reference loops gracefully
+                options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+
+                // Convert enums to strings for better readability
+                options.JsonSerializerOptions.Converters.Add(
+                    new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
+                );
+            });
+
+        // Configure Swagger/OpenAPI for API documentation
+        services.AddEndpointsApiExplorer();
+        services.AddSwaggerGen(options =>
+        {
+            options.SwaggerDoc(
+                "v1",
+                new OpenApiInfo
+                {
+                    Title = "TaskAgent API",
+                    Version = "v1",
+                    Description = "AI-powered task management API with Microsoft Agents Framework",
+                    Contact = new OpenApiContact
+                    {
+                        Name = "TaskAgent Team",
+                        Url = new Uri("https://github.com/cristofima/TaskAgent-AgenticAI"),
+                    },
+                }
+            );
+
+            // Include XML comments if available
+            string xmlFile =
+                $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            string xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            if (File.Exists(xmlPath))
+            {
+                options.IncludeXmlComments(xmlPath);
+            }
+        });
+
         RegisterTaskAgent(services, configuration);
+
         return services;
     }
 
@@ -55,7 +126,9 @@ public static class PresentationServiceExtensions
             IThreadPersistenceService threadPersistence =
                 sp.GetRequiredService<IThreadPersistenceService>();
             AgentMetrics metrics = sp.GetRequiredService<AgentMetrics>();
-            ILogger<TaskFunctions> functionsLogger = sp.GetRequiredService<ILogger<TaskFunctions>>();
+            ILogger<TaskFunctions> functionsLogger = sp.GetRequiredService<
+                ILogger<TaskFunctions>
+            >();
 
             AIAgent agent = TaskAgentService.CreateAgent(
                 client,

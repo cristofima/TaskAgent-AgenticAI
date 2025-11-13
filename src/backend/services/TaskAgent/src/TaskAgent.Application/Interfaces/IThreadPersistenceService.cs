@@ -1,3 +1,5 @@
+using TaskAgent.Application.DTOs;
+
 namespace TaskAgent.Application.Interfaces;
 
 /// <summary>
@@ -10,18 +12,25 @@ public interface IThreadPersistenceService
     /// </summary>
     /// <param name="threadId">Unique identifier for the thread</param>
     /// <param name="serializedThread">Serialized thread data</param>
-    Task SaveThreadAsync(string threadId, string serializedThread);
+    public Task SaveThreadAsync(string threadId, string serializedThread);
 
     /// <summary>
     /// Retrieves a serialized thread from storage
     /// </summary>
     /// <param name="threadId">Unique identifier for the thread</param>
     /// <returns>Serialized thread data, or null if not found</returns>
-    Task<string?> GetThreadAsync(string threadId);
+    public Task<string?> GetThreadAsync(string threadId);
 
     /// <summary>
     /// Deletes a thread from storage
     /// </summary>
     /// <param name="threadId">Unique identifier for the thread</param>
-    Task DeleteThreadAsync(string threadId);
+    public Task DeleteThreadAsync(string threadId);
+
+    /// <summary>
+    /// Gets all conversation threads with metadata
+    /// </summary>
+    /// <param name="request">Request with pagination and filter options</param>
+    /// <returns>List of conversation threads with metadata</returns>
+    public Task<ListThreadsResponse> GetThreadsAsync(ListThreadsRequest request);
 }
