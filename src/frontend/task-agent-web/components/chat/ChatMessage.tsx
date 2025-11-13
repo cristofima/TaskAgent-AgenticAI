@@ -4,18 +4,28 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import type { ChatMessage as ChatMessageType } from "@/types/chat";
+import { SuggestionsBar } from "./SuggestionsBar";
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  onSuggestionClick?: (suggestion: string) => void;
+  isLoading?: boolean;
 }
 
 /**
  * Individual chat message bubble component with MVC-inspired styling
  */
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  onSuggestionClick,
+  isLoading = false,
+}: ChatMessageProps) {
   const isUser = message.role === "user";
   // Process content: convert \n to actual newlines for proper Markdown rendering
   const textContent = (message.content || "").replace(/\\n/g, "\n");
+
+  // Extract suggestions from metadata
+  const suggestions = message.metadata?.suggestions || [];
 
   return (
     <div
@@ -48,6 +58,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {textContent}
           </ReactMarkdown>
         </div>
+
+        {/* Show suggestions for assistant messages */}
+        {!isUser && suggestions.length > 0 && onSuggestionClick && (
+          <SuggestionsBar
+            suggestions={suggestions}
+            onSuggestionClick={onSuggestionClick}
+            disabled={isLoading}
+          />
+        )}
       </div>
     </div>
   );

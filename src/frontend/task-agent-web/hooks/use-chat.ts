@@ -27,6 +27,7 @@ export interface UseChatReturn {
     handleSubmit: (e: FormEvent<HTMLFormElement>) => Promise<void>;
     clearMessages: () => void;
     setInput: (input: string) => void;
+    sendSuggestion: (suggestion: string) => Promise<void>;
 }
 
 /**
@@ -84,7 +85,10 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                     role: "assistant",
                     content: response.message || "",
                     createdAt: response.createdAt,
-                    metadata: response.metadata,
+                    metadata: {
+                        ...response.metadata,
+                        suggestions: response.suggestions || [],
+                    },
                 };
                 setMessages((prev) => [...prev, assistantMessage]);
             } catch (err) {
@@ -99,6 +103,60 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
             }
         },
         [input, isLoading, threadId, options]
+    );
+
+    const sendSuggestion = useCallback(
+        async (suggestion: string) => {
+            if (!suggestion.trim() || isLoading) return;
+
+            setError(undefined);
+
+            // Add user message to UI immediately
+            const userChatMessage: ChatMessage = {
+                id: `temp-${Date.now()}`,
+                role: "user",
+                content: suggestion,
+                createdAt: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, userChatMessage]);
+            setIsLoading(true);
+
+            try {
+                // Send message to backend
+                const response = await sendMessage({
+                    message: suggestion,
+                    threadId: threadId,
+                });
+
+                // Update threadId if new conversation
+                if (response.threadId && !threadId) {
+                    setThreadId(response.threadId);
+                }
+
+                // Add assistant response to messages
+                const assistantMessage: ChatMessage = {
+                    id: response.messageId || `msg-${Date.now()}`,
+                    role: "assistant",
+                    content: response.message || "",
+                    createdAt: response.createdAt,
+                    metadata: {
+                        ...response.metadata,
+                        suggestions: response.suggestions || [],
+                    },
+                };
+                setMessages((prev) => [...prev, assistantMessage]);
+            } catch (err) {
+                const errorObj = err instanceof Error ? err : new Error("Failed to send message");
+                setError(errorObj);
+                options.onError?.(errorObj);
+
+                // Remove the user message on error
+                setMessages((prev) => prev.slice(0, -1));
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        [isLoading, threadId, options]
     );
 
     const clearMessages = useCallback(() => {
@@ -117,6 +175,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         handleSubmit,
         clearMessages,
         setInput,
+        sendSuggestion,
     };
 }
 

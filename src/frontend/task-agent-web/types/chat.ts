@@ -19,6 +19,7 @@ export interface FunctionCallInfo {
 export interface MessageMetadata {
     functionCalls?: FunctionCallInfo[] | null;
     additionalData?: Record<string, unknown> | null;
+    suggestions?: string[] | null;
 }
 
 /**

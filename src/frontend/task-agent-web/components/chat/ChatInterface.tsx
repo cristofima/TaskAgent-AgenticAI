@@ -6,7 +6,6 @@
  * Supports streaming responses from .NET backend API
  */
 
-import Link from "next/link";
 import { useChat } from "@/hooks/use-chat";
 import { ChatMessagesList } from "./ChatMessagesList";
 import { ChatInput } from "./ChatInput";
@@ -15,58 +14,66 @@ import { ChatInput } from "./ChatInput";
  * Main ChatInterface component with MVC-inspired design
  */
 export function ChatInterface() {
-  const { messages, input, isLoading, error, handleInputChange, handleSubmit } =
-    useChat({
-      onError: (error) => {
-        console.error("Chat error:", error);
-      },
-    });
+  const {
+    messages,
+    input,
+    isLoading,
+    error,
+    handleInputChange,
+    handleSubmit,
+    sendSuggestion,
+  } = useChat({
+    onError: (error) => {
+      console.error("Chat error:", error);
+    },
+  });
+
+  const hasMessages = messages.length > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-radial from-blue-500/80 via-blue-800 to-slate-950">
-      {/* Header/Navbar */}
-      <nav className="bg-gray-900/95 backdrop-blur-sm shadow-lg border-b border-gray-700/50">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center h-16">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-white text-xl font-semibold hover:text-blue-400 transition-colors"
-            >
-              <span className="text-2xl">📋</span>
-              <span>Task Agent</span>
-            </Link>
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* Header - Only show when there are messages */}
+      {hasMessages && (
+        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-2 max-w-4xl mx-auto">
+            <span className="text-xl">📋</span>
+            <span className="font-semibold text-gray-800">Task Agent</span>
           </div>
         </div>
-      </nav>
+      )}
 
-      {/* Chat Container */}
-      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 lg:py-8">
-        <div className="flex justify-center">
-          <div className="w-full max-w-sm sm:max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl">
-            <div
-              className="bg-white shadow-2xl rounded-xl sm:rounded-2xl flex flex-col overflow-hidden border border-gray-100"
-              style={{ height: "calc(100vh - 160px)" }}
-            >
-              {/* Card Header */}
-              <div className="bg-gradient-to-r from-blue-600 via-blue-600 to-blue-700 text-white px-4 sm:px-6 py-4 sm:py-5 shadow-md">
-                <h5 className="text-lg sm:text-xl font-bold mb-1 flex items-center gap-2">
-                  <span className="text-xl sm:text-2xl">📋</span>
-                  <span className="hidden sm:inline">
-                    Task Management Assistant
-                  </span>
-                  <span className="sm:hidden">Task Assistant</span>
-                </h5>
-                <small className="text-blue-100 text-xs sm:text-sm">
-                  Your AI-powered task organizer
-                </small>
-              </div>
-
-              {/* Chat Messages Area */}
-              <div className="flex-1 overflow-hidden bg-gray-50">
-                <ChatMessagesList messages={messages} isLoading={isLoading} />
-              </div>
-
-              {/* Input Area */}
+      {/* Main content area */}
+      {hasMessages ? (
+        /* With messages: scrollable messages + fixed input */
+        <>
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto">
+              <ChatMessagesList
+                messages={messages}
+                isLoading={isLoading}
+                onSuggestionClick={sendSuggestion}
+              />
+            </div>
+          </div>
+          <div className="flex-shrink-0 border-t border-gray-200 bg-white">
+            <ChatInput
+              input={input}
+              isLoading={isLoading}
+              handleInputChange={handleInputChange}
+              handleSubmit={handleSubmit}
+            />
+          </div>
+        </>
+      ) : (
+        /* Empty state: centered welcome + input */
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="w-full max-w-3xl">
+            <ChatMessagesList
+              messages={messages}
+              isLoading={isLoading}
+              onSuggestionClick={sendSuggestion}
+            />
+            <div className="mt-8">
               <ChatInput
                 input={input}
                 isLoading={isLoading}
@@ -76,7 +83,7 @@ export function ChatInterface() {
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Error Toast */}
       {error && (

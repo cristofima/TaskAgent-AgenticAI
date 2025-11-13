@@ -1,11 +1,13 @@
 "use client";
 
 import { ChatMessage } from "./ChatMessage";
+import { LoadingIndicator } from "./LoadingIndicator";
 import type { ChatMessage as ChatMessageType } from "@/types/chat";
 
 interface ChatMessagesListProps {
   messages: ChatMessageType[];
   isLoading: boolean;
+  onSuggestionClick?: (suggestion: string) => void;
 }
 
 /**
@@ -14,17 +16,18 @@ interface ChatMessagesListProps {
 export function ChatMessagesList({
   messages,
   isLoading,
+  onSuggestionClick,
 }: ChatMessagesListProps) {
   return (
-    <div className="flex flex-col gap-4 p-6 bg-gray-50 overflow-auto h-full">
+    <>
       {messages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-center py-8">
-          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 max-w-[650px] shadow-lg hover:shadow-xl transition-shadow">
-            <div className="font-bold text-gray-900 mb-3 text-xl flex items-center justify-center gap-2">
-              <span className="text-2xl">🤖</span>
+        <div className="flex flex-col items-center justify-center text-center">
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 max-w-2xl shadow-sm">
+            <div className="font-bold text-gray-900 mb-3 text-2xl flex items-center justify-center gap-2">
+              <span className="text-3xl">🤖</span>
               Task Assistant
             </div>
-            <p className="mb-4 text-gray-700 text-base leading-relaxed">
+            <p className="mb-4 text-gray-600 text-base leading-relaxed">
               Hi! I&apos;m your task management assistant. I can help you
               create, organize, and track your tasks efficiently.
             </p>
@@ -41,19 +44,18 @@ export function ChatMessagesList({
           </div>
         </div>
       ) : (
-        <>
+        <div className="flex flex-col gap-4 p-4 py-6">
           {messages.map((message) => (
-            <ChatMessage key={message.id} message={message} />
+            <ChatMessage
+              key={message.id}
+              message={message}
+              onSuggestionClick={onSuggestionClick}
+              isLoading={isLoading}
+            />
           ))}
-          {isLoading && (
-            <div className="flex items-center gap-2 text-blue-600 ml-4">
-              <div className="h-2.5 w-2.5 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-              <div className="h-2.5 w-2.5 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-              <div className="h-2.5 w-2.5 bg-blue-600 rounded-full animate-bounce"></div>
-            </div>
-          )}
-        </>
+          {isLoading && <LoadingIndicator />}
+        </div>
       )}
-    </div>
+    </>
   );
 }

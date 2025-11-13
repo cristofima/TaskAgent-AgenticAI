@@ -19,30 +19,60 @@ export function ChatInput({
   handleSubmit,
 }: ChatInputProps) {
   return (
-    <div className="border-t-2 border-gray-200 bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 p-5 shadow-inner">
-      <form onSubmit={handleSubmit} className="flex items-center gap-3">
-        <input
-          type="text"
-          value={input}
-          onChange={handleInputChange}
-          placeholder="What would you like to do with your tasks?"
-          className="flex-1 rounded-full bg-white/95 border-2 border-gray-300 px-6 py-3.5 text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all outline-none shadow-sm hover:shadow-md"
-          disabled={isLoading}
-        />
-        <button
-          type="submit"
-          disabled={isLoading || !input.trim()}
-          className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold px-8 py-3.5 rounded-full transition-all shadow-lg hover:shadow-xl flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 transform hover:scale-105 active:scale-100"
-        >
-          {isLoading ? (
-            <span className="flex items-center gap-2">
-              <span className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              Sending...
-            </span>
-          ) : (
-            "Send"
-          )}
-        </button>
+    <div className="p-4">
+      <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+        <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-xl shadow-sm hover:shadow-md transition-shadow focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+          <input
+            type="text"
+            value={input}
+            onChange={handleInputChange}
+            placeholder="Message Task Agent..."
+            className="flex-1 bg-transparent px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none"
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="mr-2 p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
+            aria-label="Send message"
+          >
+            {isLoading ? (
+              <svg
+                className="w-5 h-5 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                />
+              </svg>
+            )}
+          </button>
+        </div>
       </form>
     </div>
   );
