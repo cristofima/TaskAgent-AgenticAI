@@ -1,12 +1,15 @@
 {
   "github.copilot.chat.codeGeneration.instructions": [
     {
-      "file": "./.github/code-generation-instructions.md"
+      "file": "./.github/dotnet-code-generation-instructions.md"
+    },
+    {
+      "file": "./.github/nextjs-code-generation-instructions.md"
     }
   ],
   "github.copilot.chat.reviewSelection.instructions": [
     {
-      "file": "./.github/code-review-instructions.md"
+      "file": "./.github/dotnet-code-review-instructions.md"
     }
   ],
   "github.copilot.chat.commitMessageGeneration.instructions": [

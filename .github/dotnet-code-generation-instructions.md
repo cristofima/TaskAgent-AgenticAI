@@ -1,4 +1,8 @@
-# GitHub Copilot Code Generation Instructions
+# GitHub Copilot Custom Instructions - C#/.NET Backend Code Generation
+
+These instructions guide GitHub Copilot in generating clean, maintainable, scalable, and type-safe code for C#/.NET projects following industry best practices and SOLID principles.
+
+---
 
 ## Important Note
 
