@@ -54,14 +54,11 @@ export interface SendMessageResponse {
     suggestions?: string[] | null;
 }
 
-// TODO: Implement streaming support
-// See STREAMING_ROADMAP.md for implementation plan
-
 /**
  * Conversation thread info
  */
 export interface ConversationThread {
-    id: string | null;
+    id: string;
     title: string | null;
     preview: string | null;
     createdAt: string;

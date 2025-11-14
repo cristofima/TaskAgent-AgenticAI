@@ -3,16 +3,15 @@
 /**
  * Custom hook for chat functionality
  * Manages chat state and API communication with .NET backend
- *
- * TODO: Implement streaming support - see STREAMING_ROADMAP.md
  */
 
 import { useState, useCallback, FormEvent } from "react";
-import { sendMessage } from "@/lib/api/chat-service";
+import { sendMessage, getConversation } from "@/lib/api/chat-service";
 import type { ChatMessage } from "@/types/chat";
 
 export interface UseChatOptions {
     onError?: (error: Error) => void;
+    onThreadCreated?: (threadId: string) => void;
 }
 
 export interface UseChatReturn {
@@ -28,6 +27,8 @@ export interface UseChatReturn {
     clearMessages: () => void;
     setInput: (input: string) => void;
     sendSuggestion: (suggestion: string) => Promise<void>;
+    loadConversation: (threadId: string) => Promise<void>;
+    setThreadId: (threadId: string | null) => void;
 }
 
 /**
@@ -77,6 +78,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                 // Update threadId if new conversation
                 if (response.threadId && !threadId) {
                     setThreadId(response.threadId);
+                    // Notify that a new thread was created
+                    options.onThreadCreated?.(response.threadId);
                 }
 
                 // Add assistant response to messages
@@ -131,6 +134,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                 // Update threadId if new conversation
                 if (response.threadId && !threadId) {
                     setThreadId(response.threadId);
+                    // Notify that a new thread was created
+                    options.onThreadCreated?.(response.threadId);
                 }
 
                 // Add assistant response to messages
@@ -165,6 +170,48 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         setError(undefined);
     }, []);
 
+    const loadConversation = useCallback(
+        async (newThreadId: string) => {
+            setIsLoading(true);
+            setError(undefined);
+
+            try {
+                // Get conversation history
+                const response = await getConversation({
+                    threadId: newThreadId,
+                    page: 1,
+                    pageSize: 50,
+                });
+
+                // Update thread ID
+                setThreadId(newThreadId);
+
+                // Convert backend messages to frontend format
+                const loadedMessages: ChatMessage[] = (response.messages || []).map((msg) => ({
+                    id: msg.id || `msg-${Date.now()}-${Math.random()}`,
+                    role: msg.role || "assistant",
+                    content: msg.content || "",
+                    createdAt: msg.createdAt,
+                    metadata: msg.metadata,
+                }));
+
+                setMessages(loadedMessages);
+            } catch (err) {
+                const errorObj =
+                    err instanceof Error ? err : new Error("Failed to load conversation");
+                setError(errorObj);
+                options.onError?.(errorObj);
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        [options]
+    );
+
+    const setThreadIdManually = useCallback((newThreadId: string | null) => {
+        setThreadId(newThreadId);
+    }, []);
+
     return {
         messages,
         input,
@@ -176,6 +223,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         clearMessages,
         setInput,
         sendSuggestion,
+        loadConversation,
+        setThreadId: setThreadIdManually,
     };
 }
 

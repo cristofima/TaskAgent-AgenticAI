@@ -68,6 +68,7 @@ export function SuggestionsBar({
               border border-blue-200 hover:border-blue-300
               rounded-full
               transition-all duration-200
+              cursor-pointer
               shadow-sm hover:shadow-md
               cursor-pointer
               disabled:opacity-50 disabled:cursor-not-allowed
