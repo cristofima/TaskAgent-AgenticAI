@@ -10,6 +10,9 @@
   "github.copilot.chat.reviewSelection.instructions": [
     {
       "file": "./.github/dotnet-code-review-instructions.md"
+    },
+    {
+      "file": "./.github/nextjs-code-review-instructions.md"
     }
   ],
   "github.copilot.chat.commitMessageGeneration.instructions": [
