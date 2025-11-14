@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -14,8 +15,9 @@ interface ChatMessageProps {
 
 /**
  * Individual chat message bubble component with MVC-inspired styling
+ * Memoized to prevent unnecessary re-renders when parent updates
  */
-export function ChatMessage({
+export const ChatMessage = memo(function ChatMessage({
   message,
   onSuggestionClick,
   isLoading = false,
@@ -70,4 +72,4 @@ export function ChatMessage({
       </div>
     </div>
   );
-}
+});

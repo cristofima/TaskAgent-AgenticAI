@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { listThreads, deleteThread, getConversation } from "@/lib/api/chat-service";
 import type { ConversationThread, GetConversationResponse } from "@/types/chat";
+import { PAGINATION } from "@/lib/constants";
 
 export interface UseConversationsOptions {
     autoLoad?: boolean;
@@ -42,7 +43,7 @@ export function useConversations(
     const [hasMore, setHasMore] = useState(false);
 
     // Load conversations from backend
-    const loadConversations = useCallback(async () => {
+    const loadConversations = useCallback(async (): Promise<void> => {
         setIsLoading(true);
         setError(undefined);
 
@@ -57,9 +58,9 @@ export function useConversations(
             setConversations(response.threads ?? []);
             setHasMore(response.hasMore);
         } catch (err) {
-            const errorObj =
+            const validatedError =
                 err instanceof Error ? err : new Error("Failed to load conversations");
-            setError(errorObj);
+            setError(validatedError);
             console.error("Failed to load conversations:", err);
         } finally {
             setIsLoading(false);
@@ -68,7 +69,7 @@ export function useConversations(
 
     // Load a specific conversation's history
     const loadConversation = useCallback(
-        async (threadId: string) => {
+        async (threadId: string): Promise<GetConversationResponse> => {
             setIsLoading(true);
             setError(undefined);
 
@@ -77,7 +78,7 @@ export function useConversations(
                 const response = await getConversation({
                     threadId,
                     page: 1,
-                    pageSize: 50,
+                    pageSize: PAGINATION.CONVERSATION_PAGE_SIZE,
                 });
 
                 // Set as current thread
@@ -90,11 +91,11 @@ export function useConversations(
 
                 return response;
             } catch (err) {
-                const errorObj =
+                const validatedError =
                     err instanceof Error ? err : new Error("Failed to load conversation");
-                setError(errorObj);
+                setError(validatedError);
                 console.error("Failed to load conversation:", err);
-                throw errorObj;
+                throw validatedError;
             } finally {
                 setIsLoading(false);
             }
@@ -104,7 +105,7 @@ export function useConversations(
 
     // Delete a conversation
     const deleteConversation = useCallback(
-        async (threadId: string) => {
+        async (threadId: string): Promise<void> => {
             setError(undefined);
 
             try {
@@ -121,18 +122,18 @@ export function useConversations(
                     }
                 }
             } catch (err) {
-                const errorObj =
+                const validatedError =
                     err instanceof Error ? err : new Error("Failed to delete conversation");
-                setError(errorObj);
+                setError(validatedError);
                 console.error("Failed to delete conversation:", err);
-                throw errorObj;
+                throw validatedError;
             }
         },
         [currentThreadId]
     );
 
     // Set current thread ID
-    const setCurrentThreadId = useCallback((threadId: string | null) => {
+    const setCurrentThreadId = useCallback((threadId: string | null): void => {
         setCurrentThreadIdState(threadId);
 
         // Persist to localStorage
@@ -146,7 +147,7 @@ export function useConversations(
     }, []);
 
     // Create new conversation
-    const createNewConversation = useCallback(() => {
+    const createNewConversation = useCallback((): void => {
         setCurrentThreadIdState(null);
         if (typeof window !== "undefined") {
             localStorage.removeItem("taskagent_current_thread");

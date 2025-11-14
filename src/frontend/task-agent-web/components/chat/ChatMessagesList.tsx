@@ -1,7 +1,7 @@
 "use client";
 
 import { ChatMessage } from "./ChatMessage";
-import { LoadingIndicator } from "./LoadingIndicator";
+import { LoadingIndicator } from "@/components/shared/LoadingIndicator";
 import type { ChatMessage as ChatMessageType } from "@/types/chat";
 
 interface ChatMessagesListProps {

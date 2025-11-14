@@ -10,7 +10,10 @@ import { useState, useRef } from "react";
 import { useChat } from "@/hooks/use-chat";
 import { ChatMessagesList } from "./ChatMessagesList";
 import { ChatInput } from "./ChatInput";
-import { ConversationSidebar } from "./ConversationSidebar";
+import { ChatHeader } from "./ChatHeader";
+import { EmptyChatState } from "./EmptyChatState";
+import { ErrorToast } from "./ErrorToast";
+import { ConversationSidebar } from "@/components/conversations/ConversationSidebar";
 
 /**
  * Main ChatInterface component with sidebar and chat area
@@ -83,35 +86,7 @@ export function ChatInterface() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        {hasMessages && (
-          <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 px-4 py-3 shadow-sm">
-            <div className="flex items-center gap-3 max-w-4xl mx-auto">
-              {/* Sidebar toggle button (mobile) */}
-              <button
-                onClick={toggleSidebar}
-                className="md:hidden p-2 rounded hover:bg-gray-100 text-gray-600 cursor-pointer"
-                aria-label="Toggle sidebar"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </svg>
-              </button>
-
-              <span className="text-xl">📋</span>
-              <span className="font-semibold text-gray-800">Task Agent</span>
-            </div>
-          </div>
-        )}
+        {hasMessages && <ChatHeader onToggleSidebar={toggleSidebar} />}
 
         {/* Main content area */}
         {hasMessages ? (
@@ -141,74 +116,19 @@ export function ChatInterface() {
           </>
         ) : (
           /* Empty state: centered welcome + input */
-          <div className="flex-1 flex flex-col items-center justify-center px-4">
-            <div className="w-full max-w-3xl">
-              {/* Sidebar toggle in empty state (mobile) */}
-              <div className="md:hidden flex justify-start mb-4">
-                <button
-                  onClick={toggleSidebar}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium cursor-pointer"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 6h16M4 12h16M4 18h16"
-                    />
-                  </svg>
-                  Conversations
-                </button>
-              </div>
-
-              <ChatMessagesList
-                messages={messages}
-                isLoading={isLoading}
-                onSuggestionClick={sendSuggestion}
-              />
-              <div className="mt-8">
-                <ChatInput
-                  input={input}
-                  isLoading={isLoading}
-                  handleInputChange={handleInputChange}
-                  handleSubmit={handleSubmit}
-                />
-              </div>
-            </div>
-          </div>
+          <EmptyChatState
+            messages={messages}
+            input={input}
+            isLoading={isLoading}
+            onToggleSidebar={toggleSidebar}
+            handleInputChange={handleInputChange}
+            handleSubmit={handleSubmit}
+            sendSuggestion={sendSuggestion}
+          />
         )}
 
         {/* Error Toast */}
-        {error && (
-          <div className="fixed top-4 right-4 max-w-md bg-red-50 border-2 border-red-200 border-l-4 border-l-red-500 rounded-lg shadow-lg p-4 animate-fadeIn z-50">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 text-red-600">
-                <svg
-                  className="h-6 w-6"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-red-900 mb-1">
-                  ⚠️ Error
-                </h3>
-                <p className="text-sm text-red-800">{error.message}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        <ErrorToast error={error ?? null} />
       </div>
     </div>
   );
