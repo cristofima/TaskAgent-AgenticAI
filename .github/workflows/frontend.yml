@@ -1,0 +1,49 @@
+name: Azure Static Web Apps CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/frontend/task-agent-web/**"
+      - "!src/frontend/task-agent-web/**/*.md"
+
+jobs:
+  build_and_deploy:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    name: Build and Deploy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: |
+          cd src/frontend/task-agent-web
+          pnpm install --frozen-lockfile
+
+      - name: Build Next.js
+        run: |
+          cd src/frontend/task-agent-web
+          pnpm build
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PURPLE_RIVER_0F67D771E }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "src/frontend/task-agent-web"
+          output_location: ".next"
+          skip_app_build: true
