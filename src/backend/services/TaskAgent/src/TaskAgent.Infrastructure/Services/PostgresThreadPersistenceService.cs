@@ -9,8 +9,8 @@ using TaskAgent.Infrastructure.Data;
 namespace TaskAgent.Infrastructure.Services;
 
 /// <summary>
-/// PostgreSQL-backed implementation of thread persistence using JSONB blob storage
-/// Each ConversationThread stores the complete serialized AgentThread as JSONB
+/// PostgreSQL-backed implementation of thread persistence using JSON blob storage
+/// Each ConversationThread stores the complete serialized AgentThread as JSON
 /// </summary>
 public class PostgresThreadPersistenceService : IThreadPersistenceService
 {

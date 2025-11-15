@@ -6,7 +6,7 @@ namespace TaskAgent.Infrastructure.Data;
 
 /// <summary>
 /// Database context for Conversation Threads stored in PostgreSQL
-/// Stores complete serialized AgentThread as JSONB blob
+/// Stores complete serialized AgentThread as JSON blob
 /// </summary>
 public class ConversationDbContext : DbContext
 {

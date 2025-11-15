@@ -2,7 +2,7 @@ namespace TaskAgent.Domain.Entities;
 
 /// <summary>
 /// Domain entity for conversation thread persistence
-/// Stores complete serialized AgentThread as JSONB blob
+/// Stores complete serialized AgentThread as JSON blob
 /// </summary>
 public class ConversationThread
 {
