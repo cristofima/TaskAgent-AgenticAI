@@ -3,7 +3,7 @@ namespace TaskAgent.Application.DTOs;
 /// <summary>
 /// Represents a conversation thread with metadata
 /// </summary>
-public record ConversationThread
+public record ConversationThreadDTO
 {
     /// <summary>
     /// Unique identifier for the thread
@@ -23,12 +23,12 @@ public record ConversationThread
     /// <summary>
     /// When the thread was created
     /// </summary>
-    public DateTime CreatedAt { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
 
     /// <summary>
     /// When the thread was last updated
     /// </summary>
-    public DateTime UpdatedAt { get; init; }
+    public DateTimeOffset UpdatedAt { get; init; }
 
     /// <summary>
     /// Number of messages in the thread

@@ -7,21 +7,37 @@ namespace TaskAgent.Infrastructure.Services;
 
 /// <summary>
 /// Database migration service for Infrastructure layer
+/// Handles migrations for both TaskDbContext (SQL Server) and ConversationDbContext (PostgreSQL)
 /// </summary>
 public static class DatabaseMigrationService
 {
     /// <summary>
-    /// Applies pending database migrations automatically.
+    /// Applies pending database migrations automatically for both databases.
     /// This method applies migrations in all environments for simplified deployment.
     /// </summary>
     /// <param name="serviceProvider">The service provider to resolve dependencies</param>
     public static async Task ApplyDatabaseMigrationsAsync(IServiceProvider serviceProvider)
     {
         using IServiceScope scope = serviceProvider.CreateScope();
-        TaskDbContext dbContext = scope.ServiceProvider.GetRequiredService<TaskDbContext>();
-        ILogger<TaskDbContext> logger = scope.ServiceProvider.GetRequiredService<
-            ILogger<TaskDbContext>
-        >();
+
+        // Apply SQL Server migrations (Tasks)
+        await ApplyMigrationsForContextAsync<TaskDbContext>(scope, "SQL Server (Tasks)");
+
+        // Apply PostgreSQL migrations (Conversations)
+        await ApplyMigrationsForContextAsync<ConversationDbContext>(
+            scope,
+            "PostgreSQL (Conversations)"
+        );
+    }
+
+    private static async Task ApplyMigrationsForContextAsync<TContext>(
+        IServiceScope scope,
+        string databaseName
+    )
+        where TContext : DbContext
+    {
+        TContext dbContext = scope.ServiceProvider.GetRequiredService<TContext>();
+        ILogger<TContext> logger = scope.ServiceProvider.GetRequiredService<ILogger<TContext>>();
 
         try
         {
@@ -31,27 +47,39 @@ public static class DatabaseMigrationService
             if (pendingMigrations.Any())
             {
                 logger.LogInformation(
-                    "Applying {Count} pending migrations: {Migrations}",
+                    "[{DatabaseName}] Applying {Count} pending migrations: {Migrations}",
+                    databaseName,
                     pendingMigrations.Count(),
                     string.Join(", ", pendingMigrations)
                 );
 
                 await dbContext.Database.MigrateAsync();
 
-                logger.LogInformation("Database migrations applied successfully");
+                logger.LogInformation(
+                    "[{DatabaseName}] Database migrations applied successfully",
+                    databaseName
+                );
             }
             else
             {
-                logger.LogInformation("Database is up to date. No pending migrations");
+                logger.LogInformation(
+                    "[{DatabaseName}] Database is up to date. No pending migrations",
+                    databaseName
+                );
             }
         }
         catch (Exception ex)
         {
             logger.LogError(
                 ex,
-                "An error occurred while applying database migrations. "
-                    + "Please ensure the database server is accessible and the connection string is correct"
+                "[{DatabaseName}] Failed to apply database migrations. "
+                    + "The database server is not accessible. "
+                    + "Application cannot start without a working database connection. "
+                    + "Error: {ErrorMessage}",
+                databaseName,
+                ex.Message
             );
+            // Re-throw exception to prevent application from starting with unavailable database
             throw;
         }
     }

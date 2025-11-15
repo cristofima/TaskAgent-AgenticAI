@@ -30,3 +30,29 @@ public abstract record ChatMessage
     /// </summary>
     public MessageMetadata? Metadata { get; init; }
 }
+
+/// <summary>
+/// Concrete implementation of ChatMessage for conversation history
+/// </summary>
+public sealed record ConversationMessage : ChatMessage
+{
+    /// <summary>
+    /// Creates a new conversation message
+    /// </summary>
+    public static ConversationMessage Create(
+        string role,
+        string content,
+        DateTime? createdAt = null,
+        MessageMetadata? metadata = null
+    )
+    {
+        return new ConversationMessage
+        {
+            Id = Guid.NewGuid().ToString(),
+            Role = role,
+            Content = content,
+            CreatedAt = createdAt ?? DateTime.UtcNow,
+            Metadata = metadata,
+        };
+    }
+}

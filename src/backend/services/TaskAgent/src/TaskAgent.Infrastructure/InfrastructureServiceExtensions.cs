@@ -20,13 +20,42 @@ public static class InfrastructureServiceExtensions
         IConfiguration configuration
     )
     {
-        string? connectionString = configuration.GetConnectionString("DefaultConnection");
-        services.AddDbContext<TaskDbContext>(options => options.UseSqlServer(connectionString));
+        // SQL Server DbContext for Tasks
+        string? tasksConnectionString = configuration.GetConnectionString("TasksConnection");
+        if (string.IsNullOrWhiteSpace(tasksConnectionString))
+        {
+            throw new InvalidOperationException(
+                "TasksConnection string is required. Please configure ConnectionStrings:TasksConnection in appsettings.json."
+            );
+        }
 
+        services.AddDbContext<TaskDbContext>(options =>
+            options.UseSqlServer(tasksConnectionString)
+        );
+
+        // Register repositories
         services.AddScoped<ITaskRepository, TaskRepository>();
 
-        // For production: replace with Redis/SQL implementation and use Scoped/Transient
-        services.AddSingleton<IThreadPersistenceService, InMemoryThreadPersistenceService>();
+        // PostgreSQL DbContext for Conversations
+        string? conversationsConnectionString = configuration.GetConnectionString(
+            "ConversationsConnection"
+        );
+        if (string.IsNullOrWhiteSpace(conversationsConnectionString))
+        {
+            throw new InvalidOperationException(
+                "ConversationsConnection string is required. Please configure ConnectionStrings:ConversationsConnection in appsettings.json."
+            );
+        }
+
+        services.AddDbContext<ConversationDbContext>(options =>
+            options.UseNpgsql(conversationsConnectionString)
+        );
+
+        // Register repositories
+        services.AddScoped<ITaskRepository, TaskRepository>();
+
+        // PostgreSQL-backed thread persistence (production-ready)
+        services.AddScoped<IThreadPersistenceService, PostgresThreadPersistenceService>();
 
         RegisterContentSafety(services, configuration);
 
@@ -54,33 +83,21 @@ public static class InfrastructureServiceExtensions
             );
         }
 
-        try
-        {
-            var contentSafetyClient = new ContentSafetyClient(
-                new Uri(contentSafetyEndpoint),
-                new AzureKeyCredential(contentSafetyApiKey)
-            );
-            services.AddSingleton(contentSafetyClient);
+        var contentSafetyClient = new ContentSafetyClient(
+            new Uri(contentSafetyEndpoint),
+            new AzureKeyCredential(contentSafetyApiKey)
+        );
+        services.AddSingleton(contentSafetyClient);
 
-            services.AddHttpClient(
-                "ContentSafety",
-                client =>
-                {
-                    client.BaseAddress = new Uri(contentSafetyEndpoint);
-                    client.DefaultRequestHeaders.Add(
-                        "Ocp-Apim-Subscription-Key",
-                        contentSafetyApiKey
-                    );
-                }
-            );
+        services.AddHttpClient(
+            "ContentSafety",
+            client =>
+            {
+                client.BaseAddress = new Uri(contentSafetyEndpoint);
+                client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", contentSafetyApiKey);
+            }
+        );
 
-            services.AddScoped<IContentSafetyService, ContentSafetyService>();
-
-            Console.WriteLine("INFO: Azure Content Safety enabled");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"WARNING: Failed to initialize Content Safety: {ex.Message}");
-        }
+        services.AddScoped<IContentSafetyService, ContentSafetyService>();
     }
 }

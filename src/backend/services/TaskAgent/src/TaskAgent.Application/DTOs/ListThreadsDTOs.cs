@@ -39,7 +39,7 @@ public record ListThreadsResponse
     /// <summary>
     /// List of conversation threads
     /// </summary>
-    public IReadOnlyList<ConversationThread> Threads { get; init; } = [];
+    public IReadOnlyList<ConversationThreadDTO> Threads { get; init; } = [];
 
     /// <summary>
     /// Total number of threads

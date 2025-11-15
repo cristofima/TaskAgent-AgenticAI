@@ -9,8 +9,8 @@ using TaskAgent.Application.DTOs;
 using TaskAgent.Application.Functions;
 using TaskAgent.Application.Interfaces;
 using TaskAgent.Application.Telemetry;
-using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
-using ChatMessageDto = TaskAgent.Application.DTOs.ChatMessage;
+using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
+using ChatMessage = TaskAgent.Application.DTOs.ChatMessage;
 using ChatResponseDto = TaskAgent.Application.DTOs.ChatResponse;
 
 namespace TaskAgent.WebApp.Services;
@@ -226,6 +226,7 @@ public class TaskAgentService : ITaskAgentService
                 if (serializedThread != null)
                 {
                     // Deserialize existing thread to continue conversation
+                    // Parse without additional options to preserve original structure
                     JsonElement threadJson = JsonSerializer.Deserialize<JsonElement>(
                         serializedThread
                     );
@@ -267,11 +268,9 @@ public class TaskAgentService : ITaskAgentService
             string cleanedMessage = RemoveSuggestionsFromMessage(responseText);
 
             // Serialize and persist the updated thread for next request
+            // Use GetRawText() to preserve original JSON structure with $type as first property
             JsonElement updatedThreadJson = thread.Serialize();
-            string updatedThreadSerialized = JsonSerializer.Serialize(
-                updatedThreadJson,
-                JsonSerializerOptions.Web
-            );
+            string updatedThreadSerialized = updatedThreadJson.GetRawText();
             await _threadPersistence.SaveThreadAsync(activeThreadId, updatedThreadSerialized);
 
             stopwatch.Stop();
@@ -361,7 +360,7 @@ public class TaskAgentService : ITaskAgentService
                 return new GetConversationResponse
                 {
                     ThreadId = request.ThreadId,
-                    Messages = Array.Empty<ChatMessageDto>(),
+                    Messages = [],
                     TotalCount = 0,
                     Page = request.Page,
                     PageSize = request.PageSize,
@@ -369,21 +368,30 @@ public class TaskAgentService : ITaskAgentService
                 };
             }
 
-            // TODO: Parse thread JSON to extract messages
-            // For now, return empty response - will be implemented when we add proper message storage
-            _logger.LogWarning(
-                "Conversation history extraction not yet implemented for thread {ThreadId}",
+            // Parse thread JSON to extract messages
+            List<ChatMessage> messages = ExtractMessagesFromThread(serializedThread);
+
+            // Apply pagination
+            int totalCount = messages.Count;
+            int skip = (request.Page - 1) * request.PageSize;
+            var pagedMessages = messages.Skip(skip).Take(request.PageSize).ToList();
+
+            _logger.LogInformation(
+                "Retrieved {MessageCount} messages (page {Page}/{TotalPages}) for thread {ThreadId}",
+                pagedMessages.Count,
+                request.Page,
+                (int)Math.Ceiling((double)totalCount / request.PageSize),
                 request.ThreadId
             );
 
             return new GetConversationResponse
             {
                 ThreadId = request.ThreadId,
-                Messages = Array.Empty<ChatMessageDto>(),
-                TotalCount = 0,
+                Messages = pagedMessages,
+                TotalCount = totalCount,
                 Page = request.Page,
                 PageSize = request.PageSize,
-                HasMore = false,
+                HasMore = skip + request.PageSize < totalCount,
             };
         }
         catch (Exception ex)
@@ -460,7 +468,7 @@ public class TaskAgentService : ITaskAgentService
             var functionCalls = new List<FunctionCallInfo>();
 
             // Extract function calls from all messages in the response
-            foreach (ChatMessage message in agentRunResponse.Messages)
+            foreach (AIChatMessage message in agentRunResponse.Messages)
             {
                 _logger.LogInformation(
                     "Processing message - Role: {Role}, Contents count: {ContentCount}",
@@ -470,47 +478,50 @@ public class TaskAgentService : ITaskAgentService
 
                 foreach (AIContent content in message.Contents)
                 {
-                    if (content is FunctionCallContent functionCall)
+                    switch (content)
                     {
-                        _logger.LogInformation(
-                            "Found FunctionCallContent: {FunctionName}, CallId: {CallId}",
-                            functionCall.Name,
-                            functionCall.CallId
-                        );
+                        case FunctionCallContent functionCall:
+                        {
+                            _logger.LogInformation(
+                                "Found FunctionCallContent: {FunctionName}, CallId: {CallId}",
+                                functionCall.Name,
+                                functionCall.CallId
+                            );
 
-                        // Extract safe arguments (parameter names only, not values)
-                        string argumentsSummary = GetSafeArgumentsSummaryFromDict(
-                            functionCall.Arguments
-                        );
+                            // Extract safe arguments (parameter names only, not values)
+                            string argumentsSummary = GetSafeArgumentsSummaryFromDict(
+                                functionCall.Arguments
+                            );
 
-                        // Check if there's a corresponding FunctionResultContent
-                        bool hasResult = agentRunResponse
-                            .Messages.SelectMany(m => m.Contents)
-                            .OfType<FunctionResultContent>()
-                            .Any(r => r.CallId == functionCall.CallId);
+                            // Check if there's a corresponding FunctionResultContent
+                            bool hasResult = agentRunResponse
+                                .Messages.SelectMany(m => m.Contents)
+                                .OfType<FunctionResultContent>()
+                                .Any(r => r.CallId == functionCall.CallId);
 
-                        _logger.LogInformation(
-                            "Function call '{FunctionName}' has result: {HasResult}",
-                            functionCall.Name,
-                            hasResult
-                        );
+                            _logger.LogInformation(
+                                "Function call '{FunctionName}' has result: {HasResult}",
+                                functionCall.Name,
+                                hasResult
+                            );
 
-                        functionCalls.Add(
-                            new FunctionCallInfo
-                            {
-                                Name = GetFriendlyFunctionName(functionCall.Name),
-                                Arguments = argumentsSummary, // Sanitized summary, not full data
-                                Result = hasResult ? "Success" : "Processing", // Safe status without emojis
-                                Timestamp = DateTime.UtcNow,
-                            }
-                        );
-                    }
-                    else if (content is FunctionResultContent functionResult)
-                    {
-                        _logger.LogInformation(
-                            "Found FunctionResultContent: CallId: {CallId}",
-                            functionResult.CallId
-                        );
+                            functionCalls.Add(
+                                new FunctionCallInfo
+                                {
+                                    Name = functionCall.Name,
+                                    Arguments = argumentsSummary, // Sanitized summary, not full data
+                                    Result = hasResult ? "Success" : "Processing", // Safe status without emojis
+                                    Timestamp = DateTime.UtcNow,
+                                }
+                            );
+                            break;
+                        }
+                        case FunctionResultContent functionResult:
+                            _logger.LogInformation(
+                                "Found FunctionResultContent: CallId: {CallId}",
+                                functionResult.CallId
+                            );
+                            break;
                     }
                 }
             }
@@ -558,23 +569,6 @@ public class TaskAgentService : ITaskAgentService
 
         // Only return parameter names, not values
         return string.Join(", ", arguments.Keys);
-    }
-
-    /// <summary>
-    /// Converts internal function names to user-friendly display names
-    /// </summary>
-    private static string GetFriendlyFunctionName(string functionName)
-    {
-        return functionName switch
-        {
-            "CreateTask" => "Creating task",
-            "ListTasks" => "Listing tasks",
-            "GetTaskDetails" => "Getting task details",
-            "UpdateTask" => "Updating task",
-            "DeleteTask" => "Deleting task",
-            "GetTaskSummary" => "Getting summary",
-            _ => functionName,
-        };
     }
 
     /// <summary>
@@ -664,7 +658,9 @@ public class TaskAgentService : ITaskAgentService
     private static string RemoveSuggestionsFromMessage(string? responseText)
     {
         if (string.IsNullOrWhiteSpace(responseText))
+        {
             return string.Empty;
+        }
 
         // Look for the suggestions section: "💡 Suggestions:"
         const string suggestionsMarker = "💡 Suggestions:";
@@ -690,5 +686,125 @@ public class TaskAgentService : ITaskAgentService
         string cleanedText = responseText[..suggestionsIndex].TrimEnd();
 
         return cleanedText;
+    }
+
+    /// <summary>
+    /// Extracts individual messages from serialized thread JSON.
+    /// Thread structure: { storeState: { messages: [{ role, contents }] } }
+    /// Returns only user and assistant text messages (filters out function calls and tool results).
+    /// </summary>
+    private List<ChatMessage> ExtractMessagesFromThread(string serializedThread)
+    {
+        var messages = new List<ChatMessage>();
+
+        try
+        {
+            using var doc = JsonDocument.Parse(serializedThread);
+            JsonElement root = doc.RootElement;
+
+            // Navigate to messages array: root.storeState.messages
+            if (!root.TryGetProperty("storeState", out JsonElement storeStateElement))
+            {
+                _logger.LogWarning("storeState property not found in thread JSON");
+                return messages;
+            }
+
+            if (
+                !storeStateElement.TryGetProperty("messages", out JsonElement messagesElement)
+                || messagesElement.ValueKind != JsonValueKind.Array
+            )
+            {
+                _logger.LogWarning("messages property not found or not an array in storeState");
+                return messages;
+            }
+
+            // Extract user and assistant text messages only
+            foreach (JsonElement message in messagesElement.EnumerateArray())
+            {
+                if (!message.TryGetProperty("role", out JsonElement roleElement))
+                {
+                    continue;
+                }
+
+                string? role = roleElement.GetString();
+                if (string.IsNullOrEmpty(role))
+                {
+                    continue;
+                }
+
+                // Only process user and assistant messages
+                if (
+                    !string.Equals(role, "user", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(role, "assistant", StringComparison.OrdinalIgnoreCase)
+                )
+                {
+                    continue;
+                }
+
+                // Extract text content from contents array
+                if (
+                    !message.TryGetProperty("contents", out JsonElement contentsElement)
+                    || contentsElement.ValueKind != JsonValueKind.Array
+                    || contentsElement.GetArrayLength() == 0
+                )
+                {
+                    continue;
+                }
+
+                JsonElement firstContent = contentsElement[0];
+
+                // Check content type - only process text messages
+                if (firstContent.TryGetProperty("$type", out JsonElement typeElement))
+                {
+                    string? contentType = typeElement.GetString();
+
+                    // Skip function calls and function results
+                    if (
+                        string.Equals(
+                            contentType,
+                            "functionCall",
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                        || string.Equals(
+                            contentType,
+                            "functionResult",
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                    )
+                    {
+                        continue;
+                    }
+                }
+
+                if (!firstContent.TryGetProperty("text", out JsonElement textElement))
+                {
+                    continue;
+                }
+
+                // Extract text content
+                string? text = textElement.GetString();
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    messages.Add(
+                        ConversationMessage.Create(
+                            role: role,
+                            content: text,
+                            createdAt: DateTime.UtcNow // Thread doesn't store individual timestamps
+                        )
+                    );
+                }
+            }
+
+            _logger.LogDebug(
+                "Extracted {Count} user/assistant text messages from thread",
+                messages.Count
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to extract messages from thread JSON");
+        }
+
+        return messages;
     }
 }
