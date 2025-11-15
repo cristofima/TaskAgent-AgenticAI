@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - ".github/workflows/frontend.yml"
       - "src/frontend/task-agent-web/**"
       - "!src/frontend/task-agent-web/**/*.md"
 

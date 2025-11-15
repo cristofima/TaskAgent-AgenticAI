@@ -1,9 +1,10 @@
-name: Build and deploy backend .NET application to Web App
+name: Azure App Service CI/CD
 on:
   push:
     branches:
       - main
     paths:
+      - ".github/workflows/backend.yml"
       - "src/backend/services/TaskAgent/src/**/*.cs"
       - "src/backend/services/TaskAgent/src/**/*.csproj"
       - "src/backend/services/TaskAgent/src/**/*.json"
@@ -16,7 +17,6 @@ on:
       - "src/backend/Directory.Packages.props"
       - "src/backend/global.json"
       - "src/backend/TaskAgentWeb.sln"
-      - ".github/workflows/backend.yml"
 env:
   AZURE_WEBAPP_NAME: app-taskagent-prod
   AZURE_WEBAPP_PACKAGE_PATH: src/backend/services/TaskAgent/src/TaskAgent.WebApp/published
