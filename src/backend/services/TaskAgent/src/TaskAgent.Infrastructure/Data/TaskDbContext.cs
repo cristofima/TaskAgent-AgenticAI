@@ -5,8 +5,7 @@ using TaskAgent.Domain.Entities;
 namespace TaskAgent.Infrastructure.Data;
 
 /// <summary>
-/// Database context for the Task Management system
-/// Configures entity mappings and database schema
+/// Database context for Task entities stored in SQL Server
 /// </summary>
 public class TaskDbContext : DbContext
 {
@@ -29,7 +28,10 @@ public class TaskDbContext : DbContext
             entity.HasKey(e => e.Id);
 
             // Properties configuration
-            entity.Property(e => e.Title).IsRequired().HasMaxLength(TaskConstants.MAX_TITLE_LENGTH);
+            entity
+                .Property(e => e.Title)
+                .IsRequired()
+                .HasMaxLength(TaskConstants.MAX_TITLE_LENGTH);
 
             entity.Property(e => e.Description).HasMaxLength(TaskConstants.MAX_DESCRIPTION_LENGTH);
 
