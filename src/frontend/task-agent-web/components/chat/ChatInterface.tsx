@@ -81,6 +81,13 @@ export function ChatInterface() {
         onLoadConversationsReady={(loadFn) => {
           loadConversationsRef.current = loadFn;
         }}
+        onConversationDeleted={(deletedThreadId) => {
+          // Clear messages when current conversation is deleted
+          if (deletedThreadId === threadId) {
+            clearMessages();
+            setThreadId(null);
+          }
+        }}
       />
 
       {/* Main Chat Area */}

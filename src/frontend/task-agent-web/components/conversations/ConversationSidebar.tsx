@@ -19,6 +19,7 @@ interface ConversationSidebarProps {
   onNewConversation: () => void;
   currentThreadId: string | null;
   onLoadConversationsReady?: (loadFn: () => Promise<void>) => void;
+  onConversationDeleted?: (deletedThreadId: string) => void;
 }
 
 export function ConversationSidebar({
@@ -30,6 +31,7 @@ export function ConversationSidebar({
   onNewConversation,
   currentThreadId,
   onLoadConversationsReady,
+  onConversationDeleted,
 }: ConversationSidebarProps) {
   const {
     conversations,
@@ -69,6 +71,11 @@ export function ConversationSidebar({
     try {
       await deleteConversation(threadId);
       await loadConversations(); // Refresh list
+
+      // Notify parent if current conversation was deleted
+      if (onConversationDeleted && threadId === currentThreadId) {
+        onConversationDeleted(threadId);
+      }
     } catch (error) {
       console.error("Failed to delete conversation:", error);
     }
