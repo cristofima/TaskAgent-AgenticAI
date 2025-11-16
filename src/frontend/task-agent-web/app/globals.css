@@ -26,6 +26,22 @@
 body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  /* Prevent overscroll on mobile */
+  overscroll-behavior: none;
+  /* Improve touch interactions */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
+}
+
+/* Improve mobile viewport handling */
+html {
+  height: 100%;
+  /* Prevent rubber banding on iOS */
+  overscroll-behavior: none;
+}
+
+#__next {
+  height: 100%;
 }
 
 /* Custom radial gradient */

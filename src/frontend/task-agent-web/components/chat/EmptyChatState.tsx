@@ -13,7 +13,6 @@ interface EmptyChatStateProps {
   messages: ChatMessage[];
   input: string;
   isLoading: boolean;
-  onToggleSidebar: () => void;
   handleInputChange: (
     e:
       | React.ChangeEvent<HTMLTextAreaElement>
@@ -27,43 +26,35 @@ export function EmptyChatState({
   messages,
   input,
   isLoading,
-  onToggleSidebar,
   handleInputChange,
   handleSubmit,
   sendSuggestion,
 }: EmptyChatStateProps) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-3xl">
-        {/* Sidebar toggle in empty state (mobile) */}
-        <div className="md:hidden flex justify-start mb-4">
-          <button
-            onClick={onToggleSidebar}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium cursor-pointer"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-            Conversations
-          </button>
+    <>
+      {/* Desktop: Content positioned higher (not perfectly centered) - Mobile: Centered welcome only */}
+      <div className="flex-1 flex flex-col md:justify-start md:pt-24 justify-center items-center px-4 py-8 overflow-y-auto">
+        <div className="w-full max-w-3xl">
+          <ChatMessagesList
+            messages={messages}
+            isLoading={isLoading}
+            onSuggestionClick={sendSuggestion}
+          />
+          {/* Input centered in desktop */}
+          <div className="mt-8 hidden md:block">
+            <ChatInput
+              input={input}
+              isLoading={isLoading}
+              handleInputChange={handleInputChange}
+              handleSubmit={handleSubmit}
+            />
+          </div>
         </div>
+      </div>
 
-        <ChatMessagesList
-          messages={messages}
-          isLoading={isLoading}
-          onSuggestionClick={sendSuggestion}
-        />
-        <div className="mt-8">
+      {/* Fixed input at bottom - mobile only */}
+      <div className="md:hidden flex-shrink-0 bg-white border-t border-gray-200 px-4 py-4">
+        <div className="max-w-4xl mx-auto">
           <ChatInput
             input={input}
             isLoading={isLoading}
@@ -72,6 +63,6 @@ export function EmptyChatState({
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }

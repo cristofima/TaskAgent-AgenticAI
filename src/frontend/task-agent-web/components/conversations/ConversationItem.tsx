@@ -48,11 +48,12 @@ export function ConversationItem({
     <div
       onClick={onClick}
       className={`
-        group relative px-3 py-2.5 rounded-lg cursor-pointer transition-all
+        group relative px-2.5 sm:px-3 py-2.5 rounded-lg cursor-pointer transition-all
+        touch-manipulation
         ${
           isActive
             ? "bg-blue-50 border border-blue-200"
-            : "hover:bg-gray-100 border border-transparent"
+            : "hover:bg-gray-100 active:bg-gray-200 border border-transparent"
         }
       `}
     >
@@ -66,7 +67,7 @@ export function ConversationItem({
           {/* Title */}
           <h3
             className={`
-            text-sm font-medium truncate mb-1
+            text-xs sm:text-sm font-medium truncate mb-1
             ${isActive ? "text-blue-900" : "text-gray-900"}
           `}
           >
@@ -75,21 +76,25 @@ export function ConversationItem({
 
           {/* Metadata */}
           <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span>{conversation.messageCount} messages</span>
+            <span className="text-xs">
+              {conversation.messageCount} messages
+            </span>
             <span>•</span>
-            <span>{timeAgo}</span>
+            <span className="text-xs">{timeAgo}</span>
           </div>
         </div>
 
-        {/* Delete button */}
+        {/* Delete button - visible on mobile, hover on desktop */}
         <button
           onClick={handleDelete}
           className="
-            opacity-0 group-hover:opacity-100 transition-opacity
-            p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600
+            md:opacity-0 md:group-hover:opacity-100 transition-opacity
+            p-1.5 sm:p-1 rounded hover:bg-red-50 active:bg-red-100 text-gray-400 hover:text-red-600
             cursor-pointer
+            touch-manipulation
           "
           title="Delete conversation"
+          aria-label="Delete conversation"
         >
           <svg
             className="w-4 h-4"

@@ -36,7 +36,7 @@ export const ChatMessage = memo(function ChatMessage({
       }`}
     >
       <div
-        className={`rounded-2xl px-5 py-3.5 max-w-[85%] shadow-md hover:shadow-lg transition-shadow ${
+        className={`rounded-2xl px-3 sm:px-5 py-3 sm:py-3.5 max-w-[90%] sm:max-w-[85%] shadow-md hover:shadow-lg transition-shadow ${
           isUser
             ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white ml-auto text-right"
             : "bg-white border-2 border-gray-200 mr-auto"
@@ -44,12 +44,12 @@ export const ChatMessage = memo(function ChatMessage({
       >
         {!isUser && (
           <div className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-            <span className="text-lg">🤖</span>
-            <span>Task Assistant</span>
+            <span className="text-base sm:text-lg">🤖</span>
+            <span className="text-sm sm:text-base">Task Assistant</span>
           </div>
         )}
         <div
-          className={`markdown-content leading-relaxed ${
+          className={`markdown-content leading-relaxed text-sm sm:text-base ${
             isUser ? "text-white" : "text-gray-800"
           }`}
         >
