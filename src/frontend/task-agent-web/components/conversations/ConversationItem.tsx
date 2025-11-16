@@ -37,9 +37,7 @@ export function ConversationItem({
 
   // Generate title from conversation data
   const title =
-    conversation.title ||
-    conversation.preview?.substring(0, 50) ||
-    "New conversation";
+    conversation.title || conversation.preview?.substring(0, 50) || "New chat";
 
   // Format date
   const timeAgo = formatDistanceToNow(new Date(conversation.updatedAt));
@@ -93,8 +91,8 @@ export function ConversationItem({
             cursor-pointer
             touch-manipulation
           "
-          title="Delete conversation"
-          aria-label="Delete conversation"
+          title="Delete chat"
+          aria-label="Delete chat"
         >
           <svg
             className="w-4 h-4"
@@ -115,8 +113,8 @@ export function ConversationItem({
       {/* Delete confirmation modal */}
       <DeleteConfirmModal
         isOpen={showDeleteModal}
-        title="Delete conversation?"
-        message="This action cannot be undone. All messages in this conversation will be permanently deleted."
+        title="Delete chat?"
+        chatTitle={title}
         onConfirm={confirmDelete}
         onCancel={() => setShowDeleteModal(false)}
       />

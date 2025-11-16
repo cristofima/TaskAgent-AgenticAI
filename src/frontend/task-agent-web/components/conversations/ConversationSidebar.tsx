@@ -111,7 +111,7 @@ export function ConversationSidebar({
           <div className="flex items-center justify-between mb-3">
             {!isCollapsed && (
               <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-                Conversations
+                Chats
               </h2>
             )}
             <div className="flex items-center gap-1">
@@ -174,7 +174,7 @@ export function ConversationSidebar({
                 cursor-pointer
                 touch-manipulation
               "
-              aria-label="Start new conversation"
+              aria-label="Start new chat"
             >
               <svg
                 className="w-5 h-5"
@@ -189,7 +189,7 @@ export function ConversationSidebar({
                   d="M12 4v16m8-8H4"
                 />
               </svg>
-              <span>New conversation</span>
+              <span>New chat</span>
             </button>
           )}
           {isCollapsed && (
@@ -203,8 +203,8 @@ export function ConversationSidebar({
                 transition-colors
                 cursor-pointer
               "
-              title="New conversation"
-              aria-label="New conversation"
+              title="New chat"
+              aria-label="New chat"
             >
               <svg
                 className="w-5 h-5"
@@ -258,9 +258,7 @@ export function ConversationSidebar({
                 disabled:opacity-50 disabled:cursor-not-allowed
                 touch-manipulation
               "
-              aria-label={
-                isLoading ? "Refreshing conversations" : "Refresh conversations"
-              }
+              aria-label={isLoading ? "Refreshing chats" : "Refresh chats"}
             >
               <svg
                 className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
