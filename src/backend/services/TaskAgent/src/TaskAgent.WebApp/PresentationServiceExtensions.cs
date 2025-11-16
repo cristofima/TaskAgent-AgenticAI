@@ -22,15 +22,16 @@ public static class PresentationServiceExtensions
     )
     {
         // Configure CORS for Next.js frontend
+        string[] allowedOrigins = configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>() ?? ["http://localhost:3000"];
+
         services.AddCors(options =>
         {
             options.AddDefaultPolicy(policy =>
             {
                 policy
-                    .WithOrigins(
-                        "http://localhost:3000", // Next.js dev server
-                        "https://localhost:3000"
-                    )
+                    .WithOrigins(allowedOrigins)
                     .AllowAnyHeader()
                     .AllowAnyMethod()
                     .AllowCredentials();
