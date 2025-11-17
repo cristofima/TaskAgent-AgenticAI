@@ -8,7 +8,7 @@ AI-powered task management system built with **Microsoft Agent Framework** (prev
 
 ## Architecture
 
-**Clean Architecture** with strict downward dependencies: `Domain` → `Application` → `Infrastructure` → `WebApp`
+**Clean Architecture** with strict downward dependencies: `Domain` → `Application` → `Infrastructure` → `WebApi`
 
 **Critical**: Domain has NO external dependencies. Application defines interfaces (e.g., `ITaskRepository`); Infrastructure implements them (`TaskRepository`).
 
@@ -18,10 +18,10 @@ AI-powered task management system built with **Microsoft Agent Framework** (prev
 Domain/          - Entities (TaskItem), Enums, Constants, NO external dependencies
 Application/     - DTOs, Interfaces (ITaskRepository, ITaskAgentService), Functions (TaskFunctions)
 Infrastructure/  - EF Core (TaskDbContext), Repositories, Azure Services (ContentSafetyService)
-WebApp/          - Controllers, Middleware, DI setup, Agent factory (TaskAgentService)
+WebApi/          - Controllers, Middleware, DI setup, Agent factory (TaskAgentService)
 ```
 
-**Dependency Flow**: Each layer references only the one below. Infrastructure and WebApp both depend on Application, but NOT on each other.
+**Dependency Flow**: Each layer references only the one below. Infrastructure and WebApi both depend on Application, but NOT on each other.
 
 **Service Extension Pattern**: Each layer has `{Layer}ServiceExtensions.cs` with extension methods:
 
@@ -138,41 +138,73 @@ src/
 │       ├── TaskAgent.Domain/
 │       ├── TaskAgent.Application/
 │       ├── TaskAgent.Infrastructure/
-│       └── TaskAgent.WebApp/
-└── frontend/                           # Next.js frontend (future)
+│       └── TaskAgent.WebApi/
+└── frontend/                           # Next.js frontend
 ```
 
 **Working directory for EF commands**: `src/backend/services/TaskAgent/src/`
 
-### EF Migrations (Multi-Project Solution)
+### EF Migrations (Multi-Project, Multi-Database Solution)
+
+**Two separate DbContexts with different connection strings**:
+
+1. **SQL Server** (`TaskDbContext`) - Task management entities
+2. **PostgreSQL** (`ConversationDbContext`) - Conversation threads (JSON storage)
 
 ```powershell
 # Navigate to backend service directory first
 cd src/backend/services/TaskAgent/src
 
-# Always specify BOTH projects (Infrastructure has DbContext, WebApp has startup/DI):
-dotnet ef migrations add MigrationName --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
-dotnet ef database update --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
+# SQL Server migrations (Tasks)
+dotnet ef migrations add MigrationName --context TaskDbContext --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi --output-dir Migrations/TaskDb
 
-# View migrations
-dotnet ef migrations list --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
+# PostgreSQL migrations (Conversations)
+dotnet ef migrations add MigrationName --context ConversationDbContext --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi --output-dir Migrations/ConversationDb
 
-# Drop database (for reset)
-dotnet ef database drop --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
+# Apply migrations (specify context)
+dotnet ef database update --context TaskDbContext --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi
+dotnet ef database update --context ConversationDbContext --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi
+
+# View migrations for specific context
+dotnet ef migrations list --context TaskDbContext --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi
+dotnet ef migrations list --context ConversationDbContext --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi
 ```
 
-**Why Both?**: Infrastructure contains `TaskDbContext`, but WebApp has configuration (`appsettings.json` connection string) and DI setup.
+**Why Both projects?**: Infrastructure contains DbContexts, but WebApi has configuration (`appsettings.json` connection strings) and DI setup.
+
+**Migration Organization**:
+
+- `Migrations/TaskDb/` - SQL Server migrations
+- `Migrations/ConversationDb/` - PostgreSQL migrations
+
+**Connection Strings** (in `appsettings.Development.json`):
+
+```json
+{
+  "ConnectionStrings": {
+    "TasksConnection": "Server=localhost;Database=TaskAgentDb;Trusted_Connection=true;",
+    "ConversationsConnection": "Host=localhost;Port=5432;Database=taskagent_conversations;Username=postgres;Password=your-password"
+  }
+}
+```
 
 **Automatic Migrations on Startup**:
 
-The application **automatically applies pending migrations** on startup in ALL environments via:
+The application **automatically applies pending migrations** on startup for **BOTH databases** in ALL environments via:
 
 ```csharp
 // Program.cs
 await app.ApplyDatabaseMigrationsAsync();
 ```
 
-This calls `DatabaseMigrationService.ApplyDatabaseMigrationsAsync()` in the Infrastructure layer, which creates/updates the database without manual intervention. No need to run `dotnet ef database update` manually unless troubleshooting.
+This calls `DatabaseMigrationService.ApplyDatabaseMigrationsAsync()` which:
+
+- Applies SQL Server migrations (`TaskDbContext`)
+- Applies PostgreSQL migrations (`ConversationDbContext`)
+- **Fails fast** if either database is unavailable (logs error and throws)
+- Prevents application startup with incomplete database infrastructure
+
+**Why fail-fast?**: Both databases are critical - SQL Server for task operations, PostgreSQL for conversation persistence. Without both, the application cannot function correctly (no direct REST endpoints for tasks outside chat).
 
 ### Running the Application
 
@@ -192,10 +224,10 @@ dotnet run --project src/TaskAgent.AppHost
 
 ```powershell
 # From repository root
-dotnet run --project src/backend/services/TaskAgent/src/TaskAgent.WebApp
+dotnet run --project src/backend/services/TaskAgent/src/TaskAgent.WebApi
 
 # Or from src/backend/services/TaskAgent/src/
-dotnet run --project TaskAgent.WebApp
+dotnet run --project TaskAgent.WebApi
 ```
 
 **Required Configuration** (in `appsettings.Development.json`):
@@ -229,10 +261,10 @@ dotnet run --project TaskAgent.WebApp
 
 **Architecture**:
 
-- Middleware: `WebApp/Middleware/ContentSafetyMiddleware.cs`
+- Middleware: `WebApi/Middleware/ContentSafetyMiddleware.cs`
 - Service: `Infrastructure/Services/ContentSafetyService.cs`
 - Extension: `app.UseContentSafety()` in `Program.cs` (before `UseAuthorization()`)
-- HttpClient: Named client via `IHttpClientFactory` (registered in `Infrastructure/DependencyInjection.cs`)
+- HttpClient: Named client via `IHttpClientFactory` (registered in `Infrastructure/InfrastructureServiceExtensions.cs`)
 
 **Performance Optimization**: Both layers execute in parallel using `Task.WhenAll` for ~50% faster response (~200-400ms vs ~400-800ms sequential). Security priority: checks injection result first, then content result.
 
@@ -257,8 +289,16 @@ Use `DomainTaskStatus` in files that also use `Task<T>` (common in async code).
 
 - **Domain**: Throw `ArgumentException` for validation failures (title empty, too long, invalid state transitions)
 - **Function Tools**: NEVER throw - catch & return user-friendly error strings with emojis
-- **Controllers**: `BadRequest(400)` for validation, `StatusCode(500)` for unexpected errors
+- **Controllers**: Use `ErrorResponseFactory` for standardized responses - `BadRequest(400)` for validation, `InternalServerError(500)` for unexpected errors
 - **Middleware**: Log errors, fail open (allow request to proceed) for availability
+
+**ErrorResponseFactory Pattern**:
+
+```csharp
+// ✅ GOOD - Standardized error responses
+return ErrorResponseFactory.CreateBadRequest("ValidationError", "Invalid input", details);
+return ErrorResponseFactory.CreateInternalServerError("Processing failed", exception.Message);
+```
 
 ### Constants Pattern
 
@@ -268,8 +308,9 @@ All magic strings/numbers in constant files:
 - `Domain/Constants/ValidationMessages.cs`: Validation error messages
 - `Application/Constants/ErrorMessages.cs`: Function tool error messages
 - `Infrastructure/Constants/ContentSafetyConstants.cs`: API paths, HTTP client name
-- `WebApp/Constants/ApiRoutes.cs`: Route constants (CHAT = "api/chat")
-- `WebApp/Constants/ErrorCodes.cs`: Error codes for API responses
+- `WebApi/Constants/ApiRoutes.cs`: Route constants (CHAT = "api/chat")
+- `WebApi/Constants/ErrorCodes.cs`: Error codes for API responses
+- `WebApi/Constants/ErrorMessages.cs`: User-facing error messages
 
 ### Dependency Injection Pattern
 
@@ -282,7 +323,7 @@ services.AddApplication();                  // Registers telemetry (AgentMetrics
 // Infrastructure/InfrastructureServiceExtensions.cs
 services.AddInfrastructure(configuration);  // Registers DbContext, Repositories, ContentSafetyClient
 
-// WebApp/PresentationServiceExtensions.cs
+// WebApi/PresentationServiceExtensions.cs
 services.AddPresentation(configuration);    // Registers Controllers, AIAgent (scoped)
 ```
 
@@ -307,12 +348,14 @@ builder.Services
 - **Tracked updates**: Don't use `.AsNoTracking()` when updating entities
 - **Enums**: Stored as ints in SQL Server with `.HasConversion<int>()` in entity configuration
 - **Indexes**: On Status, Priority, CreatedAt for filtering performance
-- **Connection**: LocalDB via connection string `"Server=(localdb)\\mssqllocaldb;Database=TaskAgentDb;Trusted_Connection=true;"`
+- **SQL Server**: localhost via `"Server=localhost;Database=TaskAgentDb;Trusted_Connection=true;"`
+- **PostgreSQL**: `"Host=localhost;Port=5432;Database=taskagent_conversations;Username=postgres;Password=..."`
+- **JSON Storage**: PostgreSQL `json` type (not `jsonb`) preserves property order for System.Text.Json polymorphism
 
 ### Azure OpenAI Client Setup
 
 ```csharp
-// Registered in WebApp/PresentationServiceExtensions.cs
+// Registered in WebApi/PresentationServiceExtensions.cs
 var client = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
 var chatClient = client.GetChatClient(modelDeployment);
 var agent = chatClient.CreateAIAgent(instructions: "...", tools: [...]);
@@ -372,22 +415,29 @@ To add a new safety layer:
 ❌ Multiple instruction sources → Single string in `CreateAgent()`  
 ❌ Magic strings/numbers → Use constants from appropriate layer  
 ❌ Domain layer dependencies → Keep it dependency-free  
-❌ Sequential safety checks → Use `Task.WhenAll` for parallel execution
+❌ Sequential safety checks → Use `Task.WhenAll` for parallel execution  
+❌ `JsonSerializer.Serialize(threadJson)` → Use `threadJson.GetRawText()` to preserve property order  
+❌ PostgreSQL `jsonb` type → Use `json` type to preserve `$type` property order
 
 ## Key Files Reference
 
 | File                                                          | Purpose                                               |
 | ------------------------------------------------------------- | ----------------------------------------------------- |
 | `Program.cs`                                                  | Application entry, middleware pipeline, DI bootstrap  |
-| `WebApp/PresentationServiceExtensions.cs`                     | WebApp layer services, AIAgent factory registration   |
-| `WebApp/Services/TaskAgentService.cs`                         | Agent factory method, 170-line instructions, chat API |
+| `WebApi/PresentationServiceExtensions.cs`                     | WebApi layer services, AIAgent factory registration   |
+| `WebApi/Services/TaskAgentService.cs`                         | Agent factory method, 170-line instructions, chat API |
+| `WebApi/Services/ErrorResponseFactory.cs`                     | Standardized error response creation (400, 500)       |
 | `Application/Functions/TaskFunctions.cs`                      | 6 function tools for AI agent                         |
+| `Application/DTOs/ChatMessage.cs`                             | ConversationMessage concrete implementation           |
 | `Domain/Entities/TaskItem.cs`                                 | Core entity, factory method, business rules           |
+| `Domain/Entities/ConversationThread.cs`                       | Conversation entity with JSON storage                 |
+| `Infrastructure/Data/ConversationDbContext.cs`                | PostgreSQL DbContext for conversation threads         |
 | `Infrastructure/Services/ContentSafetyService.cs`             | 2-layer content safety (Prompt Shield + Moderation)   |
-| `WebApp/Middleware/ContentSafetyMiddleware.cs`                | Middleware applying safety checks to `/api/chat`      |
-| `Infrastructure/Data/TaskDbContext.cs`                        | EF Core DbContext, entity configurations              |
+| `Infrastructure/Services/PostgresThreadPersistenceService.cs` | JSON blob persistence with metadata extraction        |
+| `Infrastructure/Services/DatabaseMigrationService.cs`         | Auto-migration service (fail-fast strategy)           |
+| `WebApi/Middleware/ContentSafetyMiddleware.cs`                | Middleware applying safety checks to `/api/chat`      |
+| `Infrastructure/Data/TaskDbContext.cs`                        | SQL Server DbContext, task entity configurations      |
 | `Infrastructure/Repositories/TaskRepository.cs`               | Repository pattern implementation                     |
-| `Infrastructure/Services/InMemoryThreadPersistenceService.cs` | Thread state persistence (in-memory, singleton)       |
 
 ## Package Management - Central Version Control
 
@@ -468,7 +518,7 @@ dotnet sln add services/TaskAgent/src/TaskAgent.NewProject/TaskAgent.NewProject.
 **Three-Project Aspire Structure**:
 
 1. **`TaskAgent.AppHost`** - Orchestration layer (runs via `dotnet run --project src/TaskAgent.AppHost`)
-   - Entry point: `AppHost.cs` with `builder.AddProject<Projects.TaskAgent_WebApp>("taskagent-webapp")`
+   - Entry point: `AppHost.cs` with `builder.AddProject<Projects.TaskAgent_WebApi>("task-agent-webapi")`
    - Provides Aspire Dashboard at https://localhost:17198
    - Manages service lifecycle and discovery
 2. **`TaskAgent.ServiceDefaults`** - Shared telemetry configuration (inside `src/backend/`)
@@ -478,7 +528,7 @@ dotnet sln add services/TaskAgent/src/TaskAgent.NewProject/TaskAgent.NewProject.
      - Production: `APPLICATIONINSIGHTS_CONNECTION_STRING` → Azure Monitor → Application Insights
    - Registered custom sources: `"TaskAgent.Agent"`, `"TaskAgent.Functions"`
    - Security: HTTPS-only service discovery in production
-3. **`TaskAgent.WebApp`** - Application (calls `builder.AddServiceDefaults()` in `Program.cs`)
+3. **`TaskAgent.WebApi`** - Application (calls `builder.AddServiceDefaults()` in `Program.cs`)
 
 **Custom Telemetry Components** (Application layer):
 
@@ -507,53 +557,221 @@ using Activity? funcActivity = AgentActivitySource.StartFunctionActivity("Create
 
 ## Thread Persistence & Conversation State
 
-**Architecture**: Conversations are persisted using `IThreadPersistenceService` to maintain context across HTTP requests.
+**Architecture**: Dual-database system with **JSON blob storage** in PostgreSQL for conversations.
 
-**Flow**:
+### Database Strategy
 
-1. User sends message with optional `threadId`
-2. If `threadId` exists → deserialize thread state: `AgentThread.Deserialize(serializedState)`
-3. Agent processes message with full conversation history
-4. After response → serialize thread state: `thread.Serialize()`
-5. Save to persistence layer: `await _threadPersistence.SaveThreadAsync(threadId, serializedState)`
+- **SQL Server** (`TaskDbContext`): Task entities (CRUD operations)
+- **PostgreSQL** (`ConversationDbContext`): Conversation threads (JSON blobs)
 
-**Implementations**:
+**Critical**: Both databases **MUST be available** on startup - application fails fast if either is down.
 
-- **Development**: `InMemoryThreadPersistenceService` (ConcurrentDictionary, singleton)
-- **Production**: Implement with Redis/SQL Server (scoped/transient)
+### JSON Blob Pattern
 
-**Critical**: Thread state contains entire conversation history - must be serialized/deserialized for each request.
-
-**Code example** (see `TaskAgentService.SendMessageAsync`):
+**Implementation**: `PostgresThreadPersistenceService` (scoped) - stores complete `AgentThread` as single JSON document.
 
 ```csharp
-// Load existing thread or create new
-string? serializedThread = await _threadPersistence.GetThreadAsync(threadId);
-AgentThread thread = string.IsNullOrEmpty(serializedThread)
-    ? await _agent.CreateThreadAsync()
-    : AgentThread.Deserialize(serializedThread);
-
-// Process message
-await thread.AddUserMessageAsync(message);
-await foreach (var response in thread.InvokeAsync(_agent)) { }
-
-// Save updated thread
-await _threadPersistence.SaveThreadAsync(threadId, thread.Serialize());
+// ConversationThread entity stores:
+- ThreadId (PK)                    // Unique conversation identifier
+- SerializedThread (json)          // Complete AgentThread as JSON
+- Title (string, 50 chars)         // Auto-extracted from first user message
+- Preview (string, 100 chars)      // Auto-extracted from last assistant message
+- MessageCount (int)               // Total messages including function calls/results
+- CreatedAt, UpdatedAt (timestamptz)
+- IsActive (bool)
 ```
 
-**Production considerations**:
+**Why PostgreSQL `json` type?** (not `jsonb`):
 
-- Thread state grows with conversation length
-- Consider TTL/cleanup strategies for old threads
-- Scoped lifetime for multi-server scenarios
+- Preserves property order (critical for `$type` first in JSON)
+- System.Text.Json polymorphic deserialization requires `$type` as first property
+- `jsonb` reorders alphabetically → breaks Microsoft Agent Framework deserialization
+- Still get JSON validation + query capabilities
+
+### Thread Serialization Pattern
+
+**CRITICAL**: Use `GetRawText()` to preserve exact JSON structure:
+
+```csharp
+// ✅ CORRECT - Preserves $type property order
+JsonElement threadJson = thread.Serialize();
+string serialized = threadJson.GetRawText(); // Preserves original structure
+await _threadPersistence.SaveThreadAsync(threadId, serialized);
+
+// ❌ WRONG - JsonSerializer.Serialize() reorders properties
+string serialized = JsonSerializer.Serialize(threadJson); // Breaks deserialization!
+```
+
+**Deserialization**:
+
+```csharp
+// Load without additional options - preserves structure
+string serialized = await _threadPersistence.GetThreadAsync(threadId);
+JsonElement json = JsonSerializer.Deserialize<JsonElement>(serialized);
+AgentThread thread = _agent.DeserializeThread(json);
+```
+
+### Message Structure
+
+Thread JSON structure: `{ storeState: { messages: [...] } }`
+
+**Message types in array**:
+
+- `role: "user"` - User input messages
+- `role: "assistant"` + `$type: "functionCall"` - Agent function invocations (internal)
+- `role: "tool"` - Function execution results (internal)
+- `role: "assistant"` + `$type: "text"` - Final agent responses (visible)
+
+**MessageCount semantics**: Includes ALL messages (user, functionCall, tool, text) - not just visible user/assistant exchanges.
+
+### Metadata Extraction
+
+`PostgresThreadPersistenceService.ExtractMetadataFromJson()` parses JSON to extract:
+
+- **Title**: First user message content (max 50 chars + "...")
+- **Preview**: Last assistant text message (max 100 chars + "...")
+- **MessageCount**: Total messages in `storeState.messages` array
+
+**Navigation path**: `root → storeState → messages → contents[0].text`
+
+### Request Flow
+
+```csharp
+// 1. Load existing thread or create new
+string? serializedThread = await _threadPersistence.GetThreadAsync(threadId);
+AgentThread thread = string.IsNullOrEmpty(serializedThread)
+    ? _agent.GetNewThread()
+    : _agent.DeserializeThread(JsonSerializer.Deserialize<JsonElement>(serializedThread));
+
+// 2. Process message with full conversation history
+dynamic? response = await _agent.RunAsync(message, (dynamic)thread);
+
+// 3. Serialize with GetRawText() and save
+JsonElement updatedThreadJson = thread.Serialize();
+string updatedThreadSerialized = updatedThreadJson.GetRawText();
+await _threadPersistence.SaveThreadAsync(threadId, updatedThreadSerialized);
+```
+
+### Conversation History API
+
+**Extract messages** for display (filters internal function calls):
+
+```csharp
+// TaskAgentService.ExtractMessagesFromThread()
+// Returns only user and assistant text messages
+// Skips: functionCall, functionResult (internal)
+// Creates: ConversationMessage records for API response
+```
+
+**Pagination support**: `GetConversationHistoryAsync()` paginates extracted messages.
+
+## Conversation Management API
+
+**Backend provides 4 REST endpoints for conversation management** (see `ChatController.cs`):
+
+### 1. Send Message
+
+```http
+POST /api/Chat/send
+Content-Type: application/json
+
+{
+  "message": "Create a high priority task",
+  "threadId": "optional-thread-id"  // Omit to create new conversation
+}
+
+Response: 200 OK
+{
+  "message": "✅ Task created successfully: ...",
+  "threadId": "abc-123-def",
+  "messageId": "msg-456",
+  "timestamp": "2025-11-14T10:30:00Z",
+  "functionCalls": [...],
+  "suggestions": ["View all tasks", "Create another task"]
+}
+```
+
+### 2. List Conversations
+
+```http
+GET /api/Chat/threads?page=1&pageSize=20&sortBy=UpdatedAt&sortOrder=desc&isActive=true
+
+Response: 200 OK
+{
+  "threads": [
+    {
+      "id": "abc-123-def",
+      "title": "Create a high priority task to review quarterl...",  // Auto-generated
+      "preview": "✅ Task created successfully. I've added a high...",
+      "messageCount": 5,
+      "createdAt": "2025-11-14T10:00:00Z",
+      "updatedAt": "2025-11-14T10:35:00Z",
+      "isActive": true
+    }
+  ],
+  "totalCount": 42,
+  "page": 1,
+  "pageSize": 20,
+  "totalPages": 3
+}
+```
+
+**Title Generation Strategy** (backend):
+
+- Automatically extracts first user message content
+- Max 50 characters + "..." if truncated
+- Fallback: "New conversation" if no user messages
+
+### 3. Get Conversation History
+
+```http
+GET /api/Chat/threads/{threadId}/messages?page=1&pageSize=50
+
+Response: 200 OK
+{
+  "messages": [
+    {
+      "id": "msg-123",
+      "role": "user",
+      "content": "Create a high priority task",
+      "timestamp": "2025-11-14T10:30:00Z"
+    },
+    {
+      "id": "msg-124",
+      "role": "assistant",
+      "content": "✅ Task created successfully...",
+      "timestamp": "2025-11-14T10:30:05Z"
+    }
+  ],
+  "threadId": "abc-123-def",
+  "totalCount": 5,
+  "page": 1,
+  "pageSize": 50
+}
+```
+
+### 4. Delete Conversation
+
+```http
+DELETE /api/Chat/threads/{threadId}
+
+Response: 204 No Content
+```
+
+**Thread Persistence Service**:
+
+- **Production**: `PostgresThreadPersistenceService` (scoped) - PostgreSQL with JSON blob storage
+- **Methods**: `SaveThreadAsync()`, `GetThreadAsync()`, `ListThreadsAsync()`, `DeleteThreadAsync()`
+- **Critical**: Uses `GetRawText()` for serialization to preserve JSON property order
+- **Metadata**: Auto-extracts title, preview, messageCount from thread JSON structure
 
 ## Testing Guidance
 
 **Content Safety**: See `CONTENT_SAFETY.md` for 75+ test cases including prompt injections, harmful content, edge cases, and troubleshooting.
 
-**AI Agent**: Test via web UI at `http://localhost:5000` or POST to `/api/chat` endpoint with `{"message": "your message", "threadId": "optional-thread-id"}`
+**AI Agent**: Test via web UI at `https://localhost:5001` or POST to `/api/chat` endpoint with `{"message": "your message", "threadId": "optional-thread-id"}`
 
-**Database**: Auto-created on first run. To reset: `dotnet ef database drop --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp`
+**Database**: Auto-created on first run. To reset: `dotnet ef database drop --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi`
 
 **Key Test Scenarios**:
 
@@ -567,7 +785,7 @@ await _threadPersistence.SaveThreadAsync(threadId, thread.Serialize());
 
 **Next.js Application**: Located in `src/frontend/task-agent-web/`
 
-**Tech Stack**: Next.js 15+, TypeScript, Tailwind CSS, React
+**Tech Stack**: Next.js 16, React 19, TypeScript, Tailwind CSS 4 (NO external component libraries)
 
 **Working Directory**: `src/frontend/task-agent-web/`
 
@@ -575,22 +793,334 @@ await _threadPersistence.SaveThreadAsync(threadId, thread.Serialize());
 
 ```powershell
 # From src/frontend/task-agent-web/
-pnpm install           # Install dependencies
+pnpm install           # Install dependencies (MUST use pnpm, NOT npm/yarn)
 pnpm dev              # Run dev server (http://localhost:3000)
-pnpm build            # Build for production
-pnpm start            # Start production server
+pnpm build            # Build for production (static export)
+pnpm start            # Start production server (uses PORT env var)
 pnpm lint             # Run ESLint
 ```
 
+**Architecture**:
+
+- **Server Component**: `app/page.tsx` - Root page component
+- **Client Component**: `components/chat/ChatInterfaceClient.tsx` - Main chat interface (non-streaming, optimistic updates)
+- **Hooks**:
+  - `hooks/use-chat.ts` - Chat state management (custom implementation, NO Vercel AI SDK)
+  - `hooks/use-conversations.ts` - Conversation management (list, load, delete)
+- **API Client**: `lib/api/chat-service.ts` - Backend API communication (4 endpoints)
+
 **Integration with Backend**:
 
-- API calls to backend at `http://localhost:5000/api/chat`
-- Shared types for DTOs (future: consider shared TypeScript definitions)
-- Aspire orchestration (future: AppHost will manage both frontend and backend)
+API calls to backend at `https://localhost:5001` (configurable via `NEXT_PUBLIC_API_URL`):
+
+- `POST /api/Chat/send` - Send message, returns full response
+- `GET /api/Chat/threads` - List conversations with pagination
+- `GET /api/Chat/threads/{threadId}/messages` - Get conversation history
+- `DELETE /api/Chat/threads/{threadId}` - Delete conversation
+
+**Current Implementation** (Non-streaming):
+
+- Thread persistence via `threadId` in requests
+- Optimistic UI updates (user message added immediately)
+- Rollback on error
+- Conversation titles auto-generated from first user message (backend)
+- `localStorage` persistence of current thread ID
+
+**Key Features**:
+
+- ✅ Real-time chat interface with message history
+- ✅ **Conversation sidebar** - List, load, delete conversations with auto-generated titles
+- ✅ **ChatGPT-inspired UI** - Full-height adaptive layout (centered welcome, fixed input)
+- ✅ **Smart suggestions** - Clickable suggestion buttons from AI
+- ✅ **Contextual loading** - Rotating status messages during processing
+- ✅ **Content Safety UX** (v2.1) - Blocked messages appear in chat (not toasts), thread continuity maintained
+- ✅ **Smart Title Updates** - Titles regenerate when first valid message sent after block
+- ✅ **Optimized Sidebar** - Only reloads when title changes (flag-based efficiency)
+- ✅ Markdown rendering with `react-markdown`
+- ✅ Responsive design with Tailwind CSS 4 only
+- ✅ TypeScript type safety (strict mode)
+- ✅ Environment-based API configuration
+- 🔜 Streaming responses (planned, see `STREAMING_ROADMAP.md`)
+
+**Component Structure**:
+
+```
+components/
+├── chat/                           # Chat interface components
+│   ├── ChatInterface.tsx           # Main layout (adaptive behavior)
+│   ├── ChatInterfaceClient.tsx     # Client wrapper (dynamic loading)
+│   ├── ChatMessagesList.tsx        # Messages container (scrollable)
+│   ├── ChatMessage.tsx             # Individual message bubble
+│   ├── ChatInput.tsx               # Input field (icon-based send)
+│   ├── ChatHeader.tsx              # Minimalist header (conditional)
+│   ├── EmptyChatState.tsx          # Welcome state (centered)
+│   ├── SuggestionsBar.tsx          # Clickable suggestion buttons
+│   └── ErrorToast.tsx              # Error display
+├── conversations/                  # Conversation management
+│   ├── ConversationSidebar.tsx     # Sidebar layout
+│   ├── ConversationList.tsx        # List of conversations
+│   ├── ConversationItem.tsx        # Individual conversation card
+│   └── DeleteConfirmModal.tsx      # Delete confirmation
+└── shared/
+    └── LoadingIndicator.tsx        # Contextual loading states
+```
 
 **Key Files**:
 
-- `app/page.tsx` - Main page component
-- `app/layout.tsx` - Root layout
+- `app/page.tsx` - Main page (server component)
+- `app/layout.tsx` - Root layout with metadata
+- `components/chat/ChatInterfaceClient.tsx` - Chat UI (client component)
+- `hooks/use-chat.ts` - Chat state management (custom, no Vercel AI SDK)
+- `hooks/use-conversations.ts` - Conversation management
+- `lib/api/chat-service.ts` - API integration (4 endpoints)
 - `next.config.ts` - Next.js configuration
-- `tailwind.config.ts` - Tailwind CSS configuration
+- `tailwind.config.ts` - Tailwind CSS 4 configuration
+
+**Important Design Decisions**:
+
+1. **No pre-built component libraries** - Pure Tailwind CSS 4 for full control and smaller bundle
+2. **No Vercel AI SDK** - Custom `fetch` implementation for non-streaming chat
+3. **Conversation titles auto-generated** - Backend extracts first user message (max 50 chars)
+4. **localStorage for thread ID** - Persists current conversation across page refreshes
+5. **Static export** - `output: "export"` in next.config.ts for Azure Static Web Apps
+
+**Future Aspire Integration**:
+
+- AppHost will orchestrate both frontend (Next.js) and backend (.NET)
+- Automatic service discovery and port management
+- Unified observability across full stack
+
+## Frontend Development Best Practices
+
+### Package Manager - pnpm Required
+
+**CRITICAL**: This Next.js project uses **pnpm** (not npm or yarn).
+
+```powershell
+# Install dependencies (uses pnpm-lock.yaml)
+pnpm install
+
+# DO NOT use npm or yarn - causes lock file conflicts
+```
+
+**Why pnpm?**: Faster, disk-efficient, strict dependency resolution.
+
+### Next.js 16 + React 19 Patterns
+
+**Server Components by Default**: All components are Server Components unless marked with `"use client"`.
+
+```typescript
+// ✅ GOOD - Server Component (default, no directive needed)
+export default function TasksPage() {
+  return <TaskList />; // No interactivity
+}
+
+// ✅ GOOD - Client Component (only when needed)
+("use client");
+export function ChatInput({ onSend }: Props) {
+  const [message, setMessage] = useState(""); // Needs hooks
+  // ...
+}
+```
+
+**Custom Chat Implementation** (NO Vercel AI SDK):
+
+This project uses a **custom `fetch` implementation** for chat functionality instead of Vercel AI SDK. This was intentional to maintain control over the request/response cycle.
+
+```typescript
+// hooks/use-chat.ts - Custom implementation
+export function useChat(options: UseChatOptions = {}): UseChatReturn {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
+
+  const handleSubmit = async (e: FormEvent) => {
+    // Optimistic update: add user message immediately
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+
+    try {
+      // Call backend API
+      const response = await sendMessage(input, threadId);
+      // Add assistant response
+      setMessages([...newMessages, response]);
+    } catch (error) {
+      // Rollback on error
+      setMessages(messages);
+    }
+  };
+}
+```
+
+**Why Custom Implementation?**:
+
+- Full control over non-streaming chat flow
+- Easier error handling and rollback
+- No external SDK dependencies
+- Prepared for future SSE streaming migration (see `STREAMING_ROADMAP.md`)
+
+**Conversation Management Hook**:
+
+```typescript
+// hooks/use-conversations.ts
+export function useConversations(): UseConversationsReturn {
+  const [conversations, setConversations] = useState<ConversationThread[]>([]);
+
+  // List conversations with pagination
+  const loadConversations = async (page = 1, pageSize = 20) => {
+    const response = await listThreads(page, pageSize);
+    setConversations(response.threads);
+  };
+
+  // Load specific conversation history
+  const loadConversation = async (threadId: string) => {
+    const response = await getConversation(
+      threadId,
+      1,
+      PAGINATION.MAX_MESSAGES
+    );
+    return response.messages;
+  };
+
+  // Delete conversation
+  const deleteConversation = async (threadId: string) => {
+    await deleteThread(threadId);
+    // Remove from local state
+    setConversations((prev) => prev.filter((c) => c.id !== threadId));
+  };
+}
+```
+
+### Environment Variables (Next.js)
+
+**Client-side variables** must be prefixed with `NEXT_PUBLIC_`:
+
+```bash
+# .env.local
+NEXT_PUBLIC_API_URL=https://localhost:5001  # Exposed to browser
+API_SECRET_KEY=secret123                    # Server-side only
+```
+
+**Usage**:
+
+```typescript
+// Client component - must use NEXT_PUBLIC_ prefix
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+// Server component - can access any env var
+const secretKey = process.env.API_SECRET_KEY;
+```
+
+### Cross-Platform npm Scripts
+
+**CRITICAL**: Use `run-script-os` for cross-platform port handling:
+
+```json
+// package.json
+{
+  "scripts": {
+    "start": "run-script-os",
+    "start:win32": "next start -p %PORT%", // Windows env var syntax
+    "start:default": "next start -p $PORT" // Unix env var syntax
+  }
+}
+```
+
+**Why?**: Windows uses `%PORT%`, Unix/macOS uses `$PORT` - `run-script-os` auto-detects platform.
+
+## Version Constraints
+
+**Critical Version Alignment**:
+
+- **.NET SDK**: 10.0.0 (see `src/global.json`)
+- **Aspire Version**: 13.0.0 (see `src/Directory.Build.props` `$(AspireVersion)`)
+- **Aspire SDK**: 13.0.0 (see `src/global.json` `msbuild-sdks.Aspire.AppHost.Sdk`)
+- **Target Framework**: net10.0 (all C# projects)
+
+**These versions MUST match** - mismatch causes build failures.
+
+**Updating Aspire** (see `src/ASPIRE_VERSION.md` for full guide):
+
+```powershell
+# 1. Update Directory.Build.props
+<AspireVersion>13.0.0</AspireVersion>
+
+# 2. Update global.json (must match step 1!)
+"Aspire.AppHost.Sdk": "13.0.0"
+
+# 3. Restore
+dotnet restore
+```
+
+## Code Quality Standards
+
+### SonarAnalyzer.CSharp
+
+**All projects** automatically include SonarAnalyzer (via `Directory.Build.props`):
+
+```xml
+<!-- Automatic inclusion -->
+<PackageReference Include="SonarAnalyzer.CSharp" />
+```
+
+**Enforced settings**:
+
+- Code analysis level: `latest`
+- Analysis mode: `All`
+- Warnings as errors: `true` (for code analysis)
+- Code style enforced in build: `true`
+
+**Result**: High-quality code is enforced at compile time.
+
+### Nullable Reference Types
+
+**CRITICAL**: All projects have nullable reference types **enabled**:
+
+```xml
+<Nullable>enable</Nullable>
+```
+
+**Implications**:
+
+```csharp
+// ✅ GOOD - Explicit nullability
+string? optionalValue = null;  // Can be null
+string requiredValue = "text";  // Never null
+
+// ❌ BAD - Warning: Converting null literal
+string text = null;  // CS8600 warning
+
+// ✅ GOOD - Null-checking before use
+if (optionalValue != null) {
+    Console.WriteLine(optionalValue.Length);  // Safe
+}
+```
+
+**Best practice**: Always annotate nullable types with `?` operator.
+
+## Application Versioning
+
+**Version control**: `src/Directory.Build.props`
+
+```xml
+<Version>2.0.0</Version>
+```
+
+**Impact**:
+
+- MSBuild auto-derives `FileVersion` and `AssemblyVersion`
+- Update before creating Git tags/releases
+- Single source of truth for all projects
+
+**Example workflow**:
+
+```powershell
+# 1. Update version in Directory.Build.props
+<Version>2.1.0</Version>
+
+# 2. Build (version applied to all assemblies)
+dotnet build
+
+# 3. Create Git tag
+git tag v2.1.0
+```
