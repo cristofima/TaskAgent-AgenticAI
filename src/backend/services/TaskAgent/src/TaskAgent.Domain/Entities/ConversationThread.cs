@@ -105,15 +105,12 @@ public class ConversationThread
         SerializedThread = serializedThread;
         UpdatedAt = DateTimeOffset.UtcNow;
 
-        if (!string.IsNullOrWhiteSpace(title))
-        {
-            Title = title;
-        }
+        // Always update title - if null, it will remain null (UI shows fallback)
+        // This ensures title gets regenerated when thread gets first valid messages
+        Title = title;
 
-        if (!string.IsNullOrWhiteSpace(preview))
-        {
-            Preview = preview;
-        }
+        // Always update preview - if null, it will remain null
+        Preview = preview;
 
         if (messageCount.HasValue)
         {

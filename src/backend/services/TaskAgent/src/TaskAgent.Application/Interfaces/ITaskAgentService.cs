@@ -40,4 +40,13 @@ public interface ITaskAgentService
     /// <param name="request">Request with pagination and filter options</param>
     /// <returns>List of conversation threads</returns>
     public Task<ListThreadsResponse> ListThreadsAsync(ListThreadsRequest request);
+
+    /// <summary>
+    /// Creates or restores a thread for blocked conversation (ChatGPT-like behavior)
+    /// Note: Does NOT persist the blocked message content (security measure)
+    /// Creates a thread placeholder so the conversation can continue after the block
+    /// </summary>
+    /// <param name="threadId">Thread ID (will create new if null)</param>
+    /// <returns>The thread ID (existing or newly created)</returns>
+    public Task<string> SaveBlockedMessageAsync(string? threadId = null);
 }

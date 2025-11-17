@@ -20,7 +20,11 @@ public class ContentSafetyMiddleware
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task InvokeAsync(HttpContext context, IContentSafetyService contentSafetyService)
+    public async Task InvokeAsync(
+        HttpContext context,
+        IContentSafetyService contentSafetyService,
+        ITaskAgentService taskAgentService
+    )
     {
         if (!ShouldApplySafetyChecks(context))
         {
@@ -65,7 +69,12 @@ public class ContentSafetyMiddleware
                     "Prompt injection blocked: {Type}",
                     injectionResult.DetectedAttackType
                 );
-                await BlockSecurityViolationAsync(context, injectionResult);
+                await BlockSecurityViolationAsync(
+                    context,
+                    injectionResult,
+                    chatRequest,
+                    taskAgentService
+                );
                 return;
             }
 
@@ -76,7 +85,12 @@ public class ContentSafetyMiddleware
                     "Content policy violation: {Categories}",
                     string.Join(", ", contentResult.ViolatedCategories ?? [])
                 );
-                await BlockContentViolationAsync(context, contentResult);
+                await BlockContentViolationAsync(
+                    context,
+                    contentResult,
+                    chatRequest,
+                    taskAgentService
+                );
                 return;
             }
 
@@ -135,45 +149,76 @@ public class ContentSafetyMiddleware
 
     /// <summary>
     /// Blocks request due to security violation
+    /// Creates a thread if needed (like ChatGPT behavior)
+    /// Saves the blocked conversation to database for audit trail
     /// </summary>
     private async Task BlockSecurityViolationAsync(
         HttpContext context,
-        PromptInjectionResult result
+        PromptInjectionResult result,
+        ChatRequestDto? chatRequest,
+        ITaskAgentService taskAgentService
     )
     {
         _logger.LogWarning("Prompt injection blocked: {AttackType}", result.DetectedAttackType);
+
+        string errorMessage =
+            "Your message was flagged as attempting to manipulate the system. "
+            + "Please rephrase your request for legitimate task management.";
+
+        // Create/restore thread for blocked conversation (ChatGPT behavior: UX consistency)
+        // Note: Blocked message content is NOT persisted (security measure)
+        string threadId = await taskAgentService.SaveBlockedMessageAsync(chatRequest?.ThreadId);
 
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
         await context.Response.WriteAsJsonAsync(
             new
             {
                 error = ErrorCodes.PROMPT_INJECTION_DETECTED,
-                message = "Your message was flagged as attempting to manipulate the system. "
-                    + "Please rephrase your request for legitimate task management.",
+                message = errorMessage,
                 details = result.DetectedAttackType,
+                threadId, // ThreadId from saved conversation
+                messageId = $"blocked-{Guid.NewGuid()}",
+                createdAt = DateTime.UtcNow,
             }
         );
     }
 
     /// <summary>
     /// Blocks request due to content policy violation
+    /// Creates a thread if needed (like ChatGPT behavior)
+    /// Saves the blocked conversation to database for audit trail
     /// </summary>
-    private async Task BlockContentViolationAsync(HttpContext context, ContentSafetyResult result)
+    private async Task BlockContentViolationAsync(
+        HttpContext context,
+        ContentSafetyResult result,
+        ChatRequestDto? chatRequest,
+        ITaskAgentService taskAgentService
+    )
     {
         _logger.LogWarning(
             "Content violation blocked: {Violations}",
             string.Join(", ", result.ViolatedCategories ?? [])
         );
 
+        string errorMessage =
+            "Your message contains content that violates our policy. "
+            + "Please rephrase your request.";
+
+        // Create/restore thread for blocked conversation (ChatGPT behavior: UX consistency)
+        // Note: Blocked message content is NOT persisted (security measure)
+        string threadId = await taskAgentService.SaveBlockedMessageAsync(chatRequest?.ThreadId);
+
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
         await context.Response.WriteAsJsonAsync(
             new
             {
                 error = ErrorCodes.CONTENT_POLICY_VIOLATION,
-                message = "Your message contains content that violates our policy. "
-                    + "Please rephrase your request.",
+                message = errorMessage,
                 violations = result.ViolatedCategories,
                 categoryScores = result.CategoryScores,
+                threadId, // ThreadId from saved conversation
+                messageId = $"blocked-{Guid.NewGuid()}",
+                createdAt = DateTime.UtcNow,
             }
         );
     }

@@ -337,6 +337,81 @@ public class TaskAgentService : ITaskAgentService
         return Guid.NewGuid().ToString();
     }
 
+    public async Task<string> SaveBlockedMessageAsync(string? threadId = null)
+    {
+        string activeThreadId = threadId ?? GetNewThreadId();
+
+        try
+        {
+            _logger.LogInformation(
+                "Saving blocked message placeholder for thread {ThreadId}",
+                activeThreadId
+            );
+
+            AgentThread thread;
+
+            if (!string.IsNullOrWhiteSpace(threadId))
+            {
+                // Try to restore existing thread
+                string? existingThread = await _threadPersistence.GetThreadAsync(threadId);
+
+                if (existingThread != null)
+                {
+                    // Deserialize existing thread to continue conversation
+                    JsonElement existingThreadJson = JsonSerializer.Deserialize<JsonElement>(
+                        existingThread
+                    );
+                    thread = _agent.DeserializeThread(existingThreadJson);
+                    _logger.LogDebug(
+                        "Restored existing thread {ThreadId} for blocked message",
+                        activeThreadId
+                    );
+                }
+                else
+                {
+                    // Thread not found - create new one
+                    thread = _agent.GetNewThread();
+                    _logger.LogDebug(
+                        "Creating new thread {ThreadId} for blocked message",
+                        activeThreadId
+                    );
+                }
+            }
+            else
+            {
+                // First message and it's blocked - create new empty thread
+                thread = _agent.GetNewThread();
+                _logger.LogDebug(
+                    "Creating new thread {ThreadId} for blocked message",
+                    activeThreadId
+                );
+            }
+
+            // Serialize and save the thread (empty or with existing history)
+            // The blocked exchange will be shown in UI but not persisted in thread history
+            // This is a security measure to avoid storing potentially harmful prompts
+            JsonElement updatedThreadJson = thread.Serialize();
+            string updatedThreadSerialized = updatedThreadJson.GetRawText();
+            await _threadPersistence.SaveThreadAsync(activeThreadId, updatedThreadSerialized);
+
+            _logger.LogInformation(
+                "Successfully saved thread {ThreadId} (blocked message not persisted in history)",
+                activeThreadId
+            );
+
+            return activeThreadId;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error saving blocked message for thread {ThreadId}",
+                activeThreadId
+            );
+            throw;
+        }
+    }
+
     public async Task<GetConversationResponse> GetConversationHistoryAsync(
         GetConversationRequest request
     )
