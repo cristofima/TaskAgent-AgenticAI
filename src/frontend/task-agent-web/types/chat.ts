@@ -20,6 +20,8 @@ export interface MessageMetadata {
     functionCalls?: FunctionCallInfo[] | null;
     additionalData?: Record<string, unknown> | null;
     suggestions?: string[] | null;
+    violations?: string[] | null;
+    categoryScores?: Record<string, number> | null;
 }
 
 /**
@@ -117,4 +119,9 @@ export interface ErrorResponse {
     error: string | null;
     message: string | null;
     details?: unknown;
+    violations?: string[] | null;
+    categoryScores?: Record<string, number> | null;
+    threadId?: string | null;
+    messageId?: string | null;
+    createdAt?: string;
 }

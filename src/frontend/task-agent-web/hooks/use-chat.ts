@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, FormEvent } from "react";
-import { sendMessage, getConversation } from "@/lib/api/chat-service";
+import { sendMessage, getConversation, ApiError } from "@/lib/api/chat-service";
 import type { ChatMessage } from "@/types/chat";
 import { PAGINATION } from "@/lib/constants";
 
@@ -42,6 +42,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | undefined>();
     const [threadId, setThreadId] = useState<string | null>(null);
+    const [isFirstValidMessage, setIsFirstValidMessage] = useState(false);
 
     const handleInputChange = useCallback(
         (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
@@ -77,10 +78,20 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                 });
 
                 // Update threadId if new conversation
-                if (response.threadId && !threadId) {
+                const isNewThread = response.threadId && !threadId;
+                if (isNewThread) {
                     setThreadId(response.threadId);
                     // Notify that a new thread was created
+                    if (response.threadId) {
+                        options.onThreadCreated?.(response.threadId);
+                    }
+                }
+
+                // If this is the first valid message after a blocked one, reload sidebar
+                // This updates the title from "New chat" to the actual message
+                if (isFirstValidMessage && response.threadId) {
                     options.onThreadCreated?.(response.threadId);
+                    setIsFirstValidMessage(false);
                 }
 
                 // Add assistant response to messages
@@ -96,6 +107,42 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                 };
                 setMessages((prev) => [...prev, assistantMessage]);
             } catch (err) {
+                // Check if it's a Content Safety or Prompt Injection error (400 status)
+                if (err instanceof ApiError && err.statusCode === 400 && err.response) {
+                    // Show content safety/prompt injection errors as assistant messages
+                    const errorResponse = err.response;
+                    const isContentSafetyError = errorResponse.error === "ContentPolicyViolation" ||
+                        errorResponse.error === "PromptInjectionDetected";
+
+                    if (isContentSafetyError) {
+                        // ChatGPT behavior: Update threadId if new conversation (even for blocked messages)
+                        if (errorResponse.threadId && !threadId) {
+                            setThreadId(errorResponse.threadId);
+                            if (errorResponse.threadId) {
+                                options.onThreadCreated?.(errorResponse.threadId);
+                            }
+                            // Mark that next valid message should trigger sidebar reload
+                            setIsFirstValidMessage(true);
+                        }
+
+                        // Show as assistant message in the chat (restore previous behavior)
+                        const errorMessage: ChatMessage = {
+                            id: errorResponse.messageId || `error-${Date.now()}`,
+                            role: "assistant",
+                            content: errorResponse.message || "Your message was blocked due to safety concerns.",
+                            createdAt: errorResponse.createdAt || new Date().toISOString(),
+                            metadata: {
+                                violations: errorResponse.violations,
+                                categoryScores: errorResponse.categoryScores,
+                            },
+                        };
+                        setMessages((prev) => [...prev, errorMessage]);
+                        // Don't set error state, so no toast is shown
+                        return; // Exit early
+                    }
+                }
+
+                // For other errors, show toast and remove user message
                 const validatedError = err instanceof Error ? err : new Error("Failed to send message");
                 setError(validatedError);
                 options.onError?.(validatedError);

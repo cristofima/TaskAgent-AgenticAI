@@ -58,11 +58,12 @@ async function apiFetch<T>(
                 error: "NetworkError",
                 message: `HTTP ${response.status}: ${response.statusText}`,
             }));
-            throw new ApiError(
+            const apiError = new ApiError(
                 errorData.message || `HTTP ${response.status}: ${response.statusText}`,
                 response.status,
                 errorData
             );
+            throw apiError;
         }
 
         // Return void for DELETE requests (204 No Content)

@@ -42,6 +42,7 @@ export function ChatInterface() {
     },
     onThreadCreated: async () => {
       // Refresh conversation list when new thread is created
+      // Also called when first valid message updates blocked thread's title
       if (loadConversationsRef.current) {
         await loadConversationsRef.current();
       }
