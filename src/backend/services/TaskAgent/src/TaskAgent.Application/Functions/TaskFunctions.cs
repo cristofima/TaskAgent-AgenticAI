@@ -80,7 +80,7 @@ public class TaskFunctions
             _logger.LogInformation("Task created successfully with ID: {TaskId}", task.Id);
 
             return $"""
-                {ErrorMessages.TASK_CREATED_SUCCESS}
+                {SuccessMessages.TASK_CREATED_SUCCESS}
 
                 ID: {task.Id}
                 Title: {task.Title}
@@ -360,7 +360,7 @@ public class TaskFunctions
             );
 
             return string.Format(
-                ErrorMessages.TASK_UPDATED_SUCCESS,
+                SuccessMessages.TASK_UPDATED_SUCCESS,
                 taskId,
                 string.Join(" and ", updates)
             );
@@ -414,7 +414,7 @@ public class TaskFunctions
                 task.Title
             );
 
-            return string.Format(ErrorMessages.TASK_DELETED_SUCCESS, taskId, task.Title);
+            return string.Format(SuccessMessages.TASK_DELETED_SUCCESS, taskId, task.Title);
         }
         catch (Exception ex)
         {

@@ -13,12 +13,7 @@ public static class ErrorMessages
     public const string UPDATE_REQUIRES_FIELDS = "❌ Error: You must specify either status or priority to update.";
     public const string NO_TASKS_FOUND = "📋 No tasks found{0}.";
     public const string NO_TASKS_IN_SYSTEM = "📊 No tasks in the system yet.";
-    
-    // Success messages
-    public const string TASK_CREATED_SUCCESS = "✅ Task created successfully!";
-    public const string TASK_UPDATED_SUCCESS = "✅ Task #{0} updated successfully! Changed {1}.";
-    public const string TASK_DELETED_SUCCESS = "✅ Task #{0} '{1}' has been deleted successfully.";
-    
+
     // Error prefixes
     public const string VALIDATION_ERROR_PREFIX = "❌ Validation error: ";
     public const string BUSINESS_RULE_ERROR_PREFIX = "❌ Business rule violation: ";
