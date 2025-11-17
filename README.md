@@ -6,40 +6,99 @@ An intelligent task management assistant built with **Microsoft Agent Framework*
 
 ---
 
+## 🎥 Demo Video
+
+[![Task Agent Demo](https://img.youtube.com/vi/YVrNPfa_kaU/maxresdefault.jpg)](https://youtu.be/YVrNPfa_kaU)
+
+Watch the full demonstration of the Task Agent in action, showcasing:
+
+- Natural language task management
+- AI-powered suggestions and insights
+- Content Safety protection
+- Real-time conversation management
+- Modern Next.js frontend with ChatGPT-inspired UI
+
+---
+
+## 📚 Article Series
+
+This project is documented in a comprehensive article series on C# Corner:
+
+1. [**Building a Task Management AI Agent**](https://www.c-sharpcorner.com/article/building-a-task-management-ai-agent-with-microsoft-agentic-ai-framework-azure/) - Microsoft Agent Framework, Azure OpenAI integration, and Clean Architecture
+2. [**Securing AI Agents**](https://www.c-sharpcorner.com/article/securing-ai-agents-with-azure-ai-content-safety-implementing-prompt-shield-and/) - Azure AI Content Safety with Prompt Shield and parallel validation
+3. [**Production-Grade Observability**](https://www.c-sharpcorner.com/article/production-grade-observability-for-ai-agents-aspire-opentelemetry-and-applica/) - .NET Aspire, OpenTelemetry, and Application Insights
+4. [**Modern Frontend Architecture**](https://www.c-sharpcorner.com/article/building-a-modern-task-management-ai-agent-separating-backend-and-frontend-with/) - Next.js 16 separation, dual-database strategy, and Azure Static Web Apps
+
+**Topics Covered**:
+
+- 🤖 Autonomous AI agents with function calling
+- 🛑 Multi-layer security (Prompt Shield + Content Moderation)
+- 📈 Production observability (Aspire Dashboard + Application Insights)
+- ⚛️ Modern React with Next.js 16 and TypeScript
+- 🗄️ Dual-database architecture (SQL Server + PostgreSQL)
+- ☁️ Azure deployment with Static Web Apps
+
+---
+
 ## 🚀 Quick Start
 
 ```bash
-# Navigate to the project
-cd src
+# 1. Configure your Azure credentials in src/backend/services/TaskAgent/src/TaskAgent.WebApi/appsettings.Development.json
 
-# Restore dependencies
-dotnet restore
+# 2. Setup PostgreSQL database (see docs/POSTGRESQL_MIGRATION.md for details)
 
-# Configure your Azure credentials in appsettings.Development.json
-# Run with .NET Aspire (includes Aspire Dashboard)
+# 3. Run with .NET Aspire (includes Aspire Dashboard)
 dotnet run --project src/TaskAgent.AppHost
 
-# Or run standalone
-dotnet run --project src/services/TaskAgent/src/TaskAgent.WebApp
+# Or run backend standalone
+cd src/backend/services/TaskAgent/src
+dotnet run --project TaskAgent.WebApi
+
+# 4. Run frontend (separate terminal)
+cd src/frontend/task-agent-web
+pnpm install
+pnpm dev
 ```
 
-**Development**: Visit `http://localhost:5000` for the app and `https://localhost:17198` for Aspire Dashboard  
-**Production**: Observability data flows to Azure Application Insights automatically
+**Access**:
+
+- Frontend: http://localhost:3000
+- Backend API: https://localhost:5001
+- Aspire Dashboard: https://localhost:17198 (when using Aspire)
 
 ---
 
 ## ✨ Features
 
+**Backend Features**:
+
 - 💬 **Natural Language Interface**: Talk to your task manager like a person
 - 🛡️ **Multi-Layer Security**: Azure Content Safety protection (Prompt Shield + Content Moderation)
 - 📊 **Production-Grade Observability**: Full OpenTelemetry stack with .NET Aspire
 - ✅ **Complete CRUD**: Create, read, update, and delete tasks
-- � **Smart Analytics**: Task summaries with filtering by status and priority
+- 📈 **Smart Analytics**: Task summaries with filtering by status and priority
 - 🎨 **Beautiful Tables**: Markdown-formatted responses with emojis
 - 💡 **Contextual Suggestions**: Agent provides helpful next actions
-- 🗄️ **SQL Server Persistence**: Entity Framework Core with LocalDB
+- 🗄️ **PostgreSQL Persistence**: Entity Framework Core with JSON storage (preserves property order)
+- 💬 **Conversation Management**: Persistent threads with metadata tracking
 - 🔍 **Distributed Tracing**: End-to-end request tracking with custom activity sources
 - 📉 **Custom Metrics**: Real-time monitoring of AI agent operations
+
+**Frontend Features**:
+
+- ⚛️ **Modern React**: Next.js 16 + React 19 with TypeScript
+- 🎯 **Server Components**: Optimized bundle size and performance
+- 🎨 **ChatGPT-Inspired UI**: Full-height adaptive layout with Tailwind CSS 4
+- 📐 **Smart Layout**: Centered welcome state, fixed input when chatting
+- 🔄 **Independent Scrolling**: Fixed header and input, scrollable messages
+- 💡 **Clickable Suggestions**: Interactive suggestion buttons from AI
+- ⏳ **Contextual Loading**: Rotating status messages during processing
+- ⚡ **Optimistic Updates**: Instant message feedback
+- 📝 **Markdown Rendering**: Rich text formatting in chat
+- 🎭 **Type Safety**: Full TypeScript with backend contract alignment
+- 🧩 **Clean Architecture**: Separation of concerns (UI → Hooks → API)
+- 📂 **Conversation Management**: List, load, and delete conversations with auto-generated titles
+- 🗂️ **Sidebar Navigation**: Collapsible sidebar with conversation history
 
 ---
 
@@ -58,7 +117,7 @@ This project implements **production-grade observability** using .NET Aspire and
 - 📊 Real-time metrics visualization
 - 🔍 Distributed tracing with automatic trace correlation
 - 📝 Structured logging with log levels and scopes
-- 🔗 Dependency mapping (Azure OpenAI, Content Safety, SQL Server)
+- 🔗 Dependency mapping (Azure OpenAI, Content Safety, PostgreSQL)
 - 🎯 Custom instrumentation for AI agent operations
 
 ### Production Environment (Azure)
@@ -172,6 +231,19 @@ This application implements **2-layer defense** using Azure AI Content Safety wi
 - SDK: Azure AI Content Safety
 - Configurable severity thresholds (0-6 scale)
 
+### Security Enhancements
+
+**Blocked Message Handling**:
+
+- ✅ Blocked messages appear as assistant responses in chat (not error toasts)
+- ✅ Thread placeholders created for conversation continuity (ChatGPT-like UX)
+- ✅ **Blocked content is NEVER persisted in database** (security measure)
+- ✅ Automatic sidebar updates when threads are created
+- ✅ Smart title regeneration when first valid message is sent after a block
+- ✅ Optimized sidebar refresh: only reloads when title changes from null (efficient!)
+
+**For detailed testing guide**: See [docs/CONTENT_SAFETY.md](docs/CONTENT_SAFETY.md) (75+ test cases)
+
 **Architecture**: Content safety checks run automatically via middleware before any AI processing.
 
 **Performance**:
@@ -192,49 +264,75 @@ This application implements **2-layer defense** using Azure AI Content Safety wi
 
 ## 🏗️ Architecture
 
-Built with **Clean Architecture** for maintainability and testability:
+**Built with Clean Architecture for maintainability and testability:**
 
 ```
-TaskAgent.Domain (Entities, Business Logic)
-    ↓
-TaskAgent.Application (Use Cases, Interfaces)
-    ↓
-TaskAgent.Infrastructure (Data Access, Azure Services)
-    ↓
-TaskAgent.WebApp (UI, Controllers, AI Agent)
+┌─────────────────────────────────────────────────┐
+│                 Frontend (Next.js)              │
+│  • React 19 + TypeScript                        │
+│  • Server Components + Client Components        │
+│  • Conversation Management UI                   │
+└────────────────────┬────────────────────────────┘
+                     │ REST API
+                     ▼
+┌─────────────────────────────────────────────────┐
+│              Backend (.NET 10)                  │
+│                                                 │
+│  Presentation → Infrastructure → Application    │
+│                                  → Domain       │
+│                                                 │
+│  • AI Agent with 6 function tools               │
+│  • Content Safety middleware                    │
+│  • Dual-database persistence                    │
+└─────────────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────┐
+│             Databases & Services                │
+│  • SQL Server: Task entities                    │
+│  • PostgreSQL: Conversation threads (JSON)      │
+│  • Azure OpenAI: GPT-4o-mini                    │
+│  • Azure AI Content Safety                      │
+│  • Application Insights                         │
+└─────────────────────────────────────────────────┘
 ```
 
-**Key Components**:
+**For detailed architecture documentation:**
 
-- **Domain**: `TaskItem` entity with business rules, Status/Priority enums
-- **Application**: DTOs (using record types), `ITaskRepository`, `IThreadPersistenceService`, 6 AI function tools
-- **Infrastructure**: `TaskDbContext`, `TaskRepository`, `ContentSafetyService` with HttpClientFactory, `InMemoryThreadPersistenceService`
-- **Presentation**: MVC controllers, Razor views, `TaskAgentService`, configuration validation extensions
-
-**Conversation Persistence**:
-
-- Thread state serialized/deserialized across requests using `AgentThread.Serialize()`
-- `IThreadPersistenceService` abstraction for storage flexibility
-- In-memory implementation for single-server deployments
-- Production: Use Redis/SQL for multi-server scenarios
+- 📘 [Backend README](src/backend/services/TaskAgent/README.md) - Clean Architecture layers, API endpoints, observability
+- 📗 [Frontend README](src/frontend/task-agent-web/README.md) - Component structure, state management, API integration
+- 📙 [Architecture Decisions](docs/DUAL_DATABASE_ARCHITECTURE.md) - Dual-database rationale and patterns
 
 ---
 
 ## 🛠️ Tech Stack
 
+### Backend
+
 | Technology                 | Purpose                    |
 | -------------------------- | -------------------------- |
 | .NET 10                    | Modern web framework       |
-| ASP.NET Core MVC           | Web application            |
-| .NET Aspire                | Cloud-native orchestration |
+| ASP.NET Core Web API       | RESTful API                |
+| .NET Aspire 13.0.0         | Cloud-native orchestration |
 | OpenTelemetry              | Observability framework    |
-| Entity Framework Core      | Database ORM               |
-| SQL Server LocalDB         | Data persistence           |
+| Entity Framework Core 10   | Database ORM               |
+| SQL Server                 | Task data persistence      |
+| PostgreSQL 15+             | Conversation persistence   |
 | Microsoft Agent Framework  | Autonomous AI agents       |
 | Azure OpenAI (GPT-4o-mini) | Language model             |
 | Azure AI Content Safety    | Security & moderation      |
-| Bootstrap 5                | Responsive UI              |
-| Marked.js                  | Markdown rendering         |
+
+### Frontend
+
+| Technology     | Purpose                 |
+| -------------- | ----------------------- |
+| Next.js 16     | React framework         |
+| React 19       | UI library              |
+| TypeScript 5   | Type-safe JavaScript    |
+| Tailwind CSS 4 | Utility-first CSS       |
+| pnpm           | Fast package manager    |
+| react-markdown | Markdown rendering      |
+| SWR (planned)  | Data fetching & caching |
 
 ---
 
@@ -243,7 +341,9 @@ TaskAgent.WebApp (UI, Controllers, AI Agent)
 ### Prerequisites
 
 - .NET 10 SDK
-- SQL Server LocalDB (included with Visual Studio)
+- Node.js 20+ (for Next.js frontend)
+- pnpm package manager (`npm install -g pnpm`)
+- PostgreSQL 15+ (see [PostgreSQL Setup Guide](docs/POSTGRESQL_MIGRATION.md))
 - Azure OpenAI resource with deployed model (GPT-4o-mini recommended)
 - Azure AI Content Safety resource
 - Azure Application Insights resource (for production)
@@ -272,21 +372,62 @@ TaskAgent.WebApp (UI, Controllers, AI Agent)
 }
 ```
 
-**2. Database** (auto-created on first run, or manually):
+**2. Database Setup**:
 
 ```bash
-cd src/services/TaskAgent/src
-dotnet ef database update --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp
+# Install PostgreSQL 15+ (see docs/POSTGRESQL_MIGRATION.md for detailed instructions)
+
+# Create database
+psql -U postgres
+CREATE DATABASE "TaskAgentDb";
+\q
+
+# Update connection strings in appsettings.Development.json
+{
+  "ConnectionStrings": {
+    "TasksConnection": "Server=localhost;Database=TaskAgentDb;Trusted_Connection=true;",
+    "ConversationsConnection": "Host=localhost;Port=5432;Database=taskagent_conversations;Username=postgres;Password=your_password"
+  }
+}
+
+# Migrations apply automatically on startup
+# Or run manually from src/backend/services/TaskAgent/src:
+dotnet ef database update --context TaskDbContext --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi
+dotnet ef database update --context ConversationDbContext --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi
 ```
 
-**3. Run with Aspire** (recommended):
+**3. Configure Frontend** - Create `.env.local`:
 
 ```bash
+# src/frontend/task-agent-web/.env.local
+NEXT_PUBLIC_API_URL=https://localhost:5001
+```
+
+**4. Install Frontend Dependencies**:
+
+```bash
+cd src/frontend/task-agent-web
+pnpm install
+```
+
+**5. Run with Aspire** (recommended - runs both backend and prepares for frontend):
+
+```bash
+# From repository root
 dotnet run --project src/TaskAgent.AppHost
 ```
 
-- Application: https://localhost:5001
+- Backend API: https://localhost:5001
 - Aspire Dashboard: https://localhost:17198
+
+**6. Run Frontend** (in a separate terminal):
+
+```bash
+cd src/frontend/task-agent-web
+pnpm dev
+```
+
+- Frontend: http://localhost:3000
 
 #### Production Environment (Azure)
 
@@ -309,7 +450,8 @@ dotnet run --project src/TaskAgent.AppHost
   },
   "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=your-key;IngestionEndpoint=https://...",
   "ConnectionStrings": {
-    "DefaultConnection": "Server=tcp:your-server.database.windows.net,1433;Initial Catalog=TaskAgentDb;..."
+    "TasksConnection": "Server=tcp:your-server.database.windows.net,1433;Initial Catalog=TaskAgentDb;User ID=your_user;Password=your_password;Encrypt=True;",
+    "ConversationsConnection": "Host=your-postgres-server.postgres.database.azure.com;Port=5432;Database=TaskAgentDb;Username=your_user;Password=your_password;SslMode=Require;"
   }
 }
 ```
@@ -388,58 +530,35 @@ TaskAgentWeb/
 │   │   ├── appsettings.json                       # Aspire settings
 │   │   └── Properties/launchSettings.json         # Aspire Dashboard launch config
 │   │
-│   ├── backend/                                   # Backend services (Visual Studio)
-│   │   │
-│   │   ├── TaskAgentWeb.sln                       # Visual Studio solution
-│   │   │
-│   │   ├── TaskAgent.ServiceDefaults/             # Backend-only telemetry config
-│   │   │   └── ServiceDefaultsExtensions.cs       # OpenTelemetry, health checks, resilience
-│   │   │
-│   │   └── services/TaskAgent/src/                # Clean Architecture layers
-│   │       │
-│   │       ├── TaskAgent.Domain/                  # 🟢 Core business logic (NO dependencies)
-│   │       │   ├── Entities/                      # TaskItem with business rules
-│   │       │   ├── Enums/                         # TaskStatus, TaskPriority
-│   │       │   └── Constants/                     # Domain constants
-│   │       │
-│   │       ├── TaskAgent.Application/             # 🟡 Use cases & interfaces
-│   │       │   ├── DTOs/                          # Record types for immutability
-│   │       │   ├── Functions/                     # 6 AI function tools
-│   │       │   ├── Interfaces/                    # ITaskRepository, IContentSafetyService
-│   │       │   └── Telemetry/                     # Custom metrics & activity sources
-│   │       │       ├── AgentMetrics.cs            # Custom Meter
-│   │       │       └── AgentActivitySource.cs     # Custom ActivitySource
-│   │       │
-│   │       ├── TaskAgent.Infrastructure/          # 🔵 External concerns
-│   │       │   ├── Data/                          # TaskDbContext, EF configurations
-│   │       │   ├── Repositories/                  # Repository implementations
-│   │       │   ├── Services/                      # ContentSafetyService, ThreadPersistence
-│   │       │   └── InfrastructureServiceExtensions.cs # HttpClientFactory, DI
-│   │       │
-│   │       └── TaskAgent.WebApp/                  # 🔴 Presentation layer
-│   │           ├── Controllers/                   # ChatController, HomeController
-│   │           ├── Services/                      # TaskAgentService (AI orchestration)
-│   │           ├── Middleware/                    # ContentSafetyMiddleware
-│   │           ├── Extensions/                    # Configuration validation
-│   │           ├── Views/                         # Razor UI
-│   │           ├── wwwroot/                       # Static assets
-│   │           └── PresentationServiceExtensions.cs # AI Agent registration
+│   ├── backend/                                   # Backend services (.NET 10 Web API)
+│   │   └── ...                                    # See src/backend/services/TaskAgent/README.md
 │   │
-│   └── frontend/                                  # Frontend applications (VS Code)
-│       └── (Future: Next.js project)              # Orchestrated by AppHost via npm
+│   └── frontend/                                  # Frontend applications (Next.js 16)
+│       └── ...                                    # See src/frontend/task-agent-web/README.md
 │
 ├── docs/                                          # Documentation
 │   ├── screenshots/                               # Application screenshots
-│   ├── architecture/                              # Architecture documentation
-│   │   └── FOLDER_STRUCTURE.md                    # Detailed folder structure guide
-│   └── CONTENT_SAFETY.md                          # Content Safety testing guide
+│   ├── CONTENT_SAFETY.md                          # Content Safety testing guide (75+ cases)
+│   ├── DUAL_DATABASE_ARCHITECTURE.md              # PostgreSQL + SQL Server patterns
+│   ├── POSTGRESQL_MIGRATION.md                    # PostgreSQL setup guide
+│   └── FRONTEND_E2E_TESTING.md                    # Frontend testing guide
 │
-├── scripts/                                       # Build/deployment scripts
+├── scripts/                                       # PowerShell scripts
 │   ├── Analyze-Commits.ps1                        # Commit analysis tool
-│   └── config.json                                # Script configuration
+│   ├── config.json                                # Script configuration
+│   └── README.md                                  # Scripts documentation
 │
+├── .github/                                       # GitHub workflows & Copilot instructions
+│   └── copilot-instructions.md                    # Project-specific AI guidelines
+│
+├── LICENSE                                        # MIT License
 └── README.md                                      # This file
 ```
+
+**For detailed structure:**
+
+- 📘 **Backend**: See [src/backend/services/TaskAgent/README.md](src/backend/services/TaskAgent/README.md) for Clean Architecture layers (Domain, Application, Infrastructure, WebApp)
+- 📗 **Frontend**: See [src/frontend/task-agent-web/README.md](src/frontend/task-agent-web/README.md) for Next.js components, hooks, and API integration
 
 ### Key Architectural Decisions
 
@@ -508,33 +627,7 @@ _Production distributed tracing_
 
 ---
 
-## � Related Articles
-
-Comprehensive guides covering concepts, best practices, and step-by-step tutorials:
-
-1. **[Building an AI Task Management Agent using Microsoft Agent Framework](https://www.c-sharpcorner.com/article/building-an-ai-task-management-agent-using-microsoft-agentic-ai-framework/)**
-
-   - Understanding the Microsoft Agent Framework
-   - Implementing autonomous AI agents with function calling
-   - Clean Architecture implementation for AI applications
-   - Creating Azure OpenAI resources and configuration
-
-2. **[Securing your AI Task Agent with Azure AI Content Safety](https://www.c-sharpcorner.com/article/securing-your-ai-task-agent-with-azure-ai-content-safety/)**
-
-   - Two-layer defense architecture (Prompt Shield + Content Moderation)
-   - Setting up Azure AI Content Safety resources
-   - Implementing parallel security checks for optimal performance
-   - Best practices for AI security without exposing vulnerabilities
-
-3. **[Real-Time Observability for AI Agents with .NET Aspire, Application Insights & OpenTelemetry](https://www.c-sharpcorner.com/article/real-time-observability-for-ai-agents-with-net-aspire-application-insights-o/)**
-   - Production-grade observability with OpenTelemetry
-   - Custom metrics and distributed tracing for AI agents
-   - Hybrid telemetry architecture (local + cloud)
-   - Creating Application Insights resources and configuration
-
----
-
-## �📚 Documentation
+## 📚 Documentation
 
 - **[Content Safety Guide](docs/CONTENT_SAFETY.md)** - Security testing with 75+ test cases
 - **[Documentation Index](docs/README.md)** - Full documentation structure
@@ -554,4 +647,4 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ---
 
-**Built with ❤️ using .NET 9, Microsoft Agent Framework, .NET Aspire, and Clean Architecture**
+**Built with ❤️ using .NET 10, Next.js 16, React 19, Microsoft Agent Framework, .NET Aspire, and Clean Architecture**

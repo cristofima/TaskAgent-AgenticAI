@@ -1,36 +1,443 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TaskAgent Web - Frontend
 
-## Getting Started
+AI-powered task management interface built with **Next.js 16**, **React 19**, and **TypeScript**.
 
-First, run the development server:
+## ✨ Features
+
+### Core Functionality
+
+- 🤖 **AI Chat Interface** - Natural language task management
+- 💡 **Smart Suggestions** - Clickable contextual suggestions from AI agent
+- 📂 **Conversation Management** - List, load, and delete conversations
+- 🗂️ **Sidebar Navigation** - Collapsible sidebar with conversation history
+- 🏷️ **Auto-generated Titles** - Titles extracted from first user message
+- ⏳ **Enhanced Loading States** - Contextual loading messages with animations
+- 📱 **Responsive Design** - Works on desktop, tablet, and mobile
+- 🎨 **Modern UI** - ChatGPT-inspired clean design with Tailwind CSS
+- 📐 **Adaptive Layout** - Centered welcome state, fixed input when chatting
+- 🔄 **Smart Scrolling** - Independent message scroll with fixed header and input
+- 💾 **localStorage Persistence** - Remembers current conversation across sessions
+
+### Recent Updates (November 2025)
+
+#### v2.1 - Content Safety UX Enhancements
+
+- ✅ **Blocked Messages in Chat** - Content Safety violations appear as assistant messages (not toasts)
+- ✅ **Thread Continuity** - Blocked conversations create threads for seamless continuation
+- ✅ **Smart Title Updates** - Titles regenerate when first valid message sent after block
+- ✅ **Optimized Sidebar Refresh** - Only reloads when title changes (efficient flag-based approach)
+- ✅ **ChatGPT-like Behavior** - Natural conversation flow even with blocked messages
+
+#### v2.0 - Conversation Management
+
+- ✅ **ConversationSidebar Component** - Full conversation history with search
+- ✅ **ConversationList Component** - Paginated list with auto-generated titles
+- ✅ **ConversationItem Component** - Individual conversation cards with metadata
+- ✅ **DeleteConfirmModal Component** - Confirmation dialog with smooth animations
+- ✅ **useConversations Hook** - Conversation state management
+- ✅ **localStorage Integration** - Persists current thread ID
+- ✅ **API Integration** - List, load, and delete endpoints
+
+#### v1.0 - Chat Interface
+
+- ✅ **ChatGPT-Inspired Layout** - Full-height chat with adaptive behavior
+- ✅ **SuggestionsBar Component** - Click suggestions to send messages
+- ✅ **LoadingIndicator Component** - Rotating contextual messages
+- ✅ **Improved UX** - Smooth animations and visual feedback
+- ✅ **Minimalist Header** - Compact header only when messages exist
+- ✅ **Optimized Input** - Icon-based send button with hover states
+- ✅ **Type-safe** - Full TypeScript with strict mode
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ or 20+
+- pnpm (recommended) or npm
+- .NET backend running at `https://localhost:5001`
+
+### Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Install dependencies
+pnpm install
+
+# Run development server
 pnpm dev
-# or
-bun dev
+
+# Build for production
+pnpm build
+
+# Start production server
+pnpm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**For Local Development:**
 
-## Learn More
+Create a `.env.local` file:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Backend API URL (Next.js public env var)
+NEXT_PUBLIC_API_URL=https://localhost:5001
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**For Production (Azure Static Web Apps):**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Environment variables must be configured **at build time** as GitHub repository secrets because Next.js static export (`output: "export"`) doesn't support runtime environment variables.
 
-## Deploy on Vercel
+1. **Add GitHub Secret**:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   - Go to **Settings** → **Secrets and variables** → **Actions**
+   - Click **"New repository secret"**
+   - Name: `NEXT_PUBLIC_API_URL`
+   - Value: Your production backend URL (e.g., `https://app-taskagent-prod.azurewebsites.net`)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+2. **Verify GitHub Actions Workflow**:
+   The `frontend.yml` workflow should include:
+   ```yaml
+   - name: Build Next.js
+     env:
+       NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+     run: |
+       cd src/frontend/task-agent-web
+       pnpm build
+   ```
+
+**Why this approach?**
+
+- ✅ Next.js replaces `process.env.NEXT_PUBLIC_API_URL` with actual value during build
+- ✅ Static files include the correct backend URL
+- ❌ Azure Static Web Apps **cannot** inject runtime variables into pre-built static files
+- ❌ Environment variables in Azure portal don't work with static exports
+
+## 📂 Project Structure
+
+```
+src/frontend/task-agent-web/
+├── app/                        # Next.js App Router
+│   ├── layout.tsx              # Root layout
+│   ├── page.tsx                # Home page (chat interface)
+│   └── globals.css             # Global styles
+├── components/                 # React components
+│   ├── chat/                   # Chat-specific components
+│   │   ├── ChatInterface.tsx           # Main chat component (adaptive layout)
+│   │   ├── ChatInterfaceClient.tsx     # Client wrapper (dynamic loading)
+│   │   ├── ChatMessagesList.tsx        # Messages container (conditional layout)
+│   │   ├── ChatMessage.tsx             # Individual message bubble
+│   │   ├── ChatInput.tsx               # Input field (icon-based send)
+│   │   ├── ChatHeader.tsx              # Minimalist header
+│   │   ├── EmptyChatState.tsx          # Welcome state
+│   │   ├── SuggestionsBar.tsx          # Clickable suggestion buttons
+│   │   ├── ErrorToast.tsx              # Error display
+│   │   └── LoadingIndicator.tsx        # Contextual loading states
+│   ├── conversations/          # Conversation management
+│   │   ├── ConversationSidebar.tsx     # Sidebar layout
+│   │   ├── ConversationList.tsx        # List of conversations
+│   │   ├── ConversationItem.tsx        # Individual conversation card
+│   │   └── DeleteConfirmModal.tsx      # Delete confirmation
+│   └── shared/                 # Shared components
+│       └── LoadingIndicator.tsx    # Reusable loading component
+├── hooks/                      # Custom React hooks
+│   ├── use-chat.ts             # Chat state management
+│   └── use-conversations.ts    # Conversation management
+├── lib/                        # Utilities
+│   ├── utils.ts                # Helper functions (cn utility)
+│   ├── constants.ts            # App constants
+│   └── api/                    # API client functions
+│       └── chat-service.ts     # Chat & conversation API
+├── types/                     # TypeScript definitions
+│   ├── chat.ts                # Chat types
+│   └── conversation.ts        # Conversation types
+├── public/                    # Static assets
+└── types/ # TypeScript definitions
+    └── chat.ts # Chat types
+```
+
+## 🎯 Key Technologies
+
+- **Next.js 16** - React framework with App Router
+- **React 19** - UI library with Server Components
+- **TypeScript** - Type safety
+- **Tailwind CSS 4** - Utility-first CSS
+- **pnpm** - Fast, efficient package manager
+- **ESLint** - Code quality
+
+## 🧪 Testing
+
+```bash
+# Run linter
+pnpm lint
+
+# Type check
+pnpm build
+
+# Run tests (when available)
+pnpm test
+```
+
+## 🎨 Customization
+
+### Styling
+
+All styles use Tailwind CSS. Customize in:
+
+- `tailwind.config.ts` - Theme configuration
+- `app/globals.css` - Global styles
+- Component files - Component-specific styles
+
+### Colors
+
+Main color palette:
+
+- **Primary**: Blue (blue-500 to blue-700)
+- **Background**: Gray (gray-50 to gray-900)
+- **Suggestions**: Blue gradient (blue-50 to blue-200)
+
+### Typography
+
+- Font: Geist (optimized by Next.js)
+- Sizes: Tailwind's default scale
+
+## 📡 Backend Integration
+
+### API Endpoints Used
+
+#### Chat Endpoints
+
+- `POST /api/Chat/send` - Send message (non-streaming)
+- `POST /api/Chat/stream` - Streaming support (paused for future releases)
+
+#### Conversation Management
+
+- `GET /api/Chat/threads` - List conversations with pagination
+- `GET /api/Chat/threads/{threadId}/messages` - Get conversation history
+- `DELETE /api/Chat/threads/{threadId}` - Delete conversation
+
+### Request/Response Formats
+
+#### Send Message
+
+```typescript
+// Request
+POST /api/Chat/send
+{
+  "message": "Create a high priority task",
+  "threadId": "abc-123-def"  // Optional, creates new if null
+}
+
+// Response
+{
+  "message": "✅ Task created successfully",
+  "threadId": "abc-123-def",
+  "messageId": "msg-456",
+  "createdAt": "2025-11-17T10:30:00Z",
+  "suggestions": ["View all tasks", "Create another task"],
+  "metadata": {
+    "functionCalls": [
+      {
+        "functionName": "CreateTask",
+        "arguments": { "title": "...", "priority": "High" },
+        "result": "✅ Task created"
+      }
+    ]
+  }
+}
+```
+
+#### List Conversations
+
+```typescript
+// Request
+GET /api/Chat/threads?page=1&pageSize=20&sortBy=UpdatedAt&sortOrder=desc&isActive=true
+
+// Response
+{
+  "threads": [
+    {
+      "id": "abc-123-def",
+      "title": "Create a high priority task to review quarterl...",
+      "preview": "✅ Task created successfully. I've added a high...",
+      "messageCount": 5,
+      "createdAt": "2025-11-17T10:00:00Z",
+      "updatedAt": "2025-11-17T10:35:00Z",
+      "isActive": true
+    }
+  ],
+  "totalCount": 42,
+  "page": 1,
+  "pageSize": 20,
+  "totalPages": 3
+}
+```
+
+#### Get Conversation History
+
+```typescript
+// Request
+GET /api/Chat/threads/abc-123-def/messages?page=1&pageSize=50
+
+// Response
+{
+  "messages": [
+    {
+      "id": "msg-123",
+      "role": "user",
+      "content": "Create a high priority task",
+      "timestamp": "2025-11-17T10:30:00Z"
+    },
+    {
+      "id": "msg-124",
+      "role": "assistant",
+      "content": "✅ Task created successfully...",
+      "timestamp": "2025-11-17T10:30:05Z"
+    }
+  ],
+  "threadId": "abc-123-def",
+  "totalCount": 5,
+  "page": 1,
+  "pageSize": 50
+}
+```
+
+### Type Definitions
+
+```typescript
+// types/chat.ts
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+}
+
+export interface ChatResponse {
+  message: string;
+  threadId: string;
+  messageId: string;
+  createdAt: string;
+  metadata?: MessageMetadata;
+  suggestions?: string[];
+}
+
+// types/conversation.ts
+export interface ConversationThread {
+  id: string;
+  title: string;
+  preview: string;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+}
+
+export interface ListThreadsResponse {
+  threads: ConversationThread[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+```
+
+## 🧪 Testing
+
+### Manual Testing Guide
+
+For comprehensive end-to-end testing scenarios including:
+
+- Suggestions UI testing
+- Loading states validation
+- Content Safety blocked message flow
+- Sidebar update behavior
+- Error handling
+
+**See**: [docs/FRONTEND_E2E_TESTING.md](../../../../../docs/FRONTEND_E2E_TESTING.md)
+
+### Unit Testing (Planned)
+
+```bash
+# Run tests (when available)
+pnpm test
+
+# Run tests in watch mode
+pnpm test:watch
+```
+
+### E2E Testing (Planned)
+
+```bash
+# Run Playwright E2E tests
+pnpm test:e2e
+```
+
+---
+
+## 🔧 Development
+
+### Code Quality Standards
+
+- ✅ TypeScript strict mode
+- ✅ ESLint with Next.js rules
+- ✅ Prettier formatting
+- ✅ SOLID principles
+- ✅ Clean Architecture
+
+### Component Patterns
+
+- **Server Components** by default
+- **Client Components** (`"use client"`) only when needed
+- **Custom hooks** for logic reuse
+- **Composition** over inheritance
+
+## 🚢 Deployment
+
+### Vercel (Recommended)
+
+```bash
+# Deploy to Vercel
+vercel
+
+# Or connect GitHub repo for auto-deployments
+```
+
+### Docker
+
+```dockerfile
+# Dockerfile included in project
+docker build -t task-agent-web .
+docker run -p 3000:3000 task-agent-web
+```
+
+### Environment Variables for Production
+
+```bash
+NEXT_PUBLIC_API_URL=https://your-backend-api.com
+PORT=3000  # Optional, defaults to 3000
+```
+
+## 🤝 Contributing
+
+1. Follow TypeScript strict mode
+2. Use functional components
+3. Write self-documenting code
+4. Add JSDoc comments for public APIs
+5. Test manually before committing
+
+## 📄 License
+
+See [LICENSE](../../LICENSE) file in root directory.
+
+## 🔗 Links
+
+- **Backend**: [TaskAgent.WebApp](../../backend/services/TaskAgent/src/TaskAgent.WebApp/)
+- **Next.js Docs**: https://nextjs.org/docs
+- **React Docs**: https://react.dev
+- **Tailwind CSS**: https://tailwindcss.com
+
+---
+
+**Built with ❤️ using modern web technologies**
