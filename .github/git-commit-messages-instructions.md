@@ -1,625 +1,591 @@
-# GitHub Copilot Custom Instructions - Git Conventional Commit Messages
+# Git Commit Message Guide
 
-These instructions guide GitHub Copilot in generating Git commit messages that adhere to the Conventional Commits specification.
+## CRITICAL: Analyze Changed Files FIRST
 
-**I. Conventional Commits Specification:**
+**Before generating any commit message:**
 
-- "Generate commit messages that follow the Conventional Commits specification ([https://www.conventionalcommits.org/en/v1.0.0/](https://www.conventionalcommits.org/en/v1.0.0/))."
-- "Structure commit messages with a type, an optional scope, and a description: `<type>[optional scope]: <description>`"
-- "A complete commit message follows this structure:"
+1. **Look at the ACTUAL file paths** in staged changes
+2. **Determine area from file location:**
+   - Files in `src/frontend/` → `frontend/*`
+   - Files in `src/backend/` → `backend/*`
+   - Files in `.github/workflows/` → `ci`
+   - Root config files → `build`
+   - `.md` files → `docs`
+3. **DO NOT reuse the previous commit's scope**
+4. **Match scope to file locations, not assumptions**
 
-  ```
-  <type>[optional scope]: <description>
-
-  [optional body]
-
-  [optional footer(s)]
-  ```
-
-- "Separate the header from the optional body and footer with a blank line."
-
-**II. Commit Message Structure:**
-
-- **Header:**
-  - **Type:**
-    - "Use one of the following types (in lowercase) based on these specific criteria:"
-      - `feat`: **NEW FUNCTIONALITY** - Adding new features, endpoints, business logic, or capabilities that provide value to users. Examples:
-        - Adding a new API endpoint (`/api/chat`, `/api/tasks`)
-        - Adding new AI agent function tools (e.g., `DeleteTask`, `SearchTasks`)
-        - Implementing new business rules (e.g., task priority auto-adjustment)
-        - Adding new domain entities or value objects (e.g., `TaskComment`, `TaskHistory`)
-        - Creating new middleware (e.g., rate limiting, additional content safety checks)
-      - `fix`: **BUG RESOLUTION** - Correcting existing functionality that was not working as intended. Examples:
-        - Fixing incorrect business logic in TaskItem (e.g., status transition validation)
-        - Resolving AI agent function tool errors (e.g., incorrect emoji formatting)
-        - Correcting data validation issues (e.g., allowing invalid priority values)
-        - Fixing content safety false positives or detection issues
-        - Correcting thread management bugs in TaskAgentService
-      - `refactor`: **CODE IMPROVEMENT WITHOUT BEHAVIOR CHANGE** - Restructuring existing code without changing its external behavior or adding new features. Examples:
-        - Extracting methods or classes for better organization (e.g., creating `AgentInstructionsBuilder`)
-        - Renaming variables/methods for clarity (e.g., `_dict` to `_conversationThreads`)
-        - Simplifying complex logic in TaskFunctions while maintaining same functionality
-        - Moving code between projects for better Clean Architecture adherence
-        - Applying design patterns (Repository, Factory, etc.)
-        - Converting synchronous code to asynchronous without adding features
-        - Removing unused code or dependencies
-      - `perf`: **PERFORMANCE OPTIMIZATION** - Code changes that specifically improve performance without adding new features. Examples:
-        - Adding database indexes
-        - Optimizing queries (Entity Framework)
-        - Implementing caching mechanisms
-        - Reducing memory allocations
-        - Improving algorithm efficiency
-      - `build`: Changes that affect the build system or external dependencies (e.g., NuGet packages, MSBuild, Docker). **IMPORTANT**: Changes to CI/CD configuration files (`.yml`, `.yaml`) should use `ci` type, NOT `build`.
-      - `ci`: Changes to CI/CD configuration files and scripts (e.g., Azure Pipelines, GitHub Actions, `.yml`/`.yaml` files in `.github/workflows/`). **Examples**: Updating SDK versions in pipelines, modifying deployment steps, changing environment variables in workflows.
-      - `docs`: **DOCUMENTATION ONLY** - Changes exclusively to documentation files. Examples:
-        - Modifying Markdown (.md) files (README.md, CONTENT_SAFETY.md, etc.)
-        - Updating inline code comments or XML documentation
-        - Updating API documentation or code examples in docs
-        - **CRITICAL**: If a .md file is modified, the type MUST be `docs`, NOT `refactor(docs)` or any other type
-      - `style`: Changes that do not affect the meaning of the code (white-space, formatting, missing semicolons, etc.).
-      - `test`: Adding missing tests or correcting existing tests.
-      - `revert`: Reverts a previous commit (use footer to reference reverted commits).
-      - `chore`: Miscellaneous commits. Other changes that don't modify `src` or test files (e.g. .gitignore, package updates)
-    - "**IMPORTANT**: If you're restructuring code without adding new functionality or changing behavior, use `refactor`, NOT `feat`."
-    - "**CRITICAL FOR DOCUMENTATION**: If modifying ONLY .md files or documentation, use `docs` type, NEVER `refactor(docs)` or other types."
-    - "If none of the types apply, use 'chore'."
-  - **Scope (Optional but Strongly Recommended for this project):**
-    - "**STRONGLY RECOMMENDED to include a scope** to provide context about what part of the codebase was affected."
-    - "Scope is OPTIONAL per Conventional Commits spec, but provides valuable context."
-    - "Use the following scope hierarchy (most specific applicable level):"
-      - **Project Level**: `Domain`, `Application`, `Infrastructure`, `WebApp`
-      - **Layer/Folder Level**: `Application.Functions`, `Application.DTOs`, `Infrastructure.Services`, `WebApp.Middleware`
-      - **Feature/Component Level**: `ai-agent`, `task-management`, `content-safety`, `database`
-    - "**Scope Examples for TaskAgent Project:**"
-      - `feat(Application.Functions): add search tasks function tool`
-      - `fix(Domain): correct task status transition validation`
-      - `refactor(Infrastructure): extract agent instructions to separate class`
-      - `perf(Infrastructure): optimize task retrieval query with AsNoTracking`
-      - `test(Application): add task functions unit tests`
-      - `docs(WebApp): update API endpoint documentation`
-    - "If the change affects multiple projects/scopes, use the most general applicable scope or omit parentheses for cross-cutting changes."
-  - **Description:**
-    - "A concise description of the change in imperative, present tense (e.g., 'fix: correct typos in documentation', not 'fixed typos...')."
-    - "Capitalize the first letter of the description."
-    - "Do not end the description with a period."
-    - "Limit the description to 50 characters."
-- **Body (Optional but Recommended for Complex Changes):**
-  - "**WHEN TO INCLUDE BODY:**"
-    - "**REQUIRED when modifying multiple files** unless the title is self-explanatory"
-    - "When the change needs explanation beyond the title"
-    - "When explaining WHY the change was made (motivation)"
-    - "When describing the impact or side effects"
-    - "For complex refactoring or architectural changes"
-  - "**WHEN BODY CAN BE OMITTED:**"
-    - "Simple, self-explanatory single-file changes"
-    - "The title completely describes the change"
-    - "Trivial fixes or updates (e.g., 'docs: fix typo in README')"
-  - "**BODY FORMAT AND STYLE:**"
-    - "Write in **past tense** (describe what was done, not what to do)"
-    - "Examples: 'Added feature X', 'Implemented Y', 'Fixed Z', 'Updated configuration'"
-    - "Use complete sentences with proper capitalization and punctuation"
-    - "Wrap lines at 72 characters for readability"
-    - "Separate paragraphs with blank lines for better structure"
-  - "**LISTING MODIFIED FILES:**"
-    - "For **2-10 files**: List files with brief description of changes"
-    - "Format: 'Modified files (X):' or 'Affected files (X):' followed by bulleted list"
-    - "Use `-` (hyphen) for bullet points, not `•`"
-    - "Example format: `- FileName.cs: Brief description of change`"
-    - "File descriptions should use past tense (e.g., 'Added method', 'Updated logic')"
-    - "For **>10 files**: Group by layer/component instead of listing all files"
-    - "Example: 'This change spans multiple layers (15 files modified):'"
-    - "Then list high-level changes by component/layer, not individual files"
-    - "For **1 file**: Generally omit file listing (it's in the commit diff)"
-  - "Explain the motivation for the change and how it differs from previous behavior."
-  - "For significant changes, include performance metrics, testing notes, or migration guidance."
-- **Footer (Optional):**
-  - "Use the footer to reference issue trackers, breaking changes, or other metadata."
-  - "**Breaking Changes:** Start with `BREAKING CHANGE: ` (or `BREAKING-CHANGE:`) followed by a description. Alternatively, append `!` after type/scope (e.g., `feat!:` or `feat(api)!:`)."
-  - "**Issue References:** Use `Closes #issueNumber`, `Fixes #issueNumber`, `Resolves #issueNumber` to link to issues."
-  - "**Other Footers:** May include `Reviewed-by:`, `Refs:`, `Acked-by:`, etc. following git trailer format."
-
-**II.A. Breaking Changes - Detailed Guidelines:**
-
-**When to Mark as BREAKING CHANGE (correlates with MAJOR version bump):**
-
-A breaking change is ANY modification that requires consumers of your code to make changes to their codebase. Use `BREAKING CHANGE:` footer or `!` suffix when:
-
-**1. API Contract Changes:**
-
-- **Changing method signatures:**
-  - Removing parameters from public methods
-  - Changing parameter types or order
-  - Changing return types
-  - Example: `UpdateTask(int id, string title)` → `UpdateTask(int id, TaskUpdateDto dto)`
-- **Removing or renaming public APIs:**
-  - Deleting public methods, properties, or classes
-  - Renaming interfaces (e.g., `ITaskService` → `ITaskAgentService`)
-  - Removing endpoints (e.g., deleting `GET /api/tasks/legacy`)
-- **Changing HTTP response structures:**
-  - Removing fields from JSON responses
-  - Changing field types (e.g., `"id": 123` → `"id": "abc-123"`)
-  - Renaming response properties (e.g., `taskName` → `title`)
-  - Example: `{ "id": 1, "name": "Task" }` → `{ "id": 1, "title": "Task", "metadata": {} }`
-
-**2. Behavior Changes:**
-
-- **Changing default behavior:**
-  - Modifying default values that affect functionality
-  - Changing validation rules that reject previously valid input
-  - Altering error handling that changes response codes
-  - Example: Changing default task status from "Pending" to "Draft"
-- **Changing business logic:**
-  - Modifying core algorithms that produce different results
-  - Changing authorization/authentication requirements
-  - Altering data persistence behavior (e.g., soft delete → hard delete)
-
-**3. Data/Database Changes:**
-
-- **Schema changes requiring migration:**
-  - Removing database columns
-  - Changing column types (e.g., `int` → `string`)
-  - Adding non-nullable columns without defaults
-  - Renaming tables or columns that break existing queries
-- **Data format changes:**
-  - Changing serialization format (JSON → XML)
-  - Modifying date/time formats
-  - Changing enum values or their numeric representations
-
-**4. Configuration Changes:**
-
-- **Removing or renaming configuration keys:**
-  - `appsettings.json` key changes requiring user updates
-  - Environment variable name changes
-  - Example: `AzureOpenAI:ApiKey` → `Azure:OpenAI:Key`
-- **Changing required configuration:**
-  - Adding new required settings without defaults
-  - Removing previously optional settings that become required
-
-**5. Dependency Changes:**
-
-- **Major framework version upgrades:**
-  - .NET 8 → .NET 9 or .NET 9 → .NET 10
-  - Entity Framework Core 8 → 9
-  - Example: Upgrading to new SDK version with incompatible APIs
-- **Removing dependencies:**
-  - Removing packages that consumers might rely on
-  - Changing database providers (SQL Server → PostgreSQL)
-
-**6. Authentication/Authorization Changes:**
-
-- **Changing security requirements:**
-  - Adding authentication to previously public endpoints
-  - Changing permission models or role requirements
-  - Modifying token formats or validation rules
-
-**When NOT to mark as BREAKING CHANGE:**
-
-❌ **Pure refactoring (no external impact):**
-
-- Internal code reorganization (moving files, renaming private methods)
-- Extracting private helper classes
-- Improving internal algorithms with same output
-- Example: `refactor(Infrastructure): extract agent instructions to builder class` (internal change only)
-
-❌ **Backward-compatible additions:**
-
-- Adding new optional parameters with defaults
-- Adding new methods/endpoints without removing existing ones
-- Adding new properties to responses (additive only)
-- Example: `feat(api): add optional filter parameter to GET /api/tasks` (old code still works)
-
-❌ **Bug fixes that restore intended behavior:**
-
-- Fixing incorrect validation that was a bug
-- Correcting calculation errors
-- Example: `fix(Domain): correct task priority validation logic` (fixing broken behavior)
-
-❌ **Internal dependency updates (no API changes):**
-
-- Updating packages that don't affect public API
-- Minor/patch version bumps of dependencies
-- Example: `build: update Newtonsoft.Json from 13.0.1 to 13.0.3`
-
-❌ **Performance improvements (same behavior):**
-
-- Optimizing queries or algorithms
-- Adding caching or indexes
-- Example: `perf(Infrastructure): add database indexes for task queries` (faster, but same results)
-
-**Breaking Change Examples for TaskAgent Project:**
+**Example:**
 
 ```
-feat(api)!: change task response format to include metadata
+Changed files:
+- src/frontend/task-agent-web/hooks/use-chat.ts
+- src/frontend/task-agent-web/types/chat.ts
 
-BREAKING CHANGE: Task API responses now include a metadata object.
-The response structure has changed from:
+❌ WRONG: feat(backend/Application): implement chat
+✅ CORRECT: feat(frontend/hooks): implement chat hook
+```
+
+---
+
+## Commit Message Format
+
+```
+type(scope): description
+
+[optional body]
+
+[optional footer]
+```
+
+---
+
+## Types
+
+### Primary Types:
+
+- **feat** - NEW functionality that adds value
+  - New component, hook, API endpoint
+  - New user-facing feature
+  - New capability that didn't exist before
+- **fix** - Correcting BROKEN behavior
+
+  - Bug that causes errors
+  - Incorrect logic that produces wrong results
+  - Broken functionality that needs repair
+
+- **refactor** - Code restructuring, SAME external behavior
+  - Extracting components/functions
+  - Renaming for clarity
+  - Reorganizing code structure
+  - Improving architecture
+  - NO new features, NO behavior changes
+
+### Secondary Types:
+
+- **perf** - Performance optimization (measurable improvement)
+- **style** - Formatting, CSS, whitespace only
+- **test** - Adding or fixing tests
+- **docs** - Documentation ONLY (`.md` files)
+- **ci** - CI/CD pipeline changes
+- **build** - Dependencies, build configuration
+- **chore** - Maintenance, cleanup
+
+---
+
+## Critical Type Decisions
+
+### `feat` vs `refactor` - Decision Guide:
+
+**Ask yourself: "Is there NEW functionality that users/developers can now do?"**
+
+✅ **Use `feat` when:**
+
+- Adding a new component that didn't exist
+- Creating a new API endpoint
+- Implementing a new hook
+- Adding new types/interfaces for NEW features
+- Users can now do something they couldn't before
+
+❌ **Use `refactor` when:**
+
+- Breaking down existing component into smaller ones
+- Moving code to better locations
+- Renaming for clarity
+- Extracting duplicate code
+- Improving code organization
+- Same functionality, better structure
+
+**Examples:**
+
+```
+# NEW chat component → feat
+feat(frontend/components): add ChatMessage component
+
+# Breaking existing ChatInterface into pieces → refactor
+refactor(frontend/chat): extract message list to separate component
+
+# NEW streaming support → feat
+feat(frontend/hooks): add streaming support to use-chat
+
+# Improving existing hook structure → refactor
+refactor(frontend/hooks): simplify use-chat state management
+
+# NEW API method → feat
+feat(frontend/api): add sendMessage function
+
+# Changing how existing API works internally → refactor
+refactor(frontend/api): migrate from Vercel AI SDK to native fetch
+```
+
+### `docs` vs `feat(docs)` - NEVER use `feat(docs)`:
+
+**RULE: If ONLY `.md` files changed → ALWAYS use `docs` type**
+
+✅ **CORRECT:**
+
+```
+docs: update README with setup steps
+docs(backend): add API documentation
+docs(frontend): document component props
+```
+
+❌ **NEVER:**
+
+```
+feat(docs): add documentation  ← WRONG!
+refactor(docs): update README  ← WRONG!
+chore(docs): fix typos         ← WRONG!
+```
+
+**Exception:** If you're modifying code AND documentation:
+
+```
+feat(frontend/hooks): add use-chat hook
+
+Added custom hook for chat state management with
+streaming support.
+
+Modified files (3):
+- hooks/use-chat.ts: Implemented hook
+- types/chat.ts: Added types
+- README.md: Documented usage  ← Code + docs = feat
+```
+
+---
+
+## Scopes (Monorepo)
+
+### Backend Scopes:
+
+- `backend/Domain` - Entities, value objects
+- `backend/Application` - Use cases, DTOs, interfaces
+- `backend/Application.Functions` - AI agent function tools
+- `backend/Infrastructure` - Data access, external services
+- `backend/Infrastructure.Services` - Service implementations
+- `backend/WebApp` - Controllers, middleware
+- `backend/WebApp.Middleware` - Middleware components
+
+### Frontend Scopes:
+
+- `frontend/components` - React components
+- `frontend/hooks` - Custom hooks
+- `frontend/api` - API client code
+- `frontend/types` - TypeScript interfaces
+- `frontend/chat` - Chat feature
+- `frontend/styles` - CSS/Tailwind
+
+### Shared/Root Scopes:
+
+- `aspire` - Aspire orchestration
+- `ci` - CI/CD workflows
+- `build` - Build configuration
+- `docs` - Documentation
+- `scripts` - Utility scripts
+
+---
+
+## Rules
+
+1. **Always prefix with `backend/` or `frontend/`** (except docs, ci, build, aspire, scripts)
+2. Description: **lowercase**, **imperative**, **50 chars max**
+3. Body: **past tense**, **wrap at 72 chars**
+4. **Include body when:**
+   - Multiple files changed (2+)
+   - Change needs explanation
+   - Complex refactoring
+   - **Be specific about WHAT changed in each file**
+
+---
+
+## Body Guidelines
+
+### When to Include Body:
+
+✅ **Always include body for:**
+
+- 2+ files modified
+- Complex changes needing explanation
+- Migration instructions
+- Breaking changes
+
+❌ **Body optional for:**
+
+- Single file, obvious change
+- Simple typo fixes
+- Self-explanatory updates
+
+### Body Structure:
+
+```
+type(scope): short description (50 chars)
+
+[Blank line]
+
+Detailed explanation in past tense (72 char wrap).
+Explain WHAT changed and WHY.
+
+Modified files (X):
+- File1.tsx: What was changed here
+- File2.ts: What was changed here
+- File3.ts: What was changed here
+
+[Optional footer]
+Closes #123
+```
+
+### Body Writing Tips:
+
+1. **First paragraph:** High-level summary of changes
+2. **File list:** For 2-10 files, list each with description
+3. **For >10 files:** Group by category/layer
+4. **Use past tense:** "Added", "Implemented", "Fixed"
+5. **Be specific:** What changed in each file
+
+**Example for your current changes:**
+
+```
+feat(frontend/chat): enhance markdown rendering and API integration
+
+Migrated chat implementation from Vercel AI SDK to custom
+solution with improved type safety and direct backend integration.
+Added support for GitHub Flavored Markdown rendering.
+
+Modified files (6):
+- globals.css: Enhanced markdown styles for chat messages
+- ChatMessage.tsx: Added GFM and rehype-raw plugins
+- ChatMessagesList.tsx: Updated to use new ChatMessage types
+- use-chat.ts: Replaced Vercel AI SDK with custom implementation
+- chat-service.ts: Added createThread and deleteThread methods
+- chat.ts: Updated types to match backend API contract
+
+This provides better control over streaming and type safety.
+```
+
+---
+
+## Examples
+
+### Backend Examples
+
+```
+feat(backend/Application.Functions): add task search tool
+
+fix(backend/Domain): correct status transition validation
+
+refactor(backend/Infrastructure): extract agent instructions builder
+
+perf(backend/Infrastructure): optimize task queries with AsNoTracking
+```
+
+### Frontend Examples
+
+```
+feat(frontend/hooks): create use-chat custom hook
+
+fix(frontend/components): resolve message rendering bug
+
+refactor(frontend/chat): simplify message list logic
+
+style(frontend/chat): improve mobile responsiveness
+```
+
+### Documentation
+
+```
+docs: update README setup instructions
+
+docs(backend): add API endpoint documentation
+
+docs(frontend): document component props
+```
+
+### With Body (Multi-file)
+
+```
+feat(frontend/chat): implement streaming messages
+
+Added real-time streaming support for AI agent responses
+using Server-Sent Events. Messages now display incrementally
+as they are generated.
+
+Modified files (3):
+- ChatInterface.tsx: Added streaming display
+- use-chat.ts: Integrated SSE handling
+- types/chat.ts: Added streaming types
+
+Closes #42
+```
+
+### Cross-cutting Changes
+
+```
+feat(backend+frontend): add task priority update
+
+Backend changes (2 files):
+- TaskController.cs: Added PATCH endpoint
+- TaskFunctions.cs: Added UpdateTaskPriority method
+
+Frontend changes (3 files):
+- TaskList.tsx: Added priority selector
+- task-client.ts: Added updatePriority API call
+- types/task.ts: Added PriorityUpdateRequest interface
+```
+
+---
+
+## Breaking Changes
+
+### When to Mark as BREAKING CHANGE:
+
+Use `!` suffix or `BREAKING CHANGE:` footer when:
+
+1. **API changes requiring consumer updates:**
+   - Removing/renaming public methods or endpoints
+   - Changing request/response structures
+   - Changing method signatures
+2. **Major framework upgrades:**
+
+   - .NET 9 → .NET 10
+   - Next.js 15 → 16
+   - React 18 → 19
+
+3. **Configuration changes:**
+
+   - Removing/renaming config keys
+   - Adding required settings without defaults
+
+4. **Database schema changes:**
+   - Removing columns
+   - Changing column types
+
+### When NOT Breaking:
+
+- Internal refactoring (no external impact)
+- Adding optional parameters with defaults
+- Bug fixes restoring intended behavior
+- Performance improvements (same output)
+
+### Breaking Change Examples:
+
+```
+feat(backend/api)!: change task response format
+
+BREAKING CHANGE: Task API responses now include metadata object.
+Response structure changed from:
 {
   "id": 1,
-  "title": "Task",
-  "status": "Pending"
+  "title": "Task"
 }
 
 To:
 {
   "id": 1,
   "title": "Task",
-  "status": "Pending",
   "metadata": {
-    "createdBy": "user@example.com",
-    "version": 1
+    "createdBy": "user@example.com"
   }
 }
 
-Clients must update their response parsing to handle the new structure.
-```
-
-```
-refactor!: rename ITaskService to ITaskAgentService
-
-BREAKING CHANGE: The interface ITaskService has been renamed to
-ITaskAgentService for better clarity. All implementations and
-consumers must update their references.
-
-Migration:
-- Update dependency injection registrations
-- Change interface references in constructors
-- Update mock objects in tests
+Clients must update response parsing.
 ```
 
 ```
 build!: upgrade to .NET 10
 
-BREAKING CHANGE: Project now targets .NET 10. Consumers must:
+BREAKING CHANGE: Project now targets .NET 10.
+Consumers must:
 - Install .NET 10 SDK
-- Update project target framework to net10.0
-- Review breaking changes in .NET 10 release notes
+- Update target framework to net10.0
 
-This change enables use of new C# 13 features and improved
-performance characteristics.
+Enables C# 13 features and improved performance.
 ```
 
 ```
-feat(Application.Functions)!: remove deprecated GetTaskByName function
+refactor!: rename ITaskService to ITaskAgentService
 
-BREAKING CHANGE: Removed the deprecated GetTaskByName function tool.
-Use GetTaskDetails with ID parameter instead.
+BREAKING CHANGE: Interface renamed for clarity.
+All implementations and consumers must update references.
 
-Migration path:
-- Replace calls to GetTaskByName("task name")
-- With GetTaskDetails(taskId) after looking up ID
+Migration:
+- Update DI registrations
+- Change interface references in constructors
+- Update mock objects in tests
 ```
 
-```
-fix(api)!: correct task status enum values
+---
 
-BREAKING CHANGE: Task status enum values have been corrected to
-match business requirements. Status codes have changed:
-- 0: Pending → Draft (was Pending)
-- 1: InProgress (unchanged)
-- 2: Completed (unchanged)
-- 3: Cancelled (new)
+## Common Mistakes
 
-Clients storing numeric status values must update their mappings.
+### ❌ Mistake 1: Wrong Area (Cache Effect)
 
-Fixes #156
-```
-
-**Decision Tree for Breaking Changes:**
-
-1. **Does it remove or rename public APIs?** → BREAKING CHANGE
-2. **Does it change HTTP request/response structures?** → BREAKING CHANGE
-3. **Does it require consumers to modify their code?** → BREAKING CHANGE
-4. **Does it change database schema in a non-compatible way?** → BREAKING CHANGE
-5. **Does it change configuration keys or requirements?** → BREAKING CHANGE
-6. **Does it upgrade major framework versions (e.g., .NET 9 → 10)?** → BREAKING CHANGE
-7. **Does it change authentication/authorization requirements?** → BREAKING CHANGE
-8. **Is it an internal refactor with no external impact?** → NOT breaking
-9. **Does it add optional features without removing existing ones?** → NOT breaking
-10. **Does it fix a bug to restore intended behavior?** → NOT breaking (usually)
-
-**III. Commit Message Examples:**
-
-**Basic Examples (Single File Changes):**
-
-- `feat(Application.Functions): add delete task function tool`
-- `fix(Domain): correct completed to pending transition validation`
-- `refactor(Infrastructure): extract AI agent instructions builder`
-- `perf(Infrastructure): optimize task queries with AsNoTracking`
-- `test(Application): add task functions unit tests`
-- `docs: update content safety documentation`
-- `docs(README): add setup instructions for Azure OpenAI`
-
-**Examples with Breaking Changes:**
-
-- `feat(api)!: change task response format to include metadata`
-- `refactor!: rename ITaskService to ITaskAgentService`
-- `build!: upgrade to .NET 10`
-- `ci!: upgrade to .NET 10 SDK in deployment pipeline`
-
-**Detailed Examples with Body (Multi-file or Complex Changes):**
+**Problem:** Reusing scope from previous commit without checking files.
 
 ```
-feat(WebApp.Middleware): add prompt injection detection
+Previous commit: feat(backend/Application): add search
+Current files: src/frontend/hooks/use-chat.ts
 
-Implemented Azure Content Safety prompt shield to detect
-and block jailbreak attempts before reaching the AI agent.
-Added 400 status response with descriptive error message.
-
-Modified files (3):
-- ContentSafetyMiddleware.cs: Added prompt shield check
-- ContentSafetyService.cs: Implemented shield API call
-- IContentSafetyService.cs: Added interface method
-
-Closes #42
+❌ WRONG: feat(backend/Application): add chat feature
+✅ CORRECT: feat(frontend/hooks): create use-chat hook
 ```
 
-```
-refactor(Domain): extract task validation to factory method
+**Fix:** Always check actual file paths, ignore previous commits.
 
-Moved validation logic from constructor to TaskItem.Create()
-factory method following domain-driven design principles.
-This ensures all task creation goes through proper validation.
+---
 
-Affected files (2):
-- TaskItem.cs: Extracted Create() factory method
-- TaskRepository.cs: Updated to use factory method
+### ❌ Mistake 2: `feat` when it's actually `refactor`
 
-This change maintains the same validation behavior while
-improving code organization and testability.
-```
+**Problem:** Calling code restructuring a "feature".
 
 ```
-perf(Infrastructure): add database indexes for task queries
+Changed files:
+- ChatMessage.tsx: Extracted from ChatInterface
+- MessageList.tsx: Extracted from ChatInterface
+- ChatInterface.tsx: Now uses new components
 
-Added composite index on Status, Priority, and CreatedAt
-columns to optimize filtering queries. Performance tests
-showed 75% reduction in query time for GetAllTasksAsync
-with multiple filters applied.
+❌ WRONG: feat(frontend/components): add message components
+✅ CORRECT: refactor(frontend/chat): extract message components
 
-Modified files (2):
-- TaskDbContext.cs: Added index configuration
-- 20251018_AddTaskIndexes.cs: New EF migration
-
-Refs: #89
+Reason: No NEW functionality, just better organization
 ```
 
-```
-feat(Application): implement task search and filtering
+**Ask:** "Can users do something NEW?"
 
-Added comprehensive search and filtering capabilities for
-tasks including full-text search, status filtering, priority
-filtering, and date range queries.
+- YES → `feat`
+- NO, just better code → `refactor`
 
-This change spans multiple layers (12 files modified):
-- Application layer: New DTOs, interfaces, and service methods
-- Infrastructure layer: Repository implementations and queries
-- WebApp layer: New API endpoints and request validators
+---
 
-Key changes:
-- Created SearchTasksDto with filter parameters
-- Implemented full-text search on Title and Description
-- Added composite indexes for performance
-- Created GET /api/tasks/search endpoint
-- Added pagination support (page size, page number)
+### ❌ Mistake 3: `refactor` when it's actually `feat`
 
-Performance: Search queries execute in <100ms for 10k records.
-
-Closes #45, #67, #89
-```
+**Problem:** Calling new functionality a "refactor".
 
 ```
-docs: update architecture and setup documentation
+Changed files:
+- use-chat.ts: Added streaming support
+- types/chat.ts: Added streaming types
 
-Updated project documentation to reflect current architecture
-patterns and setup requirements. Added comprehensive content
-safety testing guide with 75+ test cases.
+❌ WRONG: refactor(frontend/hooks): update use-chat
+✅ CORRECT: feat(frontend/hooks): add streaming support
 
-Modified files (4):
-- README.md: Added Azure OpenAI setup section
-- CONTENT_SAFETY.md: New file with testing guide
-- .github/copilot-instructions.md: Updated DI patterns
-- .github/git-commit-messages-instructions.md: Added examples
+Reason: Streaming is NEW functionality, not restructuring
 ```
 
+**Ask:** "Did I add a NEW capability?"
+
+- YES → `feat`
+- NO, same features → `refactor`
+
+---
+
+### ❌ Mistake 4: Using `feat(docs)` or `refactor(docs)`
+
+**Problem:** Wrong type for documentation-only changes.
+
 ```
-ci!: upgrade to .NET 10 SDK in deployment pipeline
+❌ WRONG: feat(docs): add setup guide
+❌ WRONG: refactor(docs): update README
+❌ WRONG: chore(docs): fix typos
 
-BREAKING CHANGE: Updated GitHub Actions workflow to use .NET 10 SDK.
-Projects deployed through this pipeline must target .NET 10.
-
-Modified files (1):
-- .github/workflows/backend.yml: Updated DOTNET_CORE_VERSION to 10.0.x
-
-Deployment requirements:
-- Azure App Service must support .NET 10 runtime
-- Local development environment must have .NET 10 SDK installed
+✅ CORRECT: docs: add setup guide
+✅ CORRECT: docs: update README structure
+✅ CORRECT: docs: fix typos in API documentation
 ```
 
-**Cross-Layer Examples:**
+**Rule:** ONLY `.md` files changed → Use `docs` type.
 
-- `feat: add content safety middleware with 4-layer protection`
-- `fix: resolve thread management in AI agent service`
-- `refactor: standardize error handling across all layers`
+---
 
-**Handling Commits with Multiple Change Types:**
+### ❌ Mistake 5: Missing Area Prefix
 
-- "Each commit should be as atomic as possible, addressing a single concern. A single commit must only have one type."
-- "If a commit includes multiple types of changes (e.g., a new feature and a refactor), choose the type that represents the primary purpose of the commit. The hierarchy is generally `feat` > `fix` > `perf` > `refactor`."
-- "**Example**: If you add a new feature and also refactor some old code in the same file, the commit type must be `feat`."
-  - `feat(Application.Functions): add update task priority tool` (even if it involved refactoring)
-- "**AVOID** creating a single commit message that lists multiple types. A commit has ONE type."
-- "**INCORRECT**: `feat: add function, refactor: simplify entity`"
-- "**CORRECT**: `feat(Application.Functions): add search tasks by priority` (This is the main change, even if refactoring was done)
+**Problem:** Forgetting `backend/` or `frontend/` prefix.
 
-**IV. Instructions for Copilot:**
+```
+❌ WRONG: feat(Application): add tool
+❌ WRONG: fix(hooks): resolve bug
+❌ WRONG: refactor(Infrastructure): extract class
 
-- "When generating commit messages, adhere strictly to the Conventional Commits specification ([https://www.conventionalcommits.org/en/v1.0.0/](https://www.conventionalcommits.org/en/v1.0.0/))."
-- "**CRITICAL**: Distinguish carefully between `feat` and `refactor`:"
-  - "Use `feat` ONLY when adding NEW functionality or capabilities"
-  - "Use `refactor` when improving existing code structure without changing behavior"
-  - "If restructuring code for better architecture = `refactor`"
-  - "If adding new business logic or endpoints = `feat`"
-- "**CRITICAL FOR DOCUMENTATION FILES**: When ONLY .md files are modified, use `docs` type, NEVER `refactor(docs)` or other combinations. Examples:"
-  - "✅ CORRECT: `docs: update README with setup steps`"
-  - "✅ CORRECT: `docs(README): add Azure configuration guide`"
-  - "❌ INCORRECT: `refactor(docs): update README`"
-  - "❌ INCORRECT: `chore(docs): update documentation`"
-- "**STRONGLY RECOMMENDED to include a scope** using the project hierarchy: `ProjectName` or `ProjectName.FolderName`"
-- "For TaskAgent Clean Architecture project, common scopes include:"
-  - "`Domain`, `Application`, `Infrastructure`, `WebApp`"
-  - "`Application.Functions`, `Application.DTOs`, `Infrastructure.Services`, `WebApp.Middleware`"
-  - "`Domain.Entities`, `Infrastructure.Data`, `WebApp.Controllers`"
-- "Use specific scopes like `ai-agent`, `task-management`, `content-safety`, `database` for feature-level changes"
-- "For documentation changes, scope can reference the file name (e.g., `docs(README):`) or be omitted (e.g., `docs:`)"
-- "Write descriptions in imperative, present tense with capital first letter"
-- "Limit header to 50 characters, body lines to 72 characters"
-- "**INCLUDE BODY when:**"
-  - "Multiple files are modified (unless title is completely self-explanatory)"
-  - "Complex changes that need explanation"
-  - "Explaining WHY (motivation) not just WHAT"
-  - "**ALWAYS include body when marking BREAKING CHANGE** to explain impact and migration path"
-- "**OMIT BODY when:**"
-  - "Single file, simple change"
-  - "Title is completely self-explanatory"
-  - "Trivial updates (e.g., 'docs: fix typo')"
-- "**BODY WRITING STYLE - CRITICAL:**"
-  - "**Header (title)**: Use IMPERATIVE PRESENT tense (e.g., 'add feature', 'fix bug', 'update config')"
-  - "**Body**: Use PAST TENSE (e.g., 'Added feature', 'Fixed bug', 'Updated config')"
-  - "Body describes what WAS done, header describes what the commit DOES"
-  - "Use `-` (hyphen) for bullet points in body, NEVER `•` or other symbols"
-  - "File listings format:"
-    - "2-10 files: List each file with hyphen. Example: `- FileName.cs: Added method`"
-    - ">10 files: Group by layer/component, don't list all files individually"
-  - "Example for many files:"
-    - "❌ DON'T: List all 15 files individually (too verbose)"
-    - "✅ DO: 'This change spans multiple layers (15 files modified):'"
-    - "Then describe by component: 'Application layer: New DTOs and services'"
-  - "Wrap lines at 72 characters for readability"
-- "**BREAKING CHANGES - Critical Decision Guide:**"
-  - "**CRITICAL FOR FRAMEWORK UPGRADES**: Major framework upgrades (e.g., .NET 9 → .NET 10, EF Core 8 → 9) are ALWAYS breaking changes and MUST use `!` suffix or `BREAKING CHANGE:` footer. This applies to changes in `Directory.Build.props`, `global.json`, `.csproj` files, or CI/CD pipelines that upgrade framework versions."
-  - "Use `BREAKING CHANGE:` footer or `!` suffix when consumers MUST modify their code"
-  - "**Ask yourself**: Would existing code that uses this API/endpoint/interface still work?"
-  - "**If NO** (requires consumer changes) → BREAKING CHANGE"
-  - "**If YES** (backward compatible) → NOT breaking"
-  - "Common breaking changes:"
-    - "Removing/renaming public APIs, methods, properties, endpoints"
-    - "Changing HTTP response structures (removing/renaming fields)"
-    - "Changing method signatures (parameters, return types)"
-    - "**Major framework upgrades (.NET 9 → .NET 10, EF Core 8 → 9)** - ALWAYS breaking, even if only in build files or CI/CD pipelines"
-    - "Removing/renaming configuration keys in appsettings.json"
-    - "Changing database schema (removing columns, changing types)"
-    - "Changing authentication/authorization requirements"
-  - "NOT breaking changes:"
-    - "Internal refactoring (private methods, file organization)"
-    - "Adding optional parameters with defaults"
-    - "Adding new methods/endpoints (keeping existing ones)"
-    - "Performance improvements (same behavior/output)"
-    - "Bug fixes restoring intended behavior"
-    - "Minor dependency updates without API changes"
-  - "**Format**: Use `type(scope)!: description` OR add footer `BREAKING CHANGE: explanation`"
-  - "**Body REQUIRED**: Explain what breaks, why, and how to migrate"
-- "Use footer for breaking changes (`BREAKING CHANGE: ` or `!` in header) and issue references (`Closes #123`)"
-- "When in doubt between types, prefer the more specific type (e.g., `perf` over `refactor` for performance improvements)"
+✅ CORRECT: feat(backend/Application.Functions): add tool
+✅ CORRECT: fix(frontend/hooks): resolve state bug
+✅ CORRECT: refactor(backend/Infrastructure): extract class
+```
 
-**V. TaskAgent Project Specific Guidelines:**
+---
 
-**Common Scenarios and Correct Types:**
+### ❌ Mistake 6: Too Vague Description
 
-1. **Adding new functionality (`feat`):**
+**Problem:** Description doesn't say WHAT changed.
 
-   - New AI agent function tools (TaskFunctions methods)
-   - New API endpoints or controllers (ChatController, TaskController)
-   - New business logic or domain entities (TaskItem methods, new entities)
-   - New content safety features or middleware layers
-   - New validation rules or business rules in Domain
-   - New middleware components (rate limiting, logging)
-   - New Entity Framework migrations with new features
+```
+❌ WRONG: feat(frontend): add functionality
+❌ WRONG: fix(backend): fix bug
+❌ WRONG: refactor: improve code
+❌ WRONG: feat(frontend/chat): enhance chat message rendering and API integration
 
-2. **Code improvements without new features (`refactor`):**
+✅ CORRECT: feat(frontend/components): add ChatMessage component
+✅ CORRECT: fix(frontend/hooks): resolve infinite loop in use-chat
+✅ CORRECT: refactor(backend/Infrastructure): extract agent builder
+✅ CORRECT: feat(frontend/chat): add markdown rendering support
+```
 
-   - Extracting AI agent instructions to separate builder class
-   - Moving code between Clean Architecture layers
-   - Applying design patterns (Repository, Factory, Strategy)
-   - Converting synchronous to asynchronous without adding functionality
-   - Simplifying TaskFunctions error handling while maintaining same behavior
-   - Reorganizing folder structure (DTOs, Functions, Services)
-   - Renaming for clarity (e.g., `_threads` to `_conversationThreads`)
-   - Consolidating duplicate code in function tools
+**Be specific:** Name the component, function, or feature.
 
-3. **Performance improvements (`perf`):**
+---
 
-   - Database query optimizations with AsNoTracking()
-   - Adding indexes on TaskItem (Status, Priority, CreatedAt)
-   - Implementing caching for AI agent responses
-   - Optimizing TaskDbContext queries
-   - Reducing memory allocations in TaskAgentService
-   - Optimizing thread dictionary management
-   - Improving content safety API call efficiency
+## Decision Tree
 
-4. **Bug fixes (`fix`):**
-   - Correcting TaskItem business logic (status transitions)
-   - Fixing AI agent function tool errors or incorrect responses
-   - Resolving content safety false positives
-   - Fixing task validation problems (title length, priority values)
-   - Correcting DI configuration issues in Program.cs
-   - Fixing null reference exceptions in TaskFunctions
-   - Resolving Entity Framework enum conversion issues
+1. **Are ONLY .md files changed?** → `docs:`
+2. **Are files in `.github/workflows/`?** → `ci:`
+3. **Is this a major framework upgrade?** → `build!:` or `ci!:` (breaking)
+4. **Are files in `src/frontend/`?** → Use `frontend/*` scope
+5. **Are files in `src/backend/`?** → Use `backend/*` scope
+6. **Does it add new user-facing functionality?** → `feat`
+7. **Does it fix broken functionality?** → `fix`
+8. **Does it improve performance?** → `perf`
+9. **Does it restructure code (same behavior)?** → `refactor`
+10. **Is it style/formatting only?** → `style`
 
-**Scope Naming Conventions for this Project:**
+---
 
-- **Project Level**: `Domain`, `Application`, `Infrastructure`, `WebApp`
-- **Layer/Folder Level**: `Application.Functions`, `Application.DTOs`, `Application.Interfaces`, `Infrastructure.Data`, `Infrastructure.Services`, `WebApp.Middleware`, `WebApp.Controllers`
-- **Feature Level**: `ai-agent`, `task-management`, `content-safety`, `database`, `chat`
-- **Component Level**: `middleware`, `controllers`, `repositories`, `function-tools`, `entities`
+## Quick Reference
 
-**Decision Tree for Commit Types:**
+### Most Common Patterns:
 
-1. **Does it modify ONLY .md files or documentation?** → `docs` (NEVER `refactor(docs)`)
-2. **Does it modify CI/CD files (.yml, .yaml in .github/workflows/)?** → `ci` (NOT `build`)
-3. **Does it upgrade major framework versions (.NET 9 → 10)?** → `build!` or `ci!` (BREAKING CHANGE - use `!` suffix)
-4. **Does it add new user-facing functionality?** → `feat`
-5. **Does it fix broken functionality?** → `fix`
-6. **Does it improve performance measurably?** → `perf`
-7. **Does it change code structure without changing behavior?** → `refactor`
-8. **Does it add/modify tests only?** → `test`
-9. **Does it change build system or dependencies (not CI/CD)?** → `build`
-10. **Does it revert a previous commit?** → `revert`
-11. **Everything else** → `chore`
+```
+# Backend - New features
+feat(backend/Application.Functions): add [function name] tool
+feat(backend/WebApp): add [endpoint/middleware]
+feat(backend/Domain): add [entity/value object]
 
-**Multi-File Changes - Body Guidelines:**
+# Backend - Fixes
+fix(backend/Domain): correct [validation/business rule]
+fix(backend/Infrastructure): resolve [data access issue]
 
-- **Include body if:**
-  - 2+ files modified (describe changes and list files if ≤10)
-  - Change spans multiple layers or scopes
-  - Explanation needed for WHY (not just WHAT)
-  - Breaking changes or migrations involved
-- **Body can be omitted if:**
-  - Single file, straightforward change
-  - Title like "docs: fix typo in README" is self-explanatory
-  - Trivial formatting or style changes
+# Backend - Refactoring
+refactor(backend/Infrastructure): extract [class/method]
+refactor(backend/Application): simplify [logic/structure]
 
-**File Listing Best Practices:**
+# Frontend - New features
+feat(frontend/components): add [component name]
+feat(frontend/hooks): create [hook name]
+feat(frontend/api): add [client method]
 
-- **2-10 files modified:**
-  - Include section: "Modified files (X):" or "Affected files (X):"
-  - List each file with hyphen and brief description
-  - Example: `- TaskService.cs: Added search method`
-  - Use past tense for descriptions
-- **>10 files modified:**
-  - DON'T list all files individually (commit becomes too long)
-  - State total count: "This change spans multiple layers (15 files modified):"
-  - Group changes by layer/component/category
-  - Example: "Application layer: New DTOs, interfaces, and service methods"
-  - Example: "Infrastructure layer: Repository implementations and queries"
-  - Focus on WHAT changed in each component, not listing every file
-- **1 file modified:**
-  - Generally omit file listing (obvious from commit diff)
-  - Use body to explain WHY and HOW, not WHAT file
+# Frontend - Fixes
+fix(frontend/components): resolve [rendering issue]
+fix(frontend/hooks): correct [state management]
 
-**Body Writing Style:**
+# Frontend - Styling
+style(frontend/chat): improve [layout/responsiveness]
 
-- Header (title): Imperative present ("add feature", "fix bug")
-- Body: Past tense ("Added feature", "Implemented logic", "Fixed validation")
-- Bullet points: Use `-` (hyphen), not `•` or other symbols
-- Line length: Wrap at 72 characters
-- Paragraphs: Separate with blank lines for readability
+# Documentation
+docs: update [document name]
+docs(backend): add [API/architecture] documentation
+docs(frontend): document [component/hook usage]
+
+# CI/CD
+ci: add [workflow/pipeline]
+ci: update [deployment/build] configuration
+
+# Build
+build: update [dependency name]
+build!: upgrade to [framework version]
+```
