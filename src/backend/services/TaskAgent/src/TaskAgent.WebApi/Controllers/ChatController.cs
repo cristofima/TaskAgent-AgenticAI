@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskAgent.Application.DTOs;
 using TaskAgent.Application.Interfaces;
-using TaskAgent.WebApp.Constants;
-using TaskAgent.WebApp.Models;
-using TaskAgent.WebApp.Services;
+using TaskAgent.WebApi.Constants;
+using TaskAgent.WebApi.Models;
+using TaskAgent.WebApi.Services;
 
-namespace TaskAgent.WebApp.Controllers;
+namespace TaskAgent.WebApi.Controllers;
 
 /// <summary>
 /// Controller for chat interactions with the AI Agent

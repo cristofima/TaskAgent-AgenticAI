@@ -1,4 +1,4 @@
-namespace TaskAgent.WebApp.Constants;
+namespace TaskAgent.WebApi.Constants;
 
 /// <summary>
 /// API route constants for the web application

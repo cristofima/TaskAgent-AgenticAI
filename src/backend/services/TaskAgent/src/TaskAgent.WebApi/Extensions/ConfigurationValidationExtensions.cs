@@ -1,4 +1,4 @@
-namespace TaskAgent.WebApp.Extensions;
+namespace TaskAgent.WebApi.Extensions;
 
 /// <summary>
 /// Extension methods for validating application configuration

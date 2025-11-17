@@ -1,4 +1,4 @@
-namespace TaskAgent.WebApp.Models;
+namespace TaskAgent.WebApi.Models;
 
 internal class ChatRequestDto
 {

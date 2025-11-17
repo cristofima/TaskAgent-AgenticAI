@@ -1,10 +1,10 @@
 using System.Text.Json;
 using TaskAgent.Application.DTOs;
 using TaskAgent.Application.Interfaces;
-using TaskAgent.WebApp.Constants;
-using TaskAgent.WebApp.Models;
+using TaskAgent.WebApi.Constants;
+using TaskAgent.WebApi.Models;
 
-namespace TaskAgent.WebApp.Middleware;
+namespace TaskAgent.WebApi.Middleware;
 
 /// <summary>
 /// Middleware that automatically applies content safety checks to AI agent interactions

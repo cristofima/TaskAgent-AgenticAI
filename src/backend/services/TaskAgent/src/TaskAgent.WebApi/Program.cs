@@ -1,8 +1,8 @@
 using TaskAgent.Application;
 using TaskAgent.Infrastructure;
 using TaskAgent.ServiceDefaults;
-using TaskAgent.WebApp;
-using TaskAgent.WebApp.Extensions;
+using TaskAgent.WebApi;
+using TaskAgent.WebApi.Extensions;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 

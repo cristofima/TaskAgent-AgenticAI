@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskAgent.Application.DTOs;
 
-namespace TaskAgent.WebApp.Services;
+namespace TaskAgent.WebApi.Services;
 
 /// <summary>
 /// Factory for creating standardized error responses

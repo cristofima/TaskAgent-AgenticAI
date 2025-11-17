@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <Description>TaskAgent WebApp - ASP.NET Core web application with AI agent integration</Description>
-    <RootNamespace>TaskAgent.WebApp</RootNamespace>
-    <AssemblyName>TaskAgent.WebApp</AssemblyName>
+    <RootNamespace>TaskAgent.WebApi</RootNamespace>
+    <AssemblyName>TaskAgent.WebApi</AssemblyName>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn> <!-- Suppress missing XML comment warnings -->
   </PropertyGroup>

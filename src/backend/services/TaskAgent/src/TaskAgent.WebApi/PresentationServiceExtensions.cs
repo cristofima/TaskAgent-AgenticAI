@@ -7,9 +7,9 @@ using Microsoft.OpenApi;
 using TaskAgent.Application.Functions;
 using TaskAgent.Application.Interfaces;
 using TaskAgent.Application.Telemetry;
-using TaskAgent.WebApp.Services;
+using TaskAgent.WebApi.Services;
 
-namespace TaskAgent.WebApp;
+namespace TaskAgent.WebApi;
 
 /// <summary>
 /// Presentation layer dependency injection
@@ -22,9 +22,9 @@ public static class PresentationServiceExtensions
     )
     {
         // Configure CORS for Next.js frontend
-        string[] allowedOrigins = configuration
-            .GetSection("Cors:AllowedOrigins")
-            .Get<string[]>() ?? ["http://localhost:3000"];
+        string[] allowedOrigins =
+            configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+            ?? ["http://localhost:3000"];
 
         services.AddCors(options =>
         {

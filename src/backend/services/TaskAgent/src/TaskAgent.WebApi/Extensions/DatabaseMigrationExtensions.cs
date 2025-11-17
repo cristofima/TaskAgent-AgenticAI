@@ -1,6 +1,6 @@
 using TaskAgent.Infrastructure.Services;
 
-namespace TaskAgent.WebApp.Extensions;
+namespace TaskAgent.WebApi.Extensions;
 
 /// <summary>
 /// Extension methods for database migrations in WebApp layer

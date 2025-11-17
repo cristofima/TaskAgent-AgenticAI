@@ -19,10 +19,10 @@ on:
       - "src/backend/TaskAgentWeb.sln"
 env:
   AZURE_WEBAPP_NAME: app-taskagent-prod
-  AZURE_WEBAPP_PACKAGE_PATH: src/backend/services/TaskAgent/src/TaskAgent.WebApp/published
+  AZURE_WEBAPP_PACKAGE_PATH: src/backend/services/TaskAgent/src/TaskAgent.WebApi/published
   CONFIGURATION: Release
   DOTNET_CORE_VERSION: 10.0.x
-  WORKING_DIRECTORY: src/backend/services/TaskAgent/src/TaskAgent.WebApp
+  WORKING_DIRECTORY: src/backend/services/TaskAgent/src/TaskAgent.WebApi
 jobs:
   build:
     runs-on: ubuntu-latest

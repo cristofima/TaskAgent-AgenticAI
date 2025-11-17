@@ -1,6 +1,6 @@
-using TaskAgent.WebApp.Middleware;
+using TaskAgent.WebApi.Middleware;
 
-namespace TaskAgent.WebApp.Extensions;
+namespace TaskAgent.WebApi.Extensions;
 
 /// <summary>
 /// Extension methods for middleware registration

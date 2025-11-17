@@ -13,7 +13,7 @@ using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
 using ChatMessage = TaskAgent.Application.DTOs.ChatMessage;
 using ChatResponseDto = TaskAgent.Application.DTOs.ChatResponse;
 
-namespace TaskAgent.WebApp.Services;
+namespace TaskAgent.WebApi.Services;
 
 /// <summary>
 /// Service for managing AI Agent lifecycle and interactions.
