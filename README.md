@@ -24,9 +24,9 @@ Watch the full demonstration of the Task Agent in action, showcasing:
 
 This project is documented in a comprehensive article series on C# Corner:
 
-1. [**Building a Task Management AI Agent**](https://www.c-sharpcorner.com/article/building-a-task-management-ai-agent-with-microsoft-agentic-ai-framework-azure/) - Microsoft Agent Framework, Azure OpenAI integration, and Clean Architecture
-2. [**Securing AI Agents**](https://www.c-sharpcorner.com/article/securing-ai-agents-with-azure-ai-content-safety-implementing-prompt-shield-and/) - Azure AI Content Safety with Prompt Shield and parallel validation
-3. [**Production-Grade Observability**](https://www.c-sharpcorner.com/article/production-grade-observability-for-ai-agents-aspire-opentelemetry-and-applica/) - .NET Aspire, OpenTelemetry, and Application Insights
+1. [**Building a Task Management AI Agent**](https://www.c-sharpcorner.com/article/building-an-ai-task-management-agent-using-microsoft-agentic-ai-framework/) - Microsoft Agent Framework, Azure OpenAI integration, and Clean Architecture
+2. [**Securing AI Agents**](https://www.c-sharpcorner.com/article/securing-your-ai-task-agent-with-azure-ai-content-safety/) - Azure AI Content Safety with Prompt Shield and parallel validation
+3. [**Production-Grade Observability**](https://www.c-sharpcorner.com/article/real-time-observability-for-ai-agents-with-net-aspire-application-insights-o/) - .NET Aspire, OpenTelemetry, and Application Insights
 4. [**Modern Frontend Architecture**](https://www.c-sharpcorner.com/article/building-a-modern-task-management-ai-agent-separating-backend-and-frontend-with/) - Next.js 16 separation, dual-database strategy, and Azure Static Web Apps
 
 **Topics Covered**:
