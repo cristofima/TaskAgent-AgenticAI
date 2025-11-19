@@ -129,6 +129,7 @@ src/
         │
         └── TaskAgent.WebApi/                  # 🔴 Presentation layer (Web API)
             ├── Constants/
+            │   ├── AgentInstructions.cs       # AI Agent instruction constants
             │   ├── ApiRoutes.cs               # Route constants
             │   ├── ErrorCodes.cs              # Error code constants
             │   └── ErrorMessages.cs           # User-facing error messages
@@ -178,7 +179,7 @@ public static AIAgent CreateAgent(
 
     // Create agent with 170-line instruction prompt
     var agent = chatClient.CreateAIAgent(
-        instructions: GetInstructions(),
+        instructions: AgentInstructions.TASK_AGENT_INSTRUCTIONS,
         tools: [createTaskTool, listTasksTool, ...]
     );
 
