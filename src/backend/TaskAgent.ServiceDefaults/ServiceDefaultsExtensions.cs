@@ -101,10 +101,6 @@ namespace TaskAgent.ServiceDefaults
                         .AddHttpClientInstrumentation()
                         .AddEntityFrameworkCoreInstrumentation(efOptions =>
                         {
-                            // Capture detailed SQL queries in development only (security concern in production)
-                            bool isDevelopment = builder.Environment.IsDevelopment();
-                            efOptions.SetDbStatementForText = isDevelopment;
-                            efOptions.SetDbStatementForStoredProcedure = isDevelopment;
                             efOptions.EnrichWithIDbCommand = (activity, _) =>
                             {
                                 // Add custom tags to EF activities
