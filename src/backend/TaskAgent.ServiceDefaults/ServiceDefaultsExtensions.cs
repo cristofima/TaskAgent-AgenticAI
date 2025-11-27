@@ -9,28 +9,29 @@ using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Events;
 
 namespace TaskAgent.ServiceDefaults
 {
     /// <summary>
-    /// Adds common Aspire services: service discovery, resilience, health checks, and OpenTelemetry.
-    /// This project should be referenced by each service project in your solution.
-    ///
-    /// Telemetry Architecture:
-    /// - DEVELOPMENT: Uses OTLP exporter → Aspire Dashboard (localhost:17198)
-    /// - PRODUCTION: Uses Azure Monitor → Application Insights
-    ///
-    /// The appropriate exporter is selected based on configuration:
-    /// - If OTEL_EXPORTER_OTLP_ENDPOINT is set → OTLP (Aspire Dashboard)
-    /// - If APPLICATIONINSIGHTS_CONNECTION_STRING is set → Azure Monitor (Production)
-    ///
-    /// To learn more about using this project, see https://aka.ms/dotnet/aspire/service-defaults
+    /// Provides extension methods for configuring .NET Aspire service defaults: OpenTelemetry, service discovery, resilience, health checks, and Serilog.
     /// </summary>
+    /// <remarks>
+    /// Reference this project from each service to apply consistent observability and infrastructure patterns.
+    /// See <see href="https://aka.ms/dotnet/aspire/service-defaults">Aspire documentation</see> for details.
+    /// </remarks>
     public static class ServiceDefaultsExtensions
     {
         private const string HealthEndpointPath = "/health";
         private const string AlivenessEndpointPath = "/alive";
 
+        /// <summary>
+        /// Configures service defaults: OpenTelemetry, service discovery, resilience, and health checks.
+        /// </summary>
+        /// <typeparam name="TBuilder">The host application builder type.</typeparam>
+        /// <param name="builder">The host application builder.</param>
+        /// <returns>The configured builder for method chaining.</returns>
         public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder)
             where TBuilder : IHostApplicationBuilder
         {
@@ -156,6 +157,11 @@ namespace TaskAgent.ServiceDefaults
             return builder;
         }
 
+        /// <summary>
+        /// Maps health check endpoints (<c>/health</c> and <c>/alive</c>) in development environments only.
+        /// </summary>
+        /// <param name="app">The web application.</param>
+        /// <returns>The configured application for method chaining.</returns>
         public static WebApplication MapDefaultEndpoints(this WebApplication app)
         {
             // Adding health checks endpoints to applications in non-development environments has security implications.
@@ -175,6 +181,49 @@ namespace TaskAgent.ServiceDefaults
             );
 
             return app;
+        }
+
+        /// <summary>
+        /// Configures Serilog with console and file sinks, integrating with OpenTelemetry for centralized logging.
+        /// </summary>
+        /// <param name="host">The host builder.</param>
+        /// <returns>The configured host builder for method chaining.</returns>
+        /// <remarks>
+        /// Log files: <c>logs/{assembly-name}-{date}.log</c> with daily rolling and 7-day retention.
+        /// See README for detailed configuration.
+        /// </remarks>
+        public static IHostBuilder AddSerilogDefaults(this IHostBuilder host)
+        {
+            return host.UseSerilog((context, configuration) =>
+            {
+                // Generate log path from assembly name
+                string assemblyName = context.HostingEnvironment.ApplicationName;
+#pragma warning disable CA1308 // Lowercase is appropriate for file paths
+                string sanitizedName = assemblyName.ToLowerInvariant().Replace(".", "-", StringComparison.Ordinal);
+#pragma warning restore CA1308
+                string logPath = $"logs/{sanitizedName}-";
+
+                configuration
+                    .MinimumLevel.Information()
+                    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+                    .Enrich.FromLogContext()
+                    .Enrich.WithProperty("Application", context.HostingEnvironment.ApplicationName)
+                    .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName)
+                    .WriteTo.Console(
+                        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+                    .WriteTo.File(
+                        path: $"{logPath}.log",
+                        rollingInterval: RollingInterval.Day,
+                        retainedFileCountLimit: 7,
+                        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
+
+                // Development: Include debug logs for better diagnostics
+                if (context.HostingEnvironment.IsDevelopment())
+                {
+                    configuration.MinimumLevel.Debug();
+                }
+            }, writeToProviders: true); // CRITICAL: writeToProviders:true sends logs to Microsoft.Extensions.Logging (OpenTelemetry)
         }
     }
 }
