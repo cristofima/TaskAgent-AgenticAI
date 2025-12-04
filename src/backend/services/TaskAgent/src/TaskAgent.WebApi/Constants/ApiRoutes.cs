@@ -5,5 +5,5 @@ namespace TaskAgent.WebApi.Constants;
 /// </summary>
 public static class ApiRoutes
 {
-    public const string CHAT = "api/chat";
+    public const string AGUI = "/agui";
 }

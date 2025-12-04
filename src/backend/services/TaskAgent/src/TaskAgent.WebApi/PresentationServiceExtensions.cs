@@ -1,12 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Azure;
-using Azure.AI.OpenAI;
-using Microsoft.Agents.AI;
 using Microsoft.OpenApi;
-using TaskAgent.Application.Functions;
-using TaskAgent.Application.Interfaces;
-using TaskAgent.Application.Telemetry;
 using TaskAgent.WebApi.Services;
 
 namespace TaskAgent.WebApi;
@@ -37,6 +31,9 @@ public static class PresentationServiceExtensions
                     .AllowCredentials();
             });
         });
+
+        // Register presentation layer services
+        services.AddScoped<SseStreamingService>();
 
         // Configure API controllers with JSON options
         services
@@ -70,8 +67,9 @@ public static class PresentationServiceExtensions
                 new OpenApiInfo
                 {
                     Title = "TaskAgent API",
-                    Version = "v1",
-                    Description = "AI-powered task management API with Microsoft Agents Framework",
+                    Version = "v2.0",
+                    Description =
+                        "AI-powered task management API with Microsoft Agent Framework and AG-UI Protocol",
                     Contact = new OpenApiContact
                     {
                         Name = "TaskAgent Team",
@@ -90,56 +88,6 @@ public static class PresentationServiceExtensions
             }
         });
 
-        RegisterTaskAgent(services, configuration);
-
         return services;
-    }
-
-    /// <summary>
-    /// Register Task Agent service
-    /// </summary>
-    private static void RegisterTaskAgent(IServiceCollection services, IConfiguration configuration)
-    {
-        string? azureOpenAiEndpoint = configuration["AzureOpenAI:Endpoint"];
-        string? modelDeployment = configuration["AzureOpenAI:DeploymentName"];
-        string? apiKey = configuration["AzureOpenAI:ApiKey"];
-
-        if (
-            string.IsNullOrWhiteSpace(azureOpenAiEndpoint)
-            || string.IsNullOrWhiteSpace(modelDeployment)
-            || string.IsNullOrWhiteSpace(apiKey)
-        )
-        {
-            throw new InvalidOperationException(
-                "Missing required Azure OpenAI configuration. Please check appsettings.json and appsettings.Development.json"
-            );
-        }
-
-        var client = new AzureOpenAIClient(
-            new Uri(azureOpenAiEndpoint),
-            new AzureKeyCredential(apiKey)
-        );
-
-        services.AddScoped<ITaskAgentService>(sp =>
-        {
-            ITaskRepository taskRepository = sp.GetRequiredService<ITaskRepository>();
-            ILogger<TaskAgentService> logger = sp.GetRequiredService<ILogger<TaskAgentService>>();
-            IThreadPersistenceService threadPersistence =
-                sp.GetRequiredService<IThreadPersistenceService>();
-            AgentMetrics metrics = sp.GetRequiredService<AgentMetrics>();
-            ILogger<TaskFunctions> functionsLogger = sp.GetRequiredService<
-                ILogger<TaskFunctions>
-            >();
-
-            AIAgent agent = TaskAgentService.CreateAgent(
-                client,
-                modelDeployment,
-                taskRepository,
-                metrics,
-                functionsLogger
-            );
-
-            return new TaskAgentService(agent, logger, threadPersistence, metrics);
-        });
     }
 }

@@ -1,52 +1,58 @@
+using Serilog;
 using TaskAgent.Application;
 using TaskAgent.Infrastructure;
 using TaskAgent.ServiceDefaults;
 using TaskAgent.WebApi;
 using TaskAgent.WebApi.Extensions;
 
-WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
-
-builder.AddServiceDefaults();
-
-builder
-    .Services.AddApplication()
-    .AddInfrastructure(builder.Configuration)
-    .AddPresentation(builder.Configuration);
-
-WebApplication app = builder.Build();
-
-app.MapDefaultEndpoints();
-
-app.ValidateConfiguration();
-
-// Apply database migrations automatically on startup (all environments)
-await app.ApplyDatabaseMigrationsAsync();
-
-if (app.Environment.IsDevelopment())
+try
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "TaskAgent API v1");
-        options.RoutePrefix = "swagger";
-    });
+    WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+    // Configure ServiceDefaults: OpenTelemetry (Tracing + Metrics) + Health Checks + Resilience
+    builder.AddServiceDefaults();
+
+    // Configure Serilog: Logging (completes the 3 pillars of observability)
+    builder.Host.AddSerilogDefaults();
+
+    Log.Information("🚀 Starting {ApplicationName}...", "TaskAgent WebApi");
+
+    // Register application layers
+    builder
+        .Services.AddApplication()
+        .AddInfrastructure(builder.Configuration)
+        .AddPresentation(builder.Configuration) // Keep for now (parallel deployment)
+        .AddAgentServices(builder.Configuration); // AG-UI integration with agent registration
+
+    WebApplication app = builder.Build();
+
+    // Apply database migrations automatically on startup (all environments)
+    await app.ApplyDatabaseMigrationsAsync();
+
+    // Configure middleware pipeline
+    app.ConfigureMiddlewarePipeline();
+
+    await app.RunAsync();
 }
-else
+catch (Exception ex)
 {
-    app.UseHsts();
+    LogFatalError(ex);
+    throw;
+}
+finally
+{
+    await CloseAndFlushLoggerAsync();
 }
 
-app.UseHttpsRedirection();
+return;
 
-// Enable CORS before authentication
-app.UseCors();
+static void LogFatalError(Exception ex)
+{
+    Log.Fatal(ex, "❌ Application terminated unexpectedly");
+}
 
-// Content Safety middleware before authorization
-app.UseContentSafety();
-
-app.UseAuthorization();
-
-// Map controllers for REST API
-app.MapControllers();
-
-await app.RunAsync();
+static async Task CloseAndFlushLoggerAsync()
+{
+    Log.Information("🛑 Shutting down {ApplicationName}...", "TaskAgent WebApi");
+    await Log.CloseAndFlushAsync();
+}
