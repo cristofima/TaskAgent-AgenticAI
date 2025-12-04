@@ -2,7 +2,7 @@
 
 /**
  * ConversationSidebar Component
- * Sidebar for managing conversations (list, create, delete)
+ * Sidebar for managing chats (list, create, delete)
  * Responsive: Drawer on mobile, persistent sidebar on desktop
  */
 
@@ -77,7 +77,7 @@ export function ConversationSidebar({
         onConversationDeleted(threadId);
       }
     } catch (error) {
-      console.error("Failed to delete conversation:", error);
+      console.error("Failed to delete chat:", error);
     }
   };
 
@@ -168,7 +168,7 @@ export function ConversationSidebar({
             </div>
           </div>
 
-          {/* New conversation button */}
+          {/* New chat button */}
           {!isCollapsed && (
             <button
               onClick={handleNewConversation}

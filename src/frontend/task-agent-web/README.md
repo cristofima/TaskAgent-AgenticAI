@@ -7,34 +7,35 @@ AI-powered task management interface built with **Next.js 16**, **React 19**, an
 ### Core Functionality
 
 - 🤖 **AI Chat Interface** - Natural language task management
+- 🎯 **Custom AG-UI Integration** - SSE streaming with `/api/agent/chat` endpoint
 - 💡 **Smart Suggestions** - Clickable contextual suggestions from AI agent
-- 📂 **Conversation Management** - List, load, and delete conversations
-- 🗂️ **Sidebar Navigation** - Collapsible sidebar with conversation history
+- 📂 **Chat Management** - List, load, and delete chats
+- 🗂️ **Sidebar Navigation** - Collapsible sidebar with chat history
 - 🏷️ **Auto-generated Titles** - Titles extracted from first user message
 - ⏳ **Enhanced Loading States** - Contextual loading messages with animations
 - 📱 **Responsive Design** - Works on desktop, tablet, and mobile
 - 🎨 **Modern UI** - ChatGPT-inspired clean design with Tailwind CSS
 - 📐 **Adaptive Layout** - Centered welcome state, fixed input when chatting
 - 🔄 **Smart Scrolling** - Independent message scroll with fixed header and input
-- 💾 **localStorage Persistence** - Remembers current conversation across sessions
+- 💾 **localStorage Persistence** - Remembers current chat across sessions
 
 ### Recent Updates (November 2025)
 
 #### v2.1 - Content Safety UX Enhancements
 
 - ✅ **Blocked Messages in Chat** - Content Safety violations appear as assistant messages (not toasts)
-- ✅ **Thread Continuity** - Blocked conversations create threads for seamless continuation
+- ✅ **Thread Continuity** - Blocked chats create threads for seamless continuation
 - ✅ **Smart Title Updates** - Titles regenerate when first valid message sent after block
 - ✅ **Optimized Sidebar Refresh** - Only reloads when title changes (efficient flag-based approach)
-- ✅ **ChatGPT-like Behavior** - Natural conversation flow even with blocked messages
+- ✅ **ChatGPT-like Behavior** - Natural chat flow even with blocked messages
 
-#### v2.0 - Conversation Management
+#### v2.0 - Chat Management
 
-- ✅ **ConversationSidebar Component** - Full conversation history with search
+- ✅ **ConversationSidebar Component** - Full chat history with search
 - ✅ **ConversationList Component** - Paginated list with auto-generated titles
-- ✅ **ConversationItem Component** - Individual conversation cards with metadata
+- ✅ **ConversationItem Component** - Individual chat cards with metadata
 - ✅ **DeleteConfirmModal Component** - Confirmation dialog with smooth animations
-- ✅ **useConversations Hook** - Conversation state management
+- ✅ **useConversations Hook** - Chat state management
 - ✅ **localStorage Integration** - Persists current thread ID
 - ✅ **API Integration** - List, load, and delete endpoints
 
@@ -134,28 +135,77 @@ src/frontend/task-agent-web/
 │   │   ├── SuggestionsBar.tsx          # Clickable suggestion buttons
 │   │   ├── ErrorToast.tsx              # Error display
 │   │   └── LoadingIndicator.tsx        # Contextual loading states
-│   ├── conversations/          # Conversation management
+│   ├── conversations/          # Chat management
 │   │   ├── ConversationSidebar.tsx     # Sidebar layout
-│   │   ├── ConversationList.tsx        # List of conversations
-│   │   ├── ConversationItem.tsx        # Individual conversation card
+│   │   ├── ConversationList.tsx        # List of chats
+│   │   ├── ConversationItem.tsx        # Individual chat card
 │   │   └── DeleteConfirmModal.tsx      # Delete confirmation
 │   └── shared/                 # Shared components
 │       └── LoadingIndicator.tsx    # Reusable loading component
 ├── hooks/                      # Custom React hooks
 │   ├── use-chat.ts             # Chat state management
-│   └── use-conversations.ts    # Conversation management
+│   └── use-conversations.ts    # Chat management
 ├── lib/                        # Utilities
 │   ├── utils.ts                # Helper functions (cn utility)
 │   ├── constants.ts            # App constants
 │   └── api/                    # API client functions
-│       └── chat-service.ts     # Chat & conversation API
+│       └── chat-service.ts     # Chat & API client
 ├── types/                     # TypeScript definitions
 │   ├── chat.ts                # Chat types
-│   └── conversation.ts        # Conversation types
+│   └── conversation.ts        # Thread/conversation types (technical)
 ├── public/                    # Static assets
 └── types/ # TypeScript definitions
     └── chat.ts # Chat types
 ```
+
+## 🏗️ Architecture
+
+**Custom Implementation with AG-UI Foundation**:
+
+```
+Frontend (Next.js)
+├── Custom UI Components
+│   ├── ChatInterface.tsx
+│   ├── ConversationSidebar.tsx
+│   ├── ChatMessagesList.tsx
+│   └── use-chat.ts hook
+│
+↕️ SSE Streaming (Server-Sent Events)
+│   POST /api/agent/chat
+│   • serializedState → Backend
+│   • SSE events ← Backend
+│   • THREAD_STATE event (new serializedState)
+│
+Backend (.NET)
+├── AgentController (Custom SSE endpoint)
+│   └── Wraps Microsoft Agent Framework
+│       • Deserializes thread from serializedState
+│       • Streams responses via RunStreamingAsync
+│       • Returns updated serializedState
+│
+└── PostgresChatMessageStore
+    └── Automatic persistence in PostgreSQL
+```
+
+**Why Custom AG-UI Endpoint (not standard `/agui`)?**
+- ✅ **Full SSE control**: Custom event types (`CONTENT_START`, `CONTENT_DELTA`, `THREAD_STATE`)
+- ✅ **serializedState pattern**: Frontend receives updated state after each response
+- ✅ **Chat continuity**: Backend deserializes full thread from PostgreSQL
+- ✅ **No protocol limitations**: Can add custom events as needed
+- ✅ **Integrated chat sidebar**: 291 lines with auto-generated titles
+- ❌ Standard `/agui` doesn't return `serializedState` in streaming mode
+
+**Why Custom UI (not CopilotKit)?**
+- ✅ **Chat-first application**: Not auxiliary chat over another app
+- ✅ **Full UX control**: ChatGPT-inspired adaptive layout
+- ✅ **Minimal dependencies**: No heavy UI framework
+- ❌ CopilotKit designed for auxiliary chat, not main application
+
+**Microsoft Agent Framework Benefits**:
+- 🔄 Automatic message persistence via `ChatMessageStore`
+- 📡 SSE streaming with `RunStreamingAsync`
+- 🧵 Thread serialization/deserialization built-in
+- 📦 Function calling with `AIFunctionFactory`
 
 ## 🎯 Key Technologies
 
@@ -211,11 +261,11 @@ Main color palette:
 - `POST /api/Chat/send` - Send message (non-streaming)
 - `POST /api/Chat/stream` - Streaming support (paused for future releases)
 
-#### Conversation Management
+#### Chat Management
 
-- `GET /api/Chat/threads` - List conversations with pagination
-- `GET /api/Chat/threads/{threadId}/messages` - Get conversation history
-- `DELETE /api/Chat/threads/{threadId}` - Delete conversation
+- `GET /api/Chat/threads` - List chats with pagination
+- `GET /api/Chat/threads/{threadId}/messages` - Get chat history
+- `DELETE /api/Chat/threads/{threadId}` - Delete chat
 
 ### Request/Response Formats
 
@@ -248,7 +298,7 @@ POST /api/Chat/send
 }
 ```
 
-#### List Conversations
+#### List Chats
 
 ```typescript
 // Request
@@ -274,7 +324,7 @@ GET /api/Chat/threads?page=1&pageSize=20&sortBy=UpdatedAt&sortOrder=desc&isActiv
 }
 ```
 
-#### Get Conversation History
+#### Get Chat History
 
 ```typescript
 // Request

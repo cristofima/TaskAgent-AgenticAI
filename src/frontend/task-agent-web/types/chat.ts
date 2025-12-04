@@ -40,17 +40,18 @@ export interface ChatMessage {
  */
 export interface SendMessageRequest {
     message: string | null;
-    threadId?: string | null;
+    serializedState?: string | null; // ThreadDbKey (GUID) for PostgreSQL conversation persistence
 }
 
 /**
- * Response from sending a message (non-streaming)
- * Maps to backend ChatResponse from /api/Chat/send
+ * Response from sending a message via custom Agent endpoint
+ * Accumulated from SSE stream events
  */
 export interface SendMessageResponse {
     message: string | null;
-    threadId: string | null;
+    serializedState?: string | null; // ThreadDbKey (GUID) for next request - maintains conversation
     messageId: string | null;
+    timestamp?: string; // For backward compatibility
     createdAt: string;
     metadata?: MessageMetadata;
     suggestions?: string[] | null;
@@ -67,10 +68,11 @@ export interface ConversationThread {
     updatedAt: string;
     messageCount: number;
     isActive: boolean;
+    serializedState?: string | null; // AG-UI protocol: serialized thread state for resuming
 }
 
 /**
- * Request to list conversation threads
+ * Request to list chat threads
  */
 export interface ListThreadsRequest {
     page?: number;
@@ -92,7 +94,7 @@ export interface ListThreadsResponse {
 }
 
 /**
- * Request to get conversation history
+ * Request to get chat history
  */
 export interface GetConversationRequest {
     threadId: string;
@@ -105,6 +107,7 @@ export interface GetConversationRequest {
  */
 export interface GetConversationResponse {
     threadId: string | null;
+    serializedState?: string | null; // ThreadDbKey (GUID) for PostgreSQL conversation persistence
     messages: ChatMessage[] | null;
     totalCount: number;
     page: number;
@@ -122,6 +125,7 @@ export interface ErrorResponse {
     violations?: string[] | null;
     categoryScores?: Record<string, number> | null;
     threadId?: string | null;
+    serializedState?: string | null; // ThreadDbKey (GUID) - preserved even when message blocked
     messageId?: string | null;
     createdAt?: string;
 }

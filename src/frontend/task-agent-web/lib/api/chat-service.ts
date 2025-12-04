@@ -83,25 +83,142 @@ async function apiFetch<T>(
 }
 
 /**
- * Sends a message to the backend (non-streaming)
- * Uses /api/Chat/send endpoint
+ * Sends a message to the backend via custom Agent endpoint with PostgreSQL persistence
+ * Uses /api/agent/chat endpoint with Server-Sent Events (SSE) streaming
+ * Backend maintains conversation state in PostgreSQL via serializedState (ThreadDbKey)
  */
 export async function sendMessage(
     request: SendMessageRequest
 ): Promise<SendMessageResponse> {
-    return apiFetch<SendMessageResponse>(
-        "/api/Chat/send",
-        {
+    try {
+        // Send current message with serializedState for conversation continuity
+        // Backend loads full conversation history from PostgreSQL using ThreadDbKey
+        const requestBody: {
+            messages: Array<{ role: string; content: string }>;
+            serializedState?: string;
+        } = {
+            messages: [
+                {
+                    role: "user",
+                    content: request.message || "",
+                },
+            ],
+        };
+
+        // Add serializedState if available for conversation continuity
+        if (request.serializedState) {
+            requestBody.serializedState = request.serializedState;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/agent/chat`, {
             method: "POST",
-            body: JSON.stringify(request),
-        },
-        "Failed to send message"
-    );
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "text/event-stream", // SSE format
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+            throw new ApiError(
+                `HTTP ${response.status}: ${response.statusText}`,
+                response.status
+            );
+        }
+
+        // Parse SSE stream
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let serializedState: string | null = null; // Captured from THREAD_STATE event
+        let messageId: string | null = null;
+        let fullMessage = "";
+        let createdAt: string | null = null;
+
+        if (!reader) {
+            throw new ApiError("Response body is not readable");
+        }
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+            for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                    const dataContent = line.slice(6); // Remove "data: " prefix
+                    
+                    // Handle [DONE] event - end of stream
+                    if (dataContent === "[DONE]") {
+                        break;
+                    }
+
+                    try {
+                        const event = JSON.parse(dataContent);
+
+                        // Handle TEXT_MESSAGE_START event
+                        if (event.type === "TEXT_MESSAGE_START" && event.messageId) {
+                            messageId = event.messageId;
+                            createdAt = event.createdAt || new Date().toISOString();
+                        }
+
+                        // Handle TEXT_MESSAGE_CONTENT event (streaming chunks)
+                        if (event.type === "TEXT_MESSAGE_CONTENT" && event.delta) {
+                            fullMessage += event.delta;
+                        }
+
+                        // Handle TEXT_MESSAGE_END event
+                        if (event.type === "TEXT_MESSAGE_END") {
+                            // Message complete
+                        }
+
+                        // ✅ Handle THREAD_STATE event (serializedState for next request)
+                        if (event.type === "THREAD_STATE" && event.serializedState) {
+                            serializedState = event.serializedState;
+                        }
+
+                        // Handle RUN_ERROR event
+                        if (event.type === "RUN_ERROR") {
+                            throw new ApiError(
+                                event.message || "Agent run failed",
+                                500,
+                                {
+                                    error: event.error || "RunError",
+                                    message: event.message || "Agent run failed",
+                                }
+                            );
+                        }
+                    } catch (parseError) {
+                        console.warn("Failed to parse SSE event:", line, parseError);
+                    }
+                }
+            }
+        }
+
+        // Return accumulated response with serializedState
+        return {
+            message: fullMessage || "No response received",
+            serializedState: serializedState || undefined,
+            messageId: messageId || `msg-${Date.now()}`,
+            timestamp: createdAt || new Date().toISOString(),
+            createdAt: createdAt || new Date().toISOString(),
+        };
+    } catch (error) {
+        if (error instanceof ApiError) {
+            throw error;
+        }
+        throw new ApiError(
+            error instanceof Error ? error.message : "Failed to send message"
+        );
+    }
 }
 
 /**
  * Gets conversation history for a thread
- * Uses /api/Chat/threads/{threadId}/messages endpoint
+ * Uses /api/conversations/{threadId}/messages endpoint
  */
 export async function getConversation(
     request: GetConversationRequest
@@ -111,16 +228,18 @@ export async function getConversation(
         ...(request.pageSize && { pageSize: request.pageSize.toString() }),
     });
 
-    return apiFetch<GetConversationResponse>(
-        `/api/Chat/threads/${request.threadId}/messages?${params}`,
+    const response = await apiFetch<GetConversationResponse>(
+        `/api/conversations/${request.threadId}/messages?${params}`,
         { method: "GET" },
         "Failed to get conversation"
     );
+
+    return response;
 }
 
 /**
  * Lists all conversation threads
- * Uses /api/Chat/threads endpoint (GET)
+ * Uses /api/conversations endpoint (GET)
  */
 export async function listThreads(
     request: ListThreadsRequest = {}
@@ -134,31 +253,30 @@ export async function listThreads(
     });
 
     return apiFetch<ListThreadsResponse>(
-        `/api/Chat/threads?${params}`,
+        `/api/conversations?${params}`,
         { method: "GET" },
         "Failed to list threads"
     );
 }
 
 /**
- * Creates a new conversation thread
- * Uses /api/Chat/threads endpoint (POST)
+ * Creates a new chat thread
+ * Note: With AG UI, threads are created automatically on first message
+ * This method is kept for API compatibility but may not be needed
  */
 export async function createThread(): Promise<{ threadId: string }> {
-    return apiFetch<{ threadId: string }>(
-        "/api/Chat/threads",
-        { method: "POST" },
-        "Failed to create thread"
-    );
+    // With AG UI Protocol, threads are created implicitly on first message
+    // Return a placeholder - actual threadId comes from first sendMessage response
+    return Promise.resolve({ threadId: "" });
 }
 
 /**
  * Deletes a conversation thread
- * Uses /api/Chat/threads/{threadId} endpoint (DELETE)
+ * Uses /api/conversations/{threadId} endpoint (DELETE)
  */
 export async function deleteThread(threadId: string): Promise<void> {
     return apiFetch<void>(
-        `/api/Chat/threads/${threadId}`,
+        `/api/conversations/${threadId}`,
         { method: "DELETE" },
         "Failed to delete thread"
     );

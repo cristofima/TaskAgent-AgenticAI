@@ -59,9 +59,9 @@ export function useConversations(
             setHasMore(response.hasMore);
         } catch (err) {
             const validatedError =
-                err instanceof Error ? err : new Error("Failed to load conversations");
+                err instanceof Error ? err : new Error("Failed to load chats");
             setError(validatedError);
-            console.error("Failed to load conversations:", err);
+            console.error("Failed to load chats:", err);
         } finally {
             setIsLoading(false);
         }
@@ -92,9 +92,9 @@ export function useConversations(
                 return response;
             } catch (err) {
                 const validatedError =
-                    err instanceof Error ? err : new Error("Failed to load conversation");
+                    err instanceof Error ? err : new Error("Failed to load chat");
                 setError(validatedError);
-                console.error("Failed to load conversation:", err);
+                console.error("Failed to load chat:", err);
                 throw validatedError;
             } finally {
                 setIsLoading(false);
@@ -123,9 +123,9 @@ export function useConversations(
                 }
             } catch (err) {
                 const validatedError =
-                    err instanceof Error ? err : new Error("Failed to delete conversation");
+                    err instanceof Error ? err : new Error("Failed to delete chat");
                 setError(validatedError);
-                console.error("Failed to delete conversation:", err);
+                console.error("Failed to delete chat:", err);
                 throw validatedError;
             }
         },
@@ -146,7 +146,7 @@ export function useConversations(
         }
     }, []);
 
-    // Create new conversation
+    // Create new chat
     const createNewConversation = useCallback((): void => {
         setCurrentThreadIdState(null);
         if (typeof window !== "undefined") {

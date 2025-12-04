@@ -2,7 +2,7 @@
 
 /**
  * ConversationList Component
- * Displays a list of conversations with loading and empty states
+ * Displays a list of chats with loading and empty states
  */
 
 import type { ConversationThread } from "@/types/chat";
@@ -28,7 +28,7 @@ export function ConversationList({
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3" />
-        <p className="text-sm text-gray-500">Loading conversations...</p>
+        <p className="text-sm text-gray-500">Loading chats...</p>
       </div>
     );
   }
@@ -53,10 +53,10 @@ export function ConversationList({
           </svg>
         </div>
         <p className="text-sm text-gray-600 font-medium mb-1">
-          No conversations yet
+          No chats yet
         </p>
         <p className="text-xs text-gray-500">
-          Start a new conversation to get started
+          Start a new chat to get started
         </p>
       </div>
     );

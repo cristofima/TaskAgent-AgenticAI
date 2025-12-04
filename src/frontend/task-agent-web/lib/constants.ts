@@ -20,5 +20,5 @@ export const PAGINATION = {
  */
 export const API = {
     /** Base URL for backend API */
-    BASE_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000",
+    BASE_URL: process.env.NEXT_PUBLIC_API_URL || "https://localhost:5001",
 } as const;

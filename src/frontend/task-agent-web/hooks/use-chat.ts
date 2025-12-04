@@ -41,8 +41,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | undefined>();
-    const [threadId, setThreadId] = useState<string | null>(null);
-    const [isFirstValidMessage, setIsFirstValidMessage] = useState(false);
+    const [currentThreadId, setCurrentThreadId] = useState<string | null>(null); // Active conversation ThreadDbKey
+    const [serializedState, setSerializedState] = useState<string | null>(null); // ThreadDbKey from backend
 
     const handleInputChange = useCallback(
         (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
@@ -71,27 +71,22 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
             setIsLoading(true);
 
             try {
-                // Send message to backend
+                // Send message with serializedState for conversation continuity
                 const response = await sendMessage({
                     message,
-                    threadId: threadId,
+                    serializedState: serializedState || undefined,
                 });
 
-                // Update threadId if new conversation
-                const isNewThread = response.threadId && !threadId;
-                if (isNewThread) {
-                    setThreadId(response.threadId);
-                    // Notify that a new thread was created
-                    if (response.threadId) {
-                        options.onThreadCreated?.(response.threadId);
+                // Update serializedState for next request (thread continuity)
+                if (response.serializedState) {
+                    const isNewConversation = !serializedState; // First message creates new chat
+                    setSerializedState(response.serializedState);
+                    setCurrentThreadId(response.serializedState); // ThreadDbKey is the thread ID
+                    
+                    // Notify parent component to reload chats list
+                    if (isNewConversation) {
+                        options.onThreadCreated?.(response.serializedState);
                     }
-                }
-
-                // If this is the first valid message after a blocked one, reload sidebar
-                // This updates the title from "New chat" to the actual message
-                if (isFirstValidMessage && response.threadId) {
-                    options.onThreadCreated?.(response.threadId);
-                    setIsFirstValidMessage(false);
                 }
 
                 // Add assistant response to messages
@@ -115,17 +110,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                         errorResponse.error === "PromptInjectionDetected";
 
                     if (isContentSafetyError) {
-                        // ChatGPT behavior: Update threadId if new conversation (even for blocked messages)
-                        if (errorResponse.threadId && !threadId) {
-                            setThreadId(errorResponse.threadId);
-                            if (errorResponse.threadId) {
-                                options.onThreadCreated?.(errorResponse.threadId);
-                            }
-                            // Mark that next valid message should trigger sidebar reload
-                            setIsFirstValidMessage(true);
-                        }
-
-                        // Show as assistant message in the chat (restore previous behavior)
+                        // Show as assistant message in the chat
                         const errorMessage: ChatMessage = {
                             id: errorResponse.messageId || `error-${Date.now()}`,
                             role: "assistant",
@@ -153,7 +138,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                 setIsLoading(false);
             }
         },
-        [isLoading, threadId, options]
+        [isLoading, serializedState, options]
     );
 
     const handleSubmit = useCallback(
@@ -175,31 +160,33 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
 
     const clearMessages = useCallback((): void => {
         setMessages([]);
-        setThreadId(null);
+        setCurrentThreadId(null);
+        setSerializedState(null);
         setError(undefined);
     }, []);
 
     /**
      * Loads a conversation's message history and updates the chat state
      *
-     * @param newThreadId - The thread ID to load
+     * @param threadId - The ThreadDbKey (GUID) to load from database
      * @throws {Error} When conversation cannot be loaded
      */
     const loadConversation = useCallback(
-        async (newThreadId: string): Promise<void> => {
+        async (threadId: string): Promise<void> => {
             setIsLoading(true);
             setError(undefined);
 
             try {
                 // Get conversation history
                 const response = await getConversation({
-                    threadId: newThreadId,
+                    threadId: threadId,
                     page: 1,
                     pageSize: PAGINATION.CONVERSATION_PAGE_SIZE,
                 });
 
-                // Update thread ID
-                setThreadId(newThreadId);
+                // Update current thread ID and serializedState
+                setCurrentThreadId(threadId);
+                setSerializedState(threadId); // ThreadDbKey is used as serializedState
 
                 // Convert backend messages to frontend format
                 const loadedMessages: ChatMessage[] = (response.messages || []).map((msg) => ({
@@ -213,7 +200,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                 setMessages(loadedMessages);
             } catch (err) {
                 const validatedError =
-                    err instanceof Error ? err : new Error("Failed to load conversation");
+                    err instanceof Error ? err : new Error("Failed to load chat");
                 setError(validatedError);
                 options.onError?.(validatedError);
             } finally {
@@ -223,23 +210,19 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         [options]
     );
 
-    const setThreadIdManually = useCallback((newThreadId: string | null): void => {
-        setThreadId(newThreadId);
-    }, []);
-
     return {
         messages,
         input,
         isLoading,
         error,
-        threadId,
+        threadId: currentThreadId,
         handleInputChange,
         handleSubmit,
         clearMessages,
         setInput,
         sendSuggestion,
         loadConversation,
-        setThreadId: setThreadIdManually,
+        setThreadId: setCurrentThreadId,
     };
 }
 
