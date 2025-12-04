@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TaskAgent.Application.Constants;
 using TaskAgent.Application.Interfaces;
@@ -12,23 +13,25 @@ using DomainTaskStatus = TaskAgent.Domain.Enums.TaskStatus;
 namespace TaskAgent.Application.Functions;
 
 /// <summary>
-/// Function tools for the Task Management AI Agent
-/// Part of Application Layer - orchestrates domain logic and repository operations
-/// Follows Single Responsibility Principle - handles AI agent function tool definitions
+/// Provides function tools for the Task Management AI Agent with automatic AI function calling support.
 /// </summary>
+/// <remarks>
+/// Uses <see cref="IServiceProvider"/> to resolve scoped dependencies per function call, ensuring fresh DbContext instances.
+/// All methods return user-friendly strings and never throw exceptions to the AI.
+/// </remarks>
 public class TaskFunctions
 {
-    private readonly ITaskRepository _taskRepository;
+    private readonly IServiceProvider _serviceProvider;
     private readonly AgentMetrics _metrics;
     private readonly ILogger<TaskFunctions> _logger;
 
     public TaskFunctions(
-        ITaskRepository taskRepository,
+        IServiceProvider serviceProvider,
         AgentMetrics metrics,
         ILogger<TaskFunctions> logger
     )
     {
-        _taskRepository = taskRepository ?? throw new ArgumentNullException(nameof(taskRepository));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -70,9 +73,13 @@ public class TaskFunctions
             // Create task using domain factory method
             var task = TaskItem.Create(title, description ?? string.Empty, taskPriority);
 
+            // Create scope to resolve scoped ITaskRepository
+            using IServiceScope scope = _serviceProvider.CreateScope();
+            ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+
             // Persist to database
-            await _taskRepository.AddAsync(task);
-            await _taskRepository.SaveChangesAsync();
+            await taskRepository.AddAsync(task);
+            await taskRepository.SaveChangesAsync();
 
             activity?.SetTag("task.id", task.Id);
             activity?.SetStatus(ActivityStatusCode.Ok);
@@ -155,8 +162,12 @@ public class TaskFunctions
                 taskPriority = parsedPriority;
             }
 
+            // Create scope to resolve scoped ITaskRepository
+            using IServiceScope scope = _serviceProvider.CreateScope();
+            ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+
             // Fetch tasks from repository
-            IEnumerable<TaskItem> tasks = await _taskRepository.SearchAsync(
+            IEnumerable<TaskItem> tasks = await taskRepository.SearchAsync(
                 taskStatus,
                 taskPriority
             );
@@ -240,7 +251,11 @@ public class TaskFunctions
             _metrics.RecordFunctionCall("GetTaskDetails");
             _logger.LogInformation("GetTaskDetails function called for task ID: {TaskId}", taskId);
 
-            TaskItem? task = await _taskRepository.GetByIdAsync(taskId);
+            // Create scope to resolve scoped ITaskRepository
+            using IServiceScope scope = _serviceProvider.CreateScope();
+            ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+
+            TaskItem? task = await taskRepository.GetByIdAsync(taskId);
 
             if (task == null)
             {
@@ -309,8 +324,12 @@ public class TaskFunctions
                 return ErrorMessages.UPDATE_REQUIRES_FIELDS;
             }
 
+            // Create scope to resolve scoped ITaskRepository
+            using IServiceScope scope = _serviceProvider.CreateScope();
+            ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+
             // Fetch task
-            TaskItem? task = await _taskRepository.GetByIdAsync(taskId);
+            TaskItem? task = await taskRepository.GetByIdAsync(taskId);
             if (task == null)
             {
                 activity?.SetStatus(ActivityStatusCode.Error, "Task not found");
@@ -347,8 +366,8 @@ public class TaskFunctions
             }
 
             // Persist changes
-            await _taskRepository.UpdateAsync(task);
-            await _taskRepository.SaveChangesAsync();
+            await taskRepository.UpdateAsync(task);
+            await taskRepository.SaveChangesAsync();
 
             activity?.SetTag("updates.applied", string.Join(", ", updates));
             activity?.SetStatus(ActivityStatusCode.Ok);
@@ -394,7 +413,11 @@ public class TaskFunctions
             _metrics.RecordFunctionCall("DeleteTask");
             _logger.LogInformation("DeleteTask function called for task ID: {TaskId}", taskId);
 
-            TaskItem? task = await _taskRepository.GetByIdAsync(taskId);
+            // Create scope to resolve scoped ITaskRepository
+            using IServiceScope scope = _serviceProvider.CreateScope();
+            ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+
+            TaskItem? task = await taskRepository.GetByIdAsync(taskId);
             if (task == null)
             {
                 activity?.SetStatus(ActivityStatusCode.Error, "Task not found");
@@ -402,8 +425,8 @@ public class TaskFunctions
                 return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
             }
 
-            await _taskRepository.DeleteAsync(taskId);
-            await _taskRepository.SaveChangesAsync();
+            await taskRepository.DeleteAsync(taskId);
+            await taskRepository.SaveChangesAsync();
 
             activity?.SetTag("task.title", task.Title);
             activity?.SetStatus(ActivityStatusCode.Ok);
@@ -437,7 +460,12 @@ public class TaskFunctions
             _metrics.RecordFunctionCall("GetTaskSummary");
             _logger.LogInformation("GetTaskSummary function called");
 
-            var allTasks = (await _taskRepository.GetAllAsync()).ToList();
+            // Create scope to resolve scoped ITaskRepository
+            using IServiceScope scope = _serviceProvider.CreateScope();
+            ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+
+            IEnumerable<TaskItem> allTasksEnumerable = await taskRepository.GetAllAsync();
+            var allTasks = allTasksEnumerable.ToList(); // Convert to List for Count property
 
             if (allTasks.Count == 0)
             {
