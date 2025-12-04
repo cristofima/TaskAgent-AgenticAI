@@ -14,12 +14,11 @@ interface EmptyChatStateProps {
   input: string;
   isLoading: boolean;
   handleInputChange: (
-    e:
-      | React.ChangeEvent<HTMLTextAreaElement>
-      | React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
   ) => void;
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   sendSuggestion: (suggestion: string) => void;
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 export function EmptyChatState({
@@ -29,6 +28,7 @@ export function EmptyChatState({
   handleInputChange,
   handleSubmit,
   sendSuggestion,
+  inputRef,
 }: EmptyChatStateProps) {
   return (
     <>
@@ -43,6 +43,7 @@ export function EmptyChatState({
           {/* Input centered in desktop */}
           <div className="mt-8 hidden md:block">
             <ChatInput
+              ref={inputRef}
               input={input}
               isLoading={isLoading}
               handleInputChange={handleInputChange}
@@ -53,9 +54,10 @@ export function EmptyChatState({
       </div>
 
       {/* Fixed input at bottom - mobile only */}
-      <div className="md:hidden flex-shrink-0 bg-white border-t border-gray-200 px-4 py-4">
+      <div className="md:hidden flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-4">
         <div className="max-w-4xl mx-auto">
           <ChatInput
+            ref={inputRef}
             input={input}
             isLoading={isLoading}
             handleInputChange={handleInputChange}

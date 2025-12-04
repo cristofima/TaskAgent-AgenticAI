@@ -4,10 +4,12 @@
  * ChatInterface Component
  * Main chat interface with conversation sidebar
  * Supports conversation management (list, load, delete, create new)
+ * Includes keyboard shortcuts for improved productivity
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useChat } from "@/hooks/use-chat";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ChatMessagesList } from "./ChatMessagesList";
 import { ChatInput } from "./ChatInput";
 import { ChatHeader } from "./ChatHeader";
@@ -23,6 +25,8 @@ export function ChatInterface() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   // Ref to hold the loadConversations function from ConversationSidebar
   const loadConversationsRef = useRef<(() => Promise<void>) | null>(null);
+  // Ref to the chat input for focus management
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const {
     messages,
@@ -55,21 +59,35 @@ export function ChatInterface() {
     try {
       await loadConversation(selectedThreadId);
     } catch (error) {
-      console.error("Failed to load conversation:", error);
+      console.error("Failed to load chat:", error);
     }
   };
 
-  const handleNewConversation = () => {
+  const handleNewConversation = useCallback(() => {
     clearMessages();
     setThreadId(null);
-  };
+    // Focus the input after creating new conversation
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [clearMessages, setThreadId]);
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarOpen((prev) => !prev);
+  }, []);
+
+  const focusInput = useCallback(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Register keyboard shortcuts
+  useKeyboardShortcuts({
+    onFocusInput: focusInput,
+    onNewConversation: handleNewConversation,
+    onToggleSidebar: toggleSidebar,
+    enabled: true,
+  });
 
   return (
-    <div className="h-screen flex bg-gray-50">
+    <div className="h-screen flex bg-gray-50 dark:bg-gray-900">
       {/* Conversation Sidebar */}
       <ConversationSidebar
         isOpen={isSidebarOpen}
@@ -114,9 +132,10 @@ export function ChatInterface() {
             </div>
 
             {/* Fixed Input at bottom */}
-            <div className="flex-shrink-0 bg-white border-t border-gray-200 px-4 py-4">
+            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-4">
               <div className="max-w-4xl mx-auto">
                 <ChatInput
+                  ref={inputRef}
                   input={input}
                   isLoading={isLoading}
                   handleInputChange={handleInputChange}
@@ -134,6 +153,7 @@ export function ChatInterface() {
             handleInputChange={handleInputChange}
             handleSubmit={handleSubmit}
             sendSuggestion={sendSuggestion}
+            inputRef={inputRef}
           />
         )}
 

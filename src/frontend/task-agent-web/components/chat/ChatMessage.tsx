@@ -1,11 +1,12 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import type { ChatMessage as ChatMessageType } from "@/types/chat";
 import { SuggestionsBar } from "./SuggestionsBar";
+import { MessageActions } from "./MessageActions";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -23,6 +24,8 @@ export const ChatMessage = memo(function ChatMessage({
   isLoading = false,
 }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const [isHovered, setIsHovered] = useState(false);
+
   // Process content: convert \n to actual newlines for proper Markdown rendering
   const textContent = (message.content || "").replace(/\\n/g, "\n");
 
@@ -34,6 +37,8 @@ export const ChatMessage = memo(function ChatMessage({
       className={`flex animate-fadeIn ${
         isUser ? "justify-end" : "justify-start"
       }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div
         className={`rounded-2xl px-3 sm:px-5 py-3 sm:py-3.5 max-w-[90%] sm:max-w-[85%] shadow-md hover:shadow-lg transition-shadow ${
@@ -68,6 +73,11 @@ export const ChatMessage = memo(function ChatMessage({
             onSuggestionClick={onSuggestionClick}
             disabled={isLoading}
           />
+        )}
+
+        {/* Show action buttons for assistant messages on hover */}
+        {!isUser && (
+          <MessageActions content={textContent} isVisible={isHovered} />
         )}
       </div>
     </div>
