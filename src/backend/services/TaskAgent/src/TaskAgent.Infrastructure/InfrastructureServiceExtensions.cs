@@ -36,7 +36,7 @@ public static class InfrastructureServiceExtensions
         // Register repositories
         services.AddScoped<ITaskRepository, TaskRepository>();
 
-        // PostgreSQL DbContext for Conversations
+        // PostgreSQL DbContext for Conversations (ChatMessageStore pattern)
         string? conversationsConnectionString = configuration.GetConnectionString(
             "ConversationsConnection"
         );
@@ -51,11 +51,9 @@ public static class InfrastructureServiceExtensions
             options.UseNpgsql(conversationsConnectionString)
         );
 
-        // Register repositories
-        services.AddScoped<ITaskRepository, TaskRepository>();
-
-        // PostgreSQL-backed thread persistence (production-ready)
-        services.AddScoped<IThreadPersistenceService, PostgresThreadPersistenceService>();
+        // Register application services (implementations in Infrastructure)
+        services.AddScoped<IAgentStreamingService, AgentStreamingService>();
+        services.AddScoped<IConversationService, ConversationService>();
 
         RegisterContentSafety(services, configuration);
 

@@ -44,7 +44,7 @@ public class ContentSafetyService : IContentSafetyService
 
         try
         {
-            _logger.LogInformation("Analyzing text for content safety");
+            _logger.LogInformation("Analyzing text for content safety. TextLength: {TextLength}", text.Length);
 
             var request = new AnalyzeTextOptions(text);
             Response<AnalyzeTextResult>? response = await _contentSafetyClient.AnalyzeTextAsync(
@@ -69,7 +69,7 @@ public class ContentSafetyService : IContentSafetyService
 
         try
         {
-            _logger.LogInformation("Checking prompt injection");
+            _logger.LogInformation("Checking prompt injection. PromptLength: {PromptLength}", userPrompt.Length);
 
             const string apiUrl = ContentSafetyConstants.PROMPT_SHIELD_API_PATH;
 
@@ -109,7 +109,7 @@ public class ContentSafetyService : IContentSafetyService
 
             if (apiResponse == null)
             {
-                _logger.LogWarning("Failed to parse Prompt Shield response");
+                _logger.LogWarning("Failed to parse Prompt Shield response. ResponseContent: {ResponseContent}", responseContent);
                 return new PromptInjectionResult
                 {
                     IsSafe = false,
