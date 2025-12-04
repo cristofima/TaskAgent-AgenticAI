@@ -18,6 +18,28 @@ interface ChatMessageProps {
  * Individual chat message bubble component with MVC-inspired styling
  * Memoized to prevent unnecessary re-renders when parent updates
  */
+/**
+ * Detects if a message content is an internal function call JSON
+ * These are internal agent messages that should not be shown to users
+ */
+function isFunctionCallMessage(content: string | null): boolean {
+  if (!content) return false;
+  const trimmed = content.trim();
+  // Check if it's JSON starting with {"$type":"functionCall" or {"$type":"functionResult"
+  if (trimmed.startsWith("{") && trimmed.includes('"$type"')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      return (
+        parsed.$type === "functionCall" || parsed.$type === "functionResult"
+      );
+    } catch {
+      // Not valid JSON, not a function call
+      return false;
+    }
+  }
+  return false;
+}
+
 export const ChatMessage = memo(function ChatMessage({
   message,
   onSuggestionClick,
@@ -25,6 +47,11 @@ export const ChatMessage = memo(function ChatMessage({
 }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [isHovered, setIsHovered] = useState(false);
+
+  // Filter out internal function call messages - don't render them
+  if (isFunctionCallMessage(message.content)) {
+    return null;
+  }
 
   // Process content: convert \n to actual newlines for proper Markdown rendering
   const textContent = (message.content || "").replace(/\\n/g, "\n");

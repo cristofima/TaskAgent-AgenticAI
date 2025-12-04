@@ -71,7 +71,13 @@ export function ChatInterface() {
   }, [clearMessages, setThreadId]);
 
   const toggleSidebar = useCallback(() => {
-    setIsSidebarOpen((prev) => !prev);
+    // On desktop (md+), toggle collapsed state
+    // On mobile, toggle open state
+    if (window.innerWidth >= 768) {
+      setIsSidebarCollapsed((prev) => !prev);
+    } else {
+      setIsSidebarOpen((prev) => !prev);
+    }
   }, []);
 
   const focusInput = useCallback(() => {
