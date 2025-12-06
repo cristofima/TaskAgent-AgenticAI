@@ -224,7 +224,19 @@ export async function sendMessageWithStreaming(
                             callbacks.onToolCallResult?.(event.toolCallId || "", event.result || "");
                         }
 
-                        // ✅ Handle THREAD_STATE event (serializedState for next request)
+                        // Handle CONTENT_FILTER event (Azure OpenAI content policy violation)
+                        // This provides a ChatGPT-like UX where the blocked message appears in chat
+                        if (event.type === "CONTENT_FILTER") {
+                            // Update streaming message with the content filter message
+                            const filterMessage = event.message || "I'm unable to assist with that request as it may violate content policies.";
+                            fullMessage = filterMessage;
+                            messageId = event.messageId || `cf-${Date.now()}`;
+                            // Trigger text chunk callback so UI updates immediately
+                            callbacks.onTextChunk?.(filterMessage, filterMessage);
+                            // Don't throw - let stream continue to get thread state for persistence
+                        }
+
+                        // Handle THREAD_STATE event (serializedState for next request)
                         if (event.type === "THREAD_STATE" && event.serializedState) {
                             serializedState = event.serializedState;
                             // Callback: Stream complete with state

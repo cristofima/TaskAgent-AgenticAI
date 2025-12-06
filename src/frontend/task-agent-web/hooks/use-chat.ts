@@ -254,9 +254,11 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                     pageSize: PAGINATION.CONVERSATION_PAGE_SIZE,
                 });
 
-                // Update current thread ID and serializedState
+                // Update current thread ID and serializedState from backend response
+                // CRITICAL: Use serializedState from response, NOT the threadId directly
+                // The serializedState is a full AgentThread JSON required by the streaming service
                 setCurrentThreadId(threadId);
-                setSerializedState(threadId); // ThreadDbKey is used as serializedState
+                setSerializedState(response.serializedState ?? null);
 
                 // Convert backend messages to frontend format
                 const loadedMessages: ChatMessage[] = (response.messages || []).map((msg) => ({
