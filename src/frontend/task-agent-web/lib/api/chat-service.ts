@@ -83,12 +83,43 @@ async function apiFetch<T>(
 }
 
 /**
+ * Callback options for streaming message responses
+ * Enables progressive UI updates as text arrives
+ */
+export interface StreamingCallbacks {
+    /** Called when message streaming starts */
+    onStart?: (messageId: string, createdAt: string) => void;
+    /** Called for each text chunk received */
+    onTextChunk?: (delta: string, fullText: string) => void;
+    /** Called when a tool/function call starts */
+    onToolCallStart?: (toolName: string, toolCallId: string) => void;
+    /** Called when a tool/function call completes */
+    onToolCallResult?: (toolCallId: string, result: string) => void;
+    /** Called when streaming completes */
+    onComplete?: (serializedState: string | null) => void;
+    /** Called on error */
+    onError?: (error: ApiError) => void;
+}
+
+/**
  * Sends a message to the backend via custom Agent endpoint with PostgreSQL persistence
  * Uses /api/agent/chat endpoint with Server-Sent Events (SSE) streaming
  * Backend maintains conversation state in PostgreSQL via serializedState (ThreadDbKey)
  */
 export async function sendMessage(
     request: SendMessageRequest
+): Promise<SendMessageResponse> {
+    // Use streaming version without callbacks for backward compatibility
+    return sendMessageWithStreaming(request, {});
+}
+
+/**
+ * Sends a message with streaming callbacks for progressive UI rendering
+ * Enables ChatGPT-like progressive text display
+ */
+export async function sendMessageWithStreaming(
+    request: SendMessageRequest,
+    callbacks: StreamingCallbacks = {}
 ): Promise<SendMessageResponse> {
     try {
         // Send current message with serializedState for conversation continuity
@@ -163,26 +194,46 @@ export async function sendMessage(
                         if (event.type === "TEXT_MESSAGE_START" && event.messageId) {
                             messageId = event.messageId;
                             createdAt = event.createdAt || new Date().toISOString();
+                            // Callback: Streaming started
+                            if (messageId && createdAt) {
+                                callbacks.onStart?.(messageId, createdAt);
+                            }
                         }
 
                         // Handle TEXT_MESSAGE_CONTENT event (streaming chunks)
                         if (event.type === "TEXT_MESSAGE_CONTENT" && event.delta) {
                             fullMessage += event.delta;
+                            // Callback: Progressive text chunk for UI rendering
+                            callbacks.onTextChunk?.(event.delta, fullMessage);
                         }
 
                         // Handle TEXT_MESSAGE_END event
                         if (event.type === "TEXT_MESSAGE_END") {
-                            // Message complete
+                            // Message complete - callback handled in onComplete
+                        }
+
+                        // Handle TOOL_CALL_START event (function execution started)
+                        if (event.type === "TOOL_CALL_START") {
+                            // Callback: Tool call started (for multi-agent scenarios)
+                            callbacks.onToolCallStart?.(event.toolName || "unknown", event.toolCallId || "");
+                        }
+
+                        // Handle TOOL_CALL_RESULT event (function execution completed)
+                        if (event.type === "TOOL_CALL_RESULT") {
+                            // Callback: Tool call completed
+                            callbacks.onToolCallResult?.(event.toolCallId || "", event.result || "");
                         }
 
                         // ✅ Handle THREAD_STATE event (serializedState for next request)
                         if (event.type === "THREAD_STATE" && event.serializedState) {
                             serializedState = event.serializedState;
+                            // Callback: Stream complete with state
+                            callbacks.onComplete?.(serializedState);
                         }
 
                         // Handle RUN_ERROR event
                         if (event.type === "RUN_ERROR") {
-                            throw new ApiError(
+                            const apiError = new ApiError(
                                 event.message || "Agent run failed",
                                 500,
                                 {
@@ -190,9 +241,17 @@ export async function sendMessage(
                                     message: event.message || "Agent run failed",
                                 }
                             );
+                            // Callback: Error occurred
+                            callbacks.onError?.(apiError);
+                            throw apiError;
                         }
                     } catch (parseError) {
-                        console.warn("Failed to parse SSE event:", line, parseError);
+                        // Only log if it's a JSON parse error, not our thrown ApiError
+                        if (!(parseError instanceof ApiError)) {
+                            console.warn("Failed to parse SSE event:", line, parseError);
+                        } else {
+                            throw parseError;
+                        }
                     }
                 }
             }

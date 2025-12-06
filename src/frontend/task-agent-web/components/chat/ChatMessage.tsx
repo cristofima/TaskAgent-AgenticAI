@@ -12,6 +12,7 @@ interface ChatMessageProps {
   message: ChatMessageType;
   onSuggestionClick?: (suggestion: string) => void;
   isLoading?: boolean;
+  isStreaming?: boolean; // New: shows blinking cursor while streaming
 }
 
 /**
@@ -44,6 +45,7 @@ export const ChatMessage = memo(function ChatMessage({
   message,
   onSuggestionClick,
   isLoading = false,
+  isStreaming = false, // Streaming cursor state
 }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [isHovered, setIsHovered] = useState(false);
@@ -68,21 +70,26 @@ export const ChatMessage = memo(function ChatMessage({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`rounded-2xl px-3 sm:px-5 py-3 sm:py-3.5 max-w-[90%] sm:max-w-[85%] shadow-md hover:shadow-lg transition-shadow ${
+        className={`relative rounded-2xl px-3 sm:px-5 py-3 sm:py-3.5 max-w-[90%] sm:max-w-[85%] shadow-md hover:shadow-lg transition-shadow ${
           isUser
             ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white ml-auto text-right"
-            : "bg-white border-2 border-gray-200 mr-auto"
+            : "bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 mr-auto"
         }`}
       >
+        {/* Copy button - top right corner */}
         {!isUser && (
-          <div className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+          <MessageActions content={textContent} isVisible={isHovered} />
+        )}
+
+        {!isUser && (
+          <div className="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
             <span className="text-base sm:text-lg">🤖</span>
             <span className="text-sm sm:text-base">Task Assistant</span>
           </div>
         )}
         <div
           className={`markdown-content leading-relaxed text-sm sm:text-base ${
-            isUser ? "text-white" : "text-gray-800"
+            isUser ? "text-white" : "text-gray-800 dark:text-gray-200"
           }`}
         >
           <ReactMarkdown
@@ -91,6 +98,10 @@ export const ChatMessage = memo(function ChatMessage({
           >
             {textContent}
           </ReactMarkdown>
+          {/* Blinking cursor while streaming - ChatGPT-like effect */}
+          {isStreaming && (
+            <span className="inline-block w-2 h-4 ml-0.5 bg-gray-800 dark:bg-gray-200 animate-pulse" />
+          )}
         </div>
 
         {/* Show suggestions for assistant messages */}
@@ -100,11 +111,6 @@ export const ChatMessage = memo(function ChatMessage({
             onSuggestionClick={onSuggestionClick}
             disabled={isLoading}
           />
-        )}
-
-        {/* Show action buttons for assistant messages on hover */}
-        {!isUser && (
-          <MessageActions content={textContent} isVisible={isHovered} />
         )}
       </div>
     </div>

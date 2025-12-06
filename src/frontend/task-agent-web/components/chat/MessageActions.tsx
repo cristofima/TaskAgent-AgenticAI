@@ -85,14 +85,17 @@ export function MessageActions({ content, isVisible }: MessageActionsProps) {
   if (!isVisible) return null;
 
   return (
-    <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100">
+    <div className="absolute top-2 right-2 flex items-center gap-1">
       <button
         onClick={handleCopy}
         className="
-          flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
+          flex items-center gap-1.5 px-2 py-1 rounded-md
           text-xs font-medium
-          text-gray-500 hover:text-gray-700
-          bg-gray-50 hover:bg-gray-100
+          text-gray-400 hover:text-gray-600
+          dark:text-gray-500 dark:hover:text-gray-300
+          bg-gray-100/80 hover:bg-gray-200/90
+          dark:bg-gray-700/80 dark:hover:bg-gray-600/90
+          backdrop-blur-sm
           transition-all duration-200
           cursor-pointer
         "

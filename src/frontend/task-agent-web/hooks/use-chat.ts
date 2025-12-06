@@ -3,10 +3,11 @@
 /**
  * Custom hook for chat functionality
  * Manages chat state and API communication with .NET backend
+ * Supports progressive streaming rendering (ChatGPT-like UX)
  */
 
-import { useState, useCallback, FormEvent } from "react";
-import { sendMessage, getConversation, ApiError } from "@/lib/api/chat-service";
+import { useState, useCallback, useRef, FormEvent } from "react";
+import { sendMessageWithStreaming, getConversation, ApiError, type StreamingCallbacks } from "@/lib/api/chat-service";
 import type { ChatMessage } from "@/types/chat";
 import { PAGINATION } from "@/lib/constants";
 
@@ -19,6 +20,7 @@ export interface UseChatReturn {
     messages: ChatMessage[];
     input: string;
     isLoading: boolean;
+    isStreaming: boolean; // New: indicates text is being streamed
     error: Error | undefined;
     threadId: string | null;
     handleInputChange: (
@@ -33,16 +35,20 @@ export interface UseChatReturn {
 }
 
 /**
- * Hook for managing chat state and interactions (non-streaming)
- * Uses /api/Chat/send endpoint
+ * Hook for managing chat state and interactions with progressive streaming
+ * Renders assistant responses progressively as text arrives (like ChatGPT)
  */
 export function useChat(options: UseChatOptions = {}): UseChatReturn {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isStreaming, setIsStreaming] = useState(false); // New: tracks active streaming
     const [error, setError] = useState<Error | undefined>();
     const [currentThreadId, setCurrentThreadId] = useState<string | null>(null); // Active conversation ThreadDbKey
     const [serializedState, setSerializedState] = useState<string | null>(null); // ThreadDbKey from backend
+    
+    // Ref to track the streaming assistant message ID for updates
+    const streamingMessageIdRef = useRef<string | null>(null);
 
     const handleInputChange = useCallback(
         (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
@@ -52,7 +58,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     );
 
     /**
-     * Internal helper to send a message and handle the response
+     * Internal helper to send a message and handle the streaming response
+     * Uses callbacks for progressive UI rendering
      */
     const sendMessageInternal = useCallback(
         async (message: string): Promise<void> => {
@@ -70,72 +77,135 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
             setMessages((prev) => [...prev, userChatMessage]);
             setIsLoading(true);
 
-            try {
-                // Send message with serializedState for conversation continuity
-                const response = await sendMessage({
-                    message,
-                    serializedState: serializedState || undefined,
-                });
+            // Create placeholder for streaming assistant message
+            const streamingMsgId = `streaming-${Date.now()}`;
+            streamingMessageIdRef.current = streamingMsgId;
+            
+            const streamingPlaceholder: ChatMessage = {
+                id: streamingMsgId,
+                role: "assistant",
+                content: "", // Will be updated progressively
+                createdAt: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, streamingPlaceholder]);
+            setIsStreaming(true);
 
-                // Update serializedState for next request (thread continuity)
-                if (response.serializedState) {
-                    const isNewConversation = !serializedState; // First message creates new chat
-                    setSerializedState(response.serializedState);
-                    setCurrentThreadId(response.serializedState); // ThreadDbKey is the thread ID
+            // Define streaming callbacks for progressive rendering
+            const streamingCallbacks: StreamingCallbacks = {
+                onStart: (messageId, createdAt) => {
+                    // Update the streaming message with actual ID and timestamp
+                    setMessages((prev) => 
+                        prev.map((msg) => 
+                            msg.id === streamingMsgId 
+                                ? { ...msg, id: messageId, createdAt } 
+                                : msg
+                        )
+                    );
+                    streamingMessageIdRef.current = messageId;
+                },
+                
+                onTextChunk: (_delta, fullText) => {
+                    // Progressive UI update - this is the magic!
+                    const currentMsgId = streamingMessageIdRef.current;
+                    setMessages((prev) => 
+                        prev.map((msg) => 
+                            msg.id === currentMsgId 
+                                ? { ...msg, content: fullText } 
+                                : msg
+                        )
+                    );
+                },
+                
+                onComplete: (newSerializedState) => {
+                    setIsStreaming(false);
                     
-                    // Notify parent component to reload chats list
-                    if (isNewConversation) {
-                        options.onThreadCreated?.(response.serializedState);
+                    // Update serializedState for next request
+                    if (newSerializedState) {
+                        const isNewConversation = !serializedState;
+                        setSerializedState(newSerializedState);
+                        setCurrentThreadId(newSerializedState);
+                        
+                        if (isNewConversation) {
+                            options.onThreadCreated?.(newSerializedState);
+                        }
                     }
+                },
+                
+                onError: (apiError) => {
+                    setIsStreaming(false);
+                    // Error will be handled in catch block
                 }
+            };
 
-                // Add assistant response to messages
-                const assistantMessage: ChatMessage = {
-                    id: response.messageId || `msg-${Date.now()}`,
-                    role: "assistant",
-                    content: response.message || "",
-                    createdAt: response.createdAt,
-                    metadata: {
-                        ...response.metadata,
-                        suggestions: response.suggestions || [],
+            try {
+                // Send message with streaming callbacks
+                const response = await sendMessageWithStreaming(
+                    {
+                        message,
+                        serializedState: serializedState || undefined,
                     },
-                };
-                setMessages((prev) => [...prev, assistantMessage]);
+                    streamingCallbacks
+                );
+
+                // Final update with complete response data (metadata, suggestions)
+                const currentMsgId = streamingMessageIdRef.current;
+                setMessages((prev) => 
+                    prev.map((msg) => 
+                        msg.id === currentMsgId 
+                            ? { 
+                                ...msg, 
+                                content: response.message || msg.content,
+                                metadata: {
+                                    ...response.metadata,
+                                    suggestions: response.suggestions || [],
+                                },
+                              } 
+                            : msg
+                    )
+                );
+
             } catch (err) {
+                setIsStreaming(false);
+                
                 // Check if it's a Content Safety or Prompt Injection error (400 status)
                 if (err instanceof ApiError && err.statusCode === 400 && err.response) {
-                    // Show content safety/prompt injection errors as assistant messages
                     const errorResponse = err.response;
                     const isContentSafetyError = errorResponse.error === "ContentPolicyViolation" ||
                         errorResponse.error === "PromptInjectionDetected";
 
                     if (isContentSafetyError) {
-                        // Show as assistant message in the chat
-                        const errorMessage: ChatMessage = {
-                            id: errorResponse.messageId || `error-${Date.now()}`,
-                            role: "assistant",
-                            content: errorResponse.message || "Your message was blocked due to safety concerns.",
-                            createdAt: errorResponse.createdAt || new Date().toISOString(),
-                            metadata: {
-                                violations: errorResponse.violations,
-                                categoryScores: errorResponse.categoryScores,
-                            },
-                        };
-                        setMessages((prev) => [...prev, errorMessage]);
-                        // Don't set error state, so no toast is shown
-                        return; // Exit early
+                        // Replace streaming placeholder with error message
+                        const currentMsgId = streamingMessageIdRef.current;
+                        setMessages((prev) => 
+                            prev.map((msg) => 
+                                msg.id === currentMsgId 
+                                    ? {
+                                        ...msg,
+                                        id: errorResponse.messageId || `error-${Date.now()}`,
+                                        content: errorResponse.message || "Your message was blocked due to safety concerns.",
+                                        createdAt: errorResponse.createdAt || new Date().toISOString(),
+                                        metadata: {
+                                            violations: errorResponse.violations,
+                                            categoryScores: errorResponse.categoryScores,
+                                        },
+                                      }
+                                    : msg
+                            )
+                        );
+                        return; // Exit early, don't show toast
                     }
                 }
 
-                // For other errors, show toast and remove user message
+                // For other errors, show toast and remove both messages
                 const validatedError = err instanceof Error ? err : new Error("Failed to send message");
                 setError(validatedError);
                 options.onError?.(validatedError);
 
-                // Remove the user message on error
-                setMessages((prev) => prev.slice(0, -1));
+                // Remove user message and streaming placeholder on error
+                setMessages((prev) => prev.slice(0, -2));
             } finally {
                 setIsLoading(false);
+                streamingMessageIdRef.current = null;
             }
         },
         [isLoading, serializedState, options]
@@ -214,6 +284,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         messages,
         input,
         isLoading,
+        isStreaming, // New: indicates progressive text rendering in progress
         error,
         threadId: currentThreadId,
         handleInputChange,
@@ -225,6 +296,4 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         setThreadId: setCurrentThreadId,
     };
 }
-
-
 

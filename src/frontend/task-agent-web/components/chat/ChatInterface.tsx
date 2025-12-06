@@ -32,6 +32,7 @@ export function ChatInterface() {
     messages,
     input,
     isLoading,
+    isStreaming, // New: progressive rendering state
     error,
     threadId,
     handleInputChange,
@@ -132,6 +133,7 @@ export function ChatInterface() {
                 <ChatMessagesList
                   messages={messages}
                   isLoading={isLoading}
+                  isStreaming={isStreaming} // Pass streaming state
                   onSuggestionClick={sendSuggestion}
                 />
               </div>
