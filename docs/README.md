@@ -10,9 +10,10 @@ docs/
 │   └── FOLDER_STRUCTURE.md         # Project organization guide
 ├── screenshots/                     # Application screenshots
 │   └── README.md                   # Screenshots reference
-├── CONTENT_SAFETY.md               # Security testing guide (75+ cases)
+├── CONTENT_SAFETY.md               # Security testing guide
 ├── DUAL_DATABASE_ARCHITECTURE.md   # Dual-database rationale
 ├── FRONTEND_E2E_TESTING.md         # Frontend E2E testing scenarios
+├── LESSONS_LEARNED.md              # Project-wide lessons and best practices
 └── POSTGRESQL_MIGRATION.md         # PostgreSQL setup guide
 ```
 
@@ -33,17 +34,28 @@ docs/
   - Aspire orchestration
   - IDE contexts separation
 
+- **[LESSONS_LEARNED.md](LESSONS_LEARNED.md)** - Project-wide lessons and best practices
+  - Clean Architecture challenges and solutions
+  - Content Safety migration from custom to built-in
+  - Dual database architecture patterns
+  - Preview package management
+  - SSE error handling patterns
+
 ### 🛡️ Security & Testing
 
-- **[CONTENT_SAFETY.md](CONTENT_SAFETY.md)** - Azure AI Content Safety guide
+- **[CONTENT_SAFETY.md](CONTENT_SAFETY.md)** - Azure OpenAI Content Safety guide
 
-  - 2-layer defense architecture (Prompt Shield + Content Moderation)
-  - 75+ test cases (prompt injection, harmful content)
-  - **NEW**: Blocked message handling (v2.1) - ChatGPT-like UX
-  - Smart title regeneration and efficient sidebar updates
-  - Known limitations and false positives
+  - Azure OpenAI built-in content filtering
+  - Test cases (prompt injection, harmful content)
+  - Blocked message handling - ChatGPT-like UX
   - Troubleshooting guide
   - Cross-reference: [FRONTEND_E2E_TESTING.md](FRONTEND_E2E_TESTING.md)
+
+- **[CONTENT_SAFETY_MIGRATION.md](CONTENT_SAFETY_MIGRATION.md)** - Lessons learned from Content Safety migration
+  - Migration from Azure.AI.ContentSafety SDK to Azure OpenAI built-in filtering
+  - Trade-offs analysis
+  - Best practices identified
+  - Files impacted
 
 - **[FRONTEND_E2E_TESTING.md](FRONTEND_E2E_TESTING.md)** - Frontend testing scenarios
   - Manual test cases for UI components
@@ -81,8 +93,6 @@ docs/
 ### Specialized Guides
 
 - **[.github/copilot-instructions.md](../.github/copilot-instructions.md)** - GitHub Copilot project-specific instructions
-- **Backend Streaming Roadmap**: `src/backend/services/TaskAgent/STREAMING_ROADMAP.md`
-- **Frontend Streaming Roadmap**: `src/frontend/task-agent-web/STREAMING_ROADMAP.md`
 
 ## 📝 Documentation Guidelines
 
