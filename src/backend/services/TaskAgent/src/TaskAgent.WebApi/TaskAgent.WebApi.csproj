@@ -10,7 +10,6 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" />
-    <PackageReference Include="Azure.AI.ContentSafety" />
     <PackageReference Include="Microsoft.Agents.AI.OpenAI" />
     <PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
