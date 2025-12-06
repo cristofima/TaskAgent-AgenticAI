@@ -21,6 +21,15 @@ AI-powered task management interface built with **Next.js 16**, **React 19**, an
 
 ### Recent Updates (November 2025)
 
+#### v2.2 - Dark Theme Support
+
+- ✅ **System Theme Detection** - Automatic dark/light mode based on OS preference
+- ✅ **Theme Toggle** - Manual toggle in header with sun/moon icons
+- ✅ **next-themes Integration** - Flicker-free theme switching with localStorage persistence
+- ✅ **Tailwind CSS 4 Dark Mode** - Class-based dark mode with `selector` strategy
+- ✅ **Component Updates** - All components support dark theme variants
+- ✅ **Copy Button Positioning** - Fixed code block copy button positioning
+
 #### v2.1 - Content Safety UX Enhancements
 
 - ✅ **Blocked Messages in Chat** - Content Safety violations appear as assistant messages (not toasts)
@@ -212,7 +221,8 @@ Backend (.NET)
 - **Next.js 16** - React framework with App Router
 - **React 19** - UI library with Server Components
 - **TypeScript** - Type safety
-- **Tailwind CSS 4** - Utility-first CSS
+- **Tailwind CSS 4** - Utility-first CSS with class-based dark mode
+- **next-themes** - Flicker-free theme switching
 - **pnpm** - Fast, efficient package manager
 - **ESLint** - Code quality
 
@@ -244,8 +254,30 @@ All styles use Tailwind CSS. Customize in:
 Main color palette:
 
 - **Primary**: Blue (blue-500 to blue-700)
-- **Background**: Gray (gray-50 to gray-900)
+- **Background Light**: Gray (gray-50 to gray-100)
+- **Background Dark**: Zinc/Gray (zinc-800 to zinc-950)
 - **Suggestions**: Blue gradient (blue-50 to blue-200)
+
+### Dark Theme
+
+Dark mode is implemented using **next-themes** with class-based switching:
+
+```typescript
+// app/layout.tsx
+import { ThemeProvider } from 'next-themes'
+
+<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+  {children}
+</ThemeProvider>
+```
+
+Components use Tailwind's `dark:` prefix:
+
+```tsx
+<div className="bg-white dark:bg-zinc-900 text-gray-900 dark:text-white">
+  {/* Content */}
+</div>
+```
 
 ### Typography
 
