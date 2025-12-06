@@ -1,6 +1,8 @@
 # TaskAgent - Backend API
 
-AI-powered task management backend built with **.NET 10**, **Microsoft Agent Framework**, and **Azure OpenAI**. Implements Clean Architecture with production-grade observability and dual-database persistence.
+AI-powered task management backend built with **.NET 10**, **Microsoft Agent Framework** (preview), and **Azure OpenAI**. Implements Clean Architecture with production-grade observability and dual-database persistence.
+
+> ⚠️ **Preview Package Notice**: This project uses `Microsoft.Agents.AI.OpenAI` version `1.0.0-preview.251125.1`. Preview packages may have breaking changes between versions without complete documentation. Always pin versions in `Directory.Packages.props`.
 
 ## 🏗️ Architecture
 
@@ -11,7 +13,7 @@ AI-powered task management backend built with **.NET 10**, **Microsoft Agent Fra
 │                      Presentation Layer                       │
 │                    (TaskAgent.WebApi)                         │
 │  • REST API Controllers (Chat, Task)                          │
-│  • Content Safety Middleware                                  │
+│  • SSE Streaming Services                                     │
 │  • Configuration Validation                                   │
 │  • DI Registration                                            │
 └───────────────────────────────────────────────────────────────┘
@@ -22,7 +24,7 @@ AI-powered task management backend built with **.NET 10**, **Microsoft Agent Fra
 │                 (TaskAgent.Infrastructure)                    │
 │  • Database Contexts (SQL Server + PostgreSQL)                │
 │  • Repositories (TaskRepository)                              │
-│  • External Services (ContentSafetyService)                   │
+│  • Agent Streaming Service                                    │
 │  • Thread Persistence (PostgresThreadPersistenceService)      │
 └───────────────────────────────────────────────────────────────┘
                             │ depends on
@@ -91,14 +93,13 @@ src/
         │   │   ├── ConversationHistoryDTOs.cs # History request/response
         │   │   ├── ConversationThreadDTO.cs   # Thread metadata
         │   │   ├── ListThreadsDTOs.cs         # List threads request/response
-        │   │   ├── ContentSafetyResult.cs     # Safety check result
         │   │   ├── ErrorResponse.cs           # Error response
-        │   │   ├── MessageMetadata.cs         # Function call metadata
-        │   │   └── PromptInjectionResult.cs   # Prompt Shield result
+        │   │   └── MessageMetadata.cs         # Function call metadata
         │   ├── Functions/
         │   │   └── TaskFunctions.cs           # 6 AI function tools
         │   ├── Interfaces/
-        │   │   ├── IContentSafetyService.cs
+        │   │   ├── IAgentStreamingService.cs
+        │   │   ├── IConversationService.cs
         │   │   ├── ITaskAgentService.cs
         │   │   ├── ITaskRepository.cs
         │   │   └── IThreadPersistenceService.cs
@@ -108,27 +109,24 @@ src/
         │   └── ApplicationServiceExtensions.cs # DI registration
         │
         ├── TaskAgent.Infrastructure/          # 🔵 External concerns
-        │   ├── Constants/
-        │   │   └── ContentSafetyConstants.cs
         │   ├── Data/
         │   │   ├── ConversationDbContext.cs   # PostgreSQL context
         │   │   └── TaskDbContext.cs           # SQL Server context
         │   ├── Migrations/
         │   │   ├── ConversationDb/            # PostgreSQL migrations
         │   │   └── TaskDb/                    # SQL Server migrations
-        │   ├── Models/
-        │   │   ├── ContentSafetyConfig.cs
-        │   │   └── PromptShieldResponse.cs
         │   ├── Repositories/
         │   │   └── TaskRepository.cs          # EF Core implementation
         │   ├── Services/
-        │   │   ├── ContentSafetyService.cs         # Prompt Shield + Moderation
+        │   │   ├── AgentStreamingService.cs        # SSE streaming, content filter detection
+        │   │   ├── ConversationService.cs          # Conversation management
         │   │   ├── DatabaseMigrationService.cs     # Auto-migration on startup
         │   │   └── PostgresThreadPersistenceService.cs  # JSON blob storage
         │   └── InfrastructureServiceExtensions.cs # DI registration
         │
         └── TaskAgent.WebApi/                  # 🔴 Presentation layer (Web API)
             ├── Constants/
+            │   ├── AgentConstants.cs          # Content filter constants
             │   ├── AgentInstructions.cs       # AI Agent instruction constants
             │   ├── ApiRoutes.cs               # Route constants
             │   ├── ErrorCodes.cs              # Error code constants
@@ -136,14 +134,12 @@ src/
             ├── Controllers/
             │   └── ChatController.cs          # Chat API endpoints
             ├── Extensions/
-            │   ├── ConfigurationValidationExtensions.cs
-            │   └── ContentSafetyMiddlewareExtensions.cs
-            ├── Middleware/
-            │   └── ContentSafetyMiddleware.cs # 2-layer defense
+            │   ├── AgentServiceExtensions.cs  # AG-UI endpoint registration
+            │   └── ConfigurationValidationExtensions.cs
             ├── Models/
             │   └── ChatRequestDto.cs          # API request model
             ├── Services/
-            │   ├── TaskAgentService.cs        # AI agent orchestration
+            │   ├── SseStreamingService.cs     # SSE streaming
             │   └── ErrorResponseFactory.cs    # Standardized error responses
             ├── Properties/
             │   └── launchSettings.json        # Launch configuration
@@ -155,37 +151,65 @@ src/
 
 ## ✨ Key Features
 
-### 1. Microsoft Agent Framework Integration
+### 1. Microsoft Agent Framework + Custom AG-UI Integration
 
-**Autonomous AI agent** with function calling capabilities:
+**Autonomous AI agent** with Server-Sent Events (SSE) streaming:
 
 ```csharp
-// Services/TaskAgentService.cs
-public static AIAgent CreateAgent(
-    AzureOpenAIClient azureClient,
-    string modelDeployment,
-    ITaskRepository taskRepository)
+// Extensions/AgentServiceExtensions.cs
+private static ChatClientAgent CreateAgentWithToolsAndStore(
+    IServiceProvider serviceProvider,
+    IChatClient chatClient)
 {
-    var chatClient = azureClient.GetChatClient(modelDeployment);
-    var taskFunctions = new TaskFunctions(taskRepository);
+    // Create agent with function tools
+    var chatOptions = new ChatOptions { Tools = [createTaskTool, listTasksTool, ...] };
+    
+    // Create ChatMessageStore factory for automatic persistence in PostgreSQL
+    Func<ChatClientAgentOptions.ChatMessageStoreFactoryContext, ChatMessageStore> messageStoreFactory = 
+        (ctx) => {
+            IServiceScope scope = serviceProvider.CreateScope();
+            ConversationDbContext dbContext = scope.ServiceProvider.GetRequiredService<ConversationDbContext>();
+            return new PostgresChatMessageStore(dbContext, ctx.SerializedState, ctx.JsonSerializerOptions);
+        };
 
-    // Create 6 function tools
-    var createTaskTool = AIFunctionFactory.Create(taskFunctions.CreateTask);
-    var listTasksTool = AIFunctionFactory.Create(taskFunctions.ListTasks);
-    var getTaskDetailsTool = AIFunctionFactory.Create(taskFunctions.GetTaskDetails);
-    var updateTaskTool = AIFunctionFactory.Create(taskFunctions.UpdateTask);
-    var deleteTaskTool = AIFunctionFactory.Create(taskFunctions.DeleteTask);
-    var getTaskSummaryTool = AIFunctionFactory.Create(taskFunctions.GetTaskSummary);
-
-    // Create agent with 170-line instruction prompt
-    var agent = chatClient.CreateAIAgent(
-        instructions: AgentInstructions.TASK_AGENT_INSTRUCTIONS,
-        tools: [createTaskTool, listTasksTool, ...]
-    );
-
-    return agent;
+    return chatClient.CreateAIAgent(new ChatClientAgentOptions {
+        Instructions = AgentInstructions.TASK_AGENT_INSTRUCTIONS,
+        ChatOptions = chatOptions,
+        ChatMessageStoreFactory = messageStoreFactory
+    });
 }
 ```
+
+**Custom AG-UI Endpoint** (Controllers/AgentController.cs):
+
+```csharp
+[HttpPost("chat")] // POST /api/agent/chat
+public async Task ChatAsync([FromBody] AgentRequest request)
+{
+    // 1. Deserialize thread from serializedState (PostgreSQL persistence)
+    AgentThread? thread = !string.IsNullOrEmpty(request.SerializedState)
+        ? _agent.DeserializeThread(JsonSerializer.Deserialize<JsonElement>(request.SerializedState))
+        : _agent.GetNewThread();
+
+    // 2. Stream agent response with SSE
+    await foreach (AgentRunResponseUpdate update in _agent.RunStreamingAsync(messages, thread))
+    {
+        await Response.WriteAsync($"data: {JsonSerializer.Serialize(update)}\n\n");
+        await Response.Body.FlushAsync();
+    }
+
+    // 3. Return updated serializedState for next request
+    string serializedState = thread.Serialize().GetRawText();
+    await Response.WriteAsync($"data: {{\"type\":\"THREAD_STATE\",\"serializedState\":\"{serializedState}\"}}\n\n");
+}
+```
+
+**Why Custom Endpoint (not `/agui` standard)?**
+- ✅ Full control over SSE streaming format
+- ✅ Custom `THREAD_STATE` event for conversation continuity
+- ✅ Frontend receives `serializedState` after each response
+- ✅ PostgreSQL persistence via `ChatMessageStore` factory
+- ✅ No need for `/agui` protocol complexity
 
 **6 Function Tools** (Application/Functions/TaskFunctions.cs):
 
@@ -204,7 +228,7 @@ public static AIAgent CreateAgent(
 
 ### 2. Dual-Database Architecture
 
-**SQL Server** for structured task data, **PostgreSQL** for flexible conversation storage:
+**SQL Server** for structured task data, **PostgreSQL** for flexible chat storage:
 
 ```csharp
 // Infrastructure/Data/TaskDbContext.cs - SQL Server
@@ -315,88 +339,97 @@ private (string Title, string Preview, int MessageCount) ExtractMetadataFromJson
 }
 ```
 
-### 4. Content Safety Middleware
+### 4. Centralized Logging with Serilog
 
-**2-layer parallel defense** on `/api/Chat/send`:
+**ServiceDefaults** provides centralized Serilog configuration for all services:
 
 ```csharp
-// Middleware/ContentSafetyMiddleware.cs
-public async Task InvokeAsync(HttpContext context)
+// ServiceDefaults/ServiceDefaultsExtensions.cs
+public static IHostBuilder AddSerilogDefaults(this IHostBuilder host)
 {
-    if (!context.Request.Path.StartsWithSegments("/api/Chat/send"))
+    return host.UseSerilog((context, configuration) =>
     {
-        await _next(context);
-        return;
-    }
+        // Auto-generate log file path from assembly name
+        // Example: TaskAgent.WebApi → logs/taskagent-webapi-20251127.log
+        string assemblyName = context.HostingEnvironment.ApplicationName;
+        string sanitizedName = assemblyName.ToLowerInvariant().Replace(".", "-");
+        string logPath = $"logs/{sanitizedName}-";
 
-    var request = await JsonSerializer.DeserializeAsync<ChatRequest>(context.Request.Body);
-
-    // Parallel validation (~50% faster than sequential)
-    var promptShieldTask = _contentSafety.ValidatePromptShieldAsync(request.Message);
-    var contentModerationTask = _contentSafety.ValidateContentAsync(request.Message);
-
-    await Task.WhenAll(promptShieldTask, contentModerationTask);
-
-    // Check results (priority: injection first, then content)
-    var promptResult = await promptShieldTask;
-    if (promptResult.IsBlocked)
-    {
-        context.Response.StatusCode = 400;
-        await JsonSerializer.SerializeAsync(context.Response.Body, promptResult);
-        return;
-    }
-
-    var contentResult = await contentModerationTask;
-    if (contentResult.IsBlocked)
-    {
-        context.Response.StatusCode = 400;
-        await JsonSerializer.SerializeAsync(context.Response.Body, contentResult);
-        return;
-    }
-
-    await _next(context);
+        configuration
+            .MinimumLevel.Information()
+            .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+            .Enrich.FromLogContext()
+            .Enrich.WithProperty("Application", context.HostingEnvironment.ApplicationName)
+            .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName)
+            .WriteTo.Console() // Console sink for development
+            .WriteTo.File(     // File sink with daily rolling
+                path: $"{logPath}.log",
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 7);
+    }, writeToProviders: true); // CRITICAL: Sends logs to OpenTelemetry
 }
 ```
 
-**ContentSafetyService** implements both layers:
+**Three Destinations**:
+1. **Console**: Real-time development logs
+2. **File**: Persistent logs with 7-day retention (auto-cleanup)
+3. **OpenTelemetry**: Structured logs in Aspire Dashboard (via `writeToProviders: true`)
+
+**Usage**:
+```csharp
+// Program.cs
+builder.AddServiceDefaults();          // OpenTelemetry (Tracing + Metrics)
+builder.Host.AddSerilogDefaults();     // Serilog (Logging)
+
+// Structured logging in code
+Log.Information("Task created with {TaskId}, Priority: {Priority}", taskId, priority);
+_logger.LogInformation("Analyzing text. TextLength: {TextLength}", text.Length);
+```
+
+**Why `writeToProviders: true`?**
+- Without it: Logs only go to Console/File sinks
+- With it: Logs also forwarded to Microsoft.Extensions.Logging (ILogger)
+- Result: OpenTelemetry captures logs and sends to Aspire Dashboard
+
+### 5. Content Safety (Azure OpenAI Built-in)
+
+Content filtering is handled by **Azure OpenAI's built-in content filtering system**:
+
+**What Azure OpenAI filters automatically**:
+
+- Hate speech → Medium threshold (blocks moderate+ severity)
+- Violence → Medium threshold (blocks moderate+ severity)
+- Sexual content → Medium threshold (blocks moderate+ severity)
+- Self-harm → Medium threshold (blocks moderate+ severity)
+- Prompt injection attacks (Jailbreak detection)
+
+**Error Handling**:
+
+```csharp
+// Infrastructure/Services/AgentStreamingService.cs
+// When content filter triggers, Azure OpenAI returns HTTP 400 with code: "content_filter"
+// Backend catches ClientResultException and stores as ContentFilterException
+// Sends CONTENT_FILTER SSE event to frontend
+// Frontend displays ChatGPT-like friendly message in chat (not toast)
+```
 
 **Security Enhancements**:
 
-- ✅ Blocked messages create thread placeholders for conversation continuity
-- ✅ `SaveBlockedMessageAsync(threadId)` creates/restores threads WITHOUT persisting blocked content
-- ✅ Security measure: Blocked message content is NEVER stored in database
+- ✅ Blocked messages appear as assistant responses in chat (not error toasts)
+- ✅ Thread placeholders created for chat continuity (ChatGPT-like UX)
+- ✅ **Blocked content is NEVER persisted in database** (security measure)
 - ✅ Thread title regeneration when first valid message arrives
 - ✅ Backend automatically extracts title from first user message
 
-**For detailed testing**: See [docs/CONTENT_SAFETY.md](../../../../../docs/CONTENT_SAFETY.md) with 75+ test cases
+**Key Files**:
 
-```csharp
-// Services/ContentSafetyService.cs
-public async Task<PromptInjectionResult> ValidatePromptShieldAsync(string userPrompt)
-{
-    // Layer 1: Prompt Shield (REST API)
-    var request = new
-    {
-        userPrompt,
-        documents = Array.Empty<string>()  // No system context (reduces false positives)
-    };
+- `Infrastructure/Services/AgentStreamingService.cs` - Detects content filter errors
+- `WebApi/Services/SseStreamingService.cs` - Emits CONTENT_FILTER event
+- `WebApi/Constants/AgentConstants.cs` - Content filter constants and messages
 
-    var response = await _httpClient.PostAsJsonAsync("/contentsafety/text:shieldPrompt?api-version=2024-09-01", request);
-    // Parse and return result
-}
+**For detailed testing**: See [docs/CONTENT_SAFETY.md](../../../../../docs/CONTENT_SAFETY.md)
 
-public async Task<ContentSafetyResult> ValidateContentAsync(string text)
-{
-    // Layer 2: Content Moderation (SDK)
-    var request = new AnalyzeTextOptions(text);
-    var response = await _client.AnalyzeTextAsync(request);
-
-    // Check against thresholds (Hate, Violence, Sexual, SelfHarm)
-    // Return blocked if any category exceeds configured severity
-}
-```
-
-### 5. Production Observability
+### 6. Production Observability
 
 **Custom telemetry** with OpenTelemetry:
 
@@ -535,7 +568,7 @@ Response: 200 OK
 }
 ```
 
-#### 2. List Conversations
+#### 2. List Chats
 
 ```http
 GET /api/Chat/threads?page=1&pageSize=20&sortBy=UpdatedAt&sortOrder=desc&isActive=true
@@ -560,7 +593,7 @@ Response: 200 OK
 }
 ```
 
-#### 3. Get Conversation History
+#### 3. Get Chat History
 
 ```http
 GET /api/Chat/threads/{threadId}/messages?page=1&pageSize=50
@@ -588,7 +621,7 @@ Response: 200 OK
 }
 ```
 
-#### 4. Delete Conversation
+#### 4. Delete Chat
 
 ```http
 DELETE /api/Chat/threads/{threadId}
@@ -611,16 +644,11 @@ Response: 204 No Content
     "ApiKey": "your-key",
     "DeploymentName": "gpt-4o-mini"
   },
-  "ContentSafety": {
-    "Endpoint": "https://your-resource.cognitiveservices.azure.com/",
-    "ApiKey": "your-key",
-    "HateThreshold": 2,
-    "ViolenceThreshold": 2,
-    "SexualThreshold": 2,
-    "SelfHarmThreshold": 2
-  },
   "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317" // Aspire Dashboard
 }
+```
+
+**Note**: Content safety is handled by Azure OpenAI's built-in content filtering. No separate configuration required.
 ```
 
 ## 🚀 Running the Backend
@@ -680,13 +708,13 @@ curl -X POST https://localhost:5001/api/Chat/send `
   -H "Content-Type: application/json" `
   -d '{"message": "Create a high priority task", "threadId": null}'
 
-# List conversations
+# List chats
 curl https://localhost:5001/api/Chat/threads?page=1&pageSize=10
 
-# Get conversation history
+# Get chat history
 curl https://localhost:5001/api/Chat/threads/abc-123-def/messages
 
-# Delete conversation
+# Delete chat
 curl -X DELETE https://localhost:5001/api/Chat/threads/abc-123-def
 ```
 
