@@ -98,8 +98,8 @@ export function ConversationSidebar({
           fixed md:static inset-y-0 left-0 z-50
           ${isCollapsed ? "md:w-16" : "md:w-64"}
           w-[280px] sm:w-80
-          bg-white
-          md:border-r border-gray-200
+          bg-white dark:bg-gray-900
+          md:border-r border-gray-200 dark:border-gray-700
           flex flex-col
           transition-all duration-300 ease-in-out
           ${
@@ -113,11 +113,11 @@ export function ConversationSidebar({
         <div
           className={`flex-shrink-0 p-3 sm:p-4 ${
             isCollapsed ? "md:px-2" : ""
-          } border-b border-gray-200 bg-white`}
+          } border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900`}
         >
           <div className="flex items-center justify-between mb-3">
             {!isCollapsed && (
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                 Chats
               </h2>
             )}
@@ -125,7 +125,7 @@ export function ConversationSidebar({
               {/* Close button (mobile only) */}
               <button
                 onClick={onClose}
-                className="md:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer"
+                className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors cursor-pointer"
                 aria-label="Close sidebar"
               >
                 <svg
@@ -145,7 +145,7 @@ export function ConversationSidebar({
               {/* Collapse button (desktop only) */}
               <button
                 onClick={onToggleCollapse}
-                className="hidden md:block p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors cursor-pointer"
+                className="hidden md:block p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
                 title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
@@ -234,8 +234,8 @@ export function ConversationSidebar({
         {!isCollapsed && (
           <div className="flex-1 overflow-y-auto py-2 overscroll-contain">
             {error && (
-              <div className="mx-2 mb-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-800">{error.message}</p>
+              <div className="mx-2 mb-2 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-800 dark:text-red-300">{error.message}</p>
               </div>
             )}
             <ConversationList
@@ -250,7 +250,7 @@ export function ConversationSidebar({
 
         {/* Footer - refresh button */}
         {!isCollapsed && (
-          <div className="flex-shrink-0 px-3 sm:px-4 py-3 sm:py-4 bg-white border-t border-gray-200">
+          <div className="flex-shrink-0 px-3 sm:px-4 py-3 sm:py-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={loadConversations}
               disabled={isLoading}
@@ -258,8 +258,8 @@ export function ConversationSidebar({
                 w-full flex items-center justify-center gap-2
                 px-3 sm:px-4 py-2 rounded-lg
                 text-sm font-medium
-                bg-gray-100 hover:bg-gray-200 active:bg-gray-300
-                text-gray-700
+                bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 active:bg-gray-300 dark:active:bg-gray-600
+                text-gray-700 dark:text-gray-300
                 transition-colors
                 cursor-pointer
                 disabled:opacity-50 disabled:cursor-not-allowed

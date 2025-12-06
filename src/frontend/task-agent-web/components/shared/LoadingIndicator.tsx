@@ -34,8 +34,8 @@ export function LoadingIndicator({ contextMessage }: LoadingIndicatorProps) {
 
   return (
     <div className="flex justify-start animate-fadeIn">
-      <div className="rounded-2xl px-5 py-3.5 max-w-[85%] shadow-md bg-white border-2 border-gray-200">
-        <div className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+      <div className="rounded-2xl px-5 py-3.5 max-w-[85%] shadow-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
+        <div className="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
           <span className="text-lg">🤖</span>
           <span>Task Assistant</span>
         </div>
@@ -56,7 +56,7 @@ export function LoadingIndicator({ contextMessage }: LoadingIndicatorProps) {
             />
           </div>
           {/* Contextual message */}
-          <span className="text-sm text-gray-600 animate-pulse">
+          <span className="text-sm text-gray-600 dark:text-gray-400 animate-pulse">
             {messages[messageIndex]}
           </span>
         </div>

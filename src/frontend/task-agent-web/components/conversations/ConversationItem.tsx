@@ -50,8 +50,8 @@ export function ConversationItem({
         touch-manipulation
         ${
           isActive
-            ? "bg-blue-50 border border-blue-200"
-            : "hover:bg-gray-100 active:bg-gray-200 border border-transparent"
+            ? "bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800"
+            : "hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700 border border-transparent"
         }
       `}
     >
@@ -66,14 +66,14 @@ export function ConversationItem({
           <h3
             className={`
             text-xs sm:text-sm font-medium truncate mb-1
-            ${isActive ? "text-blue-900" : "text-gray-900"}
+            ${isActive ? "text-blue-900 dark:text-blue-300" : "text-gray-900 dark:text-gray-100"}
           `}
           >
             {title}
           </h3>
 
           {/* Metadata */}
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
             <span className="text-xs">
               {conversation.messageCount} messages
             </span>
@@ -87,7 +87,7 @@ export function ConversationItem({
           onClick={handleDelete}
           className="
             md:opacity-0 md:group-hover:opacity-100 transition-opacity
-            p-1.5 sm:p-1 rounded hover:bg-red-50 active:bg-red-100 text-gray-400 hover:text-red-600
+            p-1.5 sm:p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 active:bg-red-100 dark:active:bg-red-900/50 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400
             cursor-pointer
             touch-manipulation
           "

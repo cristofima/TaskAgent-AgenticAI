@@ -34,9 +34,9 @@ export function SuggestionsBar({
   };
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-200">
+    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
       <div className="flex items-start gap-2 mb-2">
-        <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1">
           <svg
             className="w-3.5 h-3.5 sm:w-4 sm:h-4"
             fill="none"
@@ -63,10 +63,15 @@ export function SuggestionsBar({
               group relative px-2.5 sm:px-3 py-1.5
               text-xs sm:text-sm font-medium
               bg-gradient-to-r from-blue-50 to-blue-100
+              dark:from-blue-900/30 dark:to-blue-800/30
               hover:from-blue-100 hover:to-blue-200
+              dark:hover:from-blue-800/40 dark:hover:to-blue-700/40
               active:from-blue-200 active:to-blue-300
+              dark:active:from-blue-700/50 dark:active:to-blue-600/50
               text-blue-700 hover:text-blue-800
+              dark:text-blue-400 dark:hover:text-blue-300
               border border-blue-200 hover:border-blue-300
+              dark:border-blue-800 dark:hover:border-blue-700
               rounded-full
               transition-all duration-200
               cursor-pointer

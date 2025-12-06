@@ -37,16 +37,16 @@ export function DeleteConfirmModal({
       {/* Modal */}
       <div className="relative z-10 p-4 w-full max-w-md">
         <div
-          className="bg-white rounded-xl shadow-2xl w-full p-6 animate-scaleIn"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full p-6 animate-scaleIn"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Title */}
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">{title}</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{title}</h3>
 
           {/* Message with chat name inline */}
-          <p className="text-sm text-gray-600 mb-6">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
             This will delete{" "}
-            <span className="font-semibold text-gray-900">{chatTitle}</span>.
+            <span className="font-semibold text-gray-900 dark:text-white">{chatTitle}</span>.
           </p>
 
           {/* Actions */}
@@ -56,8 +56,8 @@ export function DeleteConfirmModal({
               className="
                 px-4 py-2 rounded-lg
                 text-sm font-medium
-                text-gray-700 hover:text-gray-900
-                bg-gray-100 hover:bg-gray-200
+                text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white
+                bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600
                 transition-colors
                 cursor-pointer
               "

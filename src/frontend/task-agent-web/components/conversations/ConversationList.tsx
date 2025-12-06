@@ -28,7 +28,7 @@ export function ConversationList({
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3" />
-        <p className="text-sm text-gray-500">Loading chats...</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading chats...</p>
       </div>
     );
   }
@@ -37,9 +37,9 @@ export function ConversationList({
   if (conversations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+        <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
           <svg
-            className="w-6 h-6 text-gray-400"
+            className="w-6 h-6 text-gray-400 dark:text-gray-500"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -52,10 +52,10 @@ export function ConversationList({
             />
           </svg>
         </div>
-        <p className="text-sm text-gray-600 font-medium mb-1">
+        <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-1">
           No chats yet
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-500">
           Start a new chat to get started
         </p>
       </div>

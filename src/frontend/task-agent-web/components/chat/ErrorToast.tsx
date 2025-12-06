@@ -13,9 +13,9 @@ export function ErrorToast({ error }: ErrorToastProps) {
   if (!error) return null;
 
   return (
-    <div className="fixed top-4 right-4 max-w-md bg-red-50 border-2 border-red-200 border-l-4 border-l-red-500 rounded-lg shadow-lg p-4 animate-fadeIn z-50">
+    <div className="fixed top-4 right-4 max-w-md bg-red-50 dark:bg-red-900/30 border-2 border-red-200 dark:border-red-800 border-l-4 border-l-red-500 rounded-lg shadow-lg p-4 animate-fadeIn z-50">
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 text-red-600">
+        <div className="flex-shrink-0 text-red-600 dark:text-red-400">
           <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
             <path
               fillRule="evenodd"
@@ -25,8 +25,8 @@ export function ErrorToast({ error }: ErrorToastProps) {
           </svg>
         </div>
         <div className="flex-1">
-          <h3 className="text-sm font-semibold text-red-900 mb-1">⚠️ Error</h3>
-          <p className="text-sm text-red-800">{error.message}</p>
+          <h3 className="text-sm font-semibold text-red-900 dark:text-red-300 mb-1">⚠️ Error</h3>
+          <p className="text-sm text-red-800 dark:text-red-400">{error.message}</p>
         </div>
       </div>
     </div>

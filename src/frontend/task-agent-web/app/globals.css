@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
+/* Configure dark mode to use class strategy instead of media query */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+/* Dark mode CSS variables (activated by .dark class on html) */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -14,13 +23,6 @@
   /* Custom animations for MVC-style interface */
   --animate-fadeIn: fadeIn 0.3s ease-in;
   --animate-bounce: bounce 1s infinite;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
@@ -99,6 +101,21 @@ html {
   background: #555;
 }
 
+/* Dark mode scrollbar */
+@media (prefers-color-scheme: dark) {
+  .overflow-auto::-webkit-scrollbar-track {
+    background: #1f2937;
+  }
+
+  .overflow-auto::-webkit-scrollbar-thumb {
+    background: #4b5563;
+  }
+
+  .overflow-auto::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+  }
+}
+
 /* Markdown content styling for chat messages */
 .markdown-content {
   line-height: 1.6;
@@ -170,6 +187,13 @@ html {
   border-radius: 3px;
   font-size: 85%;
   font-family: "Courier New", Consolas, Monaco, monospace;
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.dark .markdown-content code {
+  background-color: #374151;
+  color: #e5e7eb;
 }
 
 /* Code blocks */
@@ -178,6 +202,11 @@ html {
   padding: 16px;
   overflow-x: auto;
   margin: 1em 0;
+  background-color: #1f2937;
+}
+
+.dark .markdown-content pre {
+  background-color: #111827;
 }
 
 .markdown-content pre code {
@@ -185,6 +214,7 @@ html {
   padding: 0;
   font-size: 90%;
   line-height: 1.45;
+  color: #e5e7eb;
 }
 
 /* Tables */
@@ -194,23 +224,48 @@ html {
   margin: 1em 0;
   display: block;
   overflow-x: auto;
+  background-color: transparent;
 }
 
 .markdown-content table th,
 .markdown-content table td {
-  border: 1px solid currentColor;
+  border: 1px solid #d1d5db;
   padding: 8px 12px;
   text-align: left;
-  opacity: 0.8;
+}
+
+:where(.dark) .markdown-content table th,
+:where(.dark) .markdown-content table td {
+  border-color: #4b5563;
 }
 
 .markdown-content table th {
   font-weight: 600;
-  opacity: 0.9;
+  background-color: #f3f4f6;
+  color: #374151;
 }
 
-.markdown-content table tr:nth-child(even) {
-  opacity: 0.95;
+:where(.dark) .markdown-content table th {
+  background-color: #374151 !important;
+  color: #e5e7eb !important;
+}
+
+.markdown-content table td {
+  background-color: #ffffff;
+  color: #374151;
+}
+
+:where(.dark) .markdown-content table td {
+  background-color: #1f2937 !important;
+  color: #e5e7eb !important;
+}
+
+.markdown-content table tr:nth-child(even) td {
+  background-color: #f9fafb;
+}
+
+.dark .markdown-content table tr:nth-child(even) td {
+  background-color: #111827;
 }
 
 /* Links */
