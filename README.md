@@ -15,7 +15,7 @@ Watch the full demonstration of the Task Agent in action, showcasing:
 - Natural language task management
 - AI-powered suggestions and insights
 - Content Safety protection
-- Real-time conversation management
+- Real-time chat management
 - Modern Next.js frontend with ChatGPT-inspired UI
 
 ---
@@ -75,12 +75,14 @@ pnpm dev
 - 💬 **Natural Language Interface**: Talk to your task manager like a person
 - 🛡️ **Multi-Layer Security**: Azure Content Safety protection (Prompt Shield + Content Moderation)
 - 📊 **Production-Grade Observability**: Full OpenTelemetry stack with .NET Aspire
+- 📝 **Centralized Logging**: Serilog with console, file, and OpenTelemetry sinks
+- 🎯 **AG-UI Protocol**: Custom streaming endpoint `/api/agent/chat` with SSE and state persistence
 - ✅ **Complete CRUD**: Create, read, update, and delete tasks
 - 📈 **Smart Analytics**: Task summaries with filtering by status and priority
 - 🎨 **Beautiful Tables**: Markdown-formatted responses with emojis
 - 💡 **Contextual Suggestions**: Agent provides helpful next actions
 - 🗄️ **PostgreSQL Persistence**: Entity Framework Core with JSON storage (preserves property order)
-- 💬 **Conversation Management**: Persistent threads with metadata tracking
+- 💬 **Chat Management**: Persistent threads with automatic message persistence
 - 🔍 **Distributed Tracing**: End-to-end request tracking with custom activity sources
 - 📉 **Custom Metrics**: Real-time monitoring of AI agent operations
 
@@ -89,6 +91,7 @@ pnpm dev
 - ⚛️ **Modern React**: Next.js 16 + React 19 with TypeScript
 - 🎯 **Server Components**: Optimized bundle size and performance
 - 🎨 **ChatGPT-Inspired UI**: Full-height adaptive layout with Tailwind CSS 4
+- 🌓 **Dark Theme Support**: System detection + manual toggle with next-themes
 - 📐 **Smart Layout**: Centered welcome state, fixed input when chatting
 - 🔄 **Independent Scrolling**: Fixed header and input, scrollable messages
 - 💡 **Clickable Suggestions**: Interactive suggestion buttons from AI
@@ -97,8 +100,8 @@ pnpm dev
 - 📝 **Markdown Rendering**: Rich text formatting in chat
 - 🎭 **Type Safety**: Full TypeScript with backend contract alignment
 - 🧩 **Clean Architecture**: Separation of concerns (UI → Hooks → API)
-- 📂 **Conversation Management**: List, load, and delete conversations with auto-generated titles
-- 🗂️ **Sidebar Navigation**: Collapsible sidebar with conversation history
+- 📂 **Chat Management**: List, load, and delete chats with auto-generated titles
+- 🗂️ **Sidebar Navigation**: Collapsible sidebar with chat history
 
 ---
 
@@ -116,7 +119,7 @@ This project implements **production-grade observability** using .NET Aspire and
 
 - 📊 Real-time metrics visualization
 - 🔍 Distributed tracing with automatic trace correlation
-- 📝 Structured logging with log levels and scopes
+- 📝 Structured logging with log levels and scopes (via Serilog + OpenTelemetry)
 - 🔗 Dependency mapping (Azure OpenAI, Content Safety, PostgreSQL)
 - 🎯 Custom instrumentation for AI agent operations
 
@@ -133,6 +136,11 @@ This project implements **production-grade observability** using .NET Aspire and
 - 🔔 Smart detection and anomaly alerts
 
 ### Three Pillars of Observability
+
+**Centralized Configuration** via `ServiceDefaults`:
+- **Logging** (Serilog) - Console + File sinks + OpenTelemetry integration
+- **Tracing** (OpenTelemetry Activity) - Custom activity sources for AI agent
+- **Metrics** (OpenTelemetry Meter) - Custom meters for AI operations
 
 #### 1️⃣ Metrics (Custom + Built-in)
 
@@ -168,7 +176,7 @@ Spans:
 - Function.{FunctionName} → Individual function tool calls
 
 Tags:
-- thread.id              → Conversation thread identifier
+- thread.id              → Chat thread identifier
 - function.name          → Called function name
 - message.length         → User message size
 - response.length        → Agent response size
@@ -216,41 +224,37 @@ if (APPLICATIONINSIGHTS_CONNECTION_STRING exists)
 
 ## 🛡️ Content Safety
 
-This application implements **2-layer defense** using Azure AI Content Safety with **parallel execution**:
+This application leverages **Azure OpenAI's built-in content filtering system** for content safety.
 
-### Layer 1: Prompt Shield
+### Built-in Content Filtering
 
-- Detects prompt injection attacks (jailbreaks, instruction override, role manipulation)
-- REST API: `/contentsafety/text:shieldPrompt` (API version 2024-09-01)
-- Blocks malicious attempts to manipulate the AI system
-- **Optimized**: Trusts Azure's pre-trained model without system context (reduces false positives)
+Azure OpenAI automatically filters content in the following categories:
 
-### Layer 2: Content Moderation
+- **Hate speech** → Medium threshold (blocks moderate+ severity)
+- **Violence** → Medium threshold (blocks moderate+ severity)
+- **Sexual content** → Medium threshold (blocks moderate+ severity)
+- **Self-harm** → Medium threshold (blocks moderate+ severity)
+- **Prompt injection attacks** (Jailbreak detection)
 
-- Analyzes text for harmful content (Hate, Violence, Sexual, Self-Harm)
-- SDK: Azure AI Content Safety
-- Configurable severity thresholds (0-6 scale)
+### Error Handling
+
+When content filter triggers:
+
+1. Azure OpenAI returns HTTP 400 with `code: "content_filter"`
+2. Backend catches `ClientResultException` in `AgentStreamingService`
+3. Sends `CONTENT_FILTER` SSE event to frontend
+4. Frontend displays ChatGPT-like friendly message in chat (not toast)
 
 ### Security Enhancements
 
 **Blocked Message Handling**:
 
 - ✅ Blocked messages appear as assistant responses in chat (not error toasts)
-- ✅ Thread placeholders created for conversation continuity (ChatGPT-like UX)
+- ✅ Thread placeholders created for chat continuity (ChatGPT-like UX)
 - ✅ **Blocked content is NEVER persisted in database** (security measure)
 - ✅ Automatic sidebar updates when threads are created
 - ✅ Smart title regeneration when first valid message is sent after a block
 - ✅ Optimized sidebar refresh: only reloads when title changes from null (efficient!)
-
-**For detailed testing guide**: See [docs/CONTENT_SAFETY.md](docs/CONTENT_SAFETY.md) (75+ test cases)
-
-**Architecture**: Content safety checks run automatically via middleware before any AI processing.
-
-**Performance**:
-
-- **Parallel Execution**: Both layers validate simultaneously using `Task.WhenAll` (~50% faster)
-- **IHttpClientFactory**: Named HttpClient for optimal connection pooling and DNS refresh
-- **Response Time**: ~200-400ms for safe prompts (vs ~400-800ms sequential)
 
 **Best Practices**:
 
@@ -258,7 +262,7 @@ This application implements **2-layer defense** using Azure AI Content Safety wi
 - Security violations render as normal bot messages
 - No error styling for content safety blocks
 
-**Testing**: See [docs/CONTENT_SAFETY.md](docs/CONTENT_SAFETY.md) for 75+ test cases, known limitations, and troubleshooting guide.
+**For detailed testing guide**: See [docs/CONTENT_SAFETY.md](docs/CONTENT_SAFETY.md)
 
 ---
 
@@ -271,7 +275,7 @@ This application implements **2-layer defense** using Azure AI Content Safety wi
 │                 Frontend (Next.js)              │
 │  • React 19 + TypeScript                        │
 │  • Server Components + Client Components        │
-│  • Conversation Management UI                   │
+│  • Chat Management UI                           │
 └────────────────────┬────────────────────────────┘
                      │ REST API
                      ▼
@@ -290,7 +294,7 @@ This application implements **2-layer defense** using Azure AI Content Safety wi
 ┌─────────────────────────────────────────────────┐
 │             Databases & Services                │
 │  • SQL Server: Task entities                    │
-│  • PostgreSQL: Conversation threads (JSON)      │
+│  • PostgreSQL: Chat threads (JSON)              │
 │  • Azure OpenAI: GPT-4o-mini                    │
 │  • Azure AI Content Safety                      │
 │  • Application Insights                         │
@@ -317,8 +321,8 @@ This application implements **2-layer defense** using Azure AI Content Safety wi
 | OpenTelemetry              | Observability framework    |
 | Entity Framework Core 10   | Database ORM               |
 | SQL Server                 | Task data persistence      |
-| PostgreSQL 15+             | Conversation persistence   |
-| Microsoft Agent Framework  | Autonomous AI agents       |
+| PostgreSQL 15+             | Chat persistence           |
+| Microsoft Agent Framework  | Autonomous AI agents (preview) |
 | Azure OpenAI (GPT-4o-mini) | Language model             |
 | Azure AI Content Safety    | Security & moderation      |
 
@@ -360,17 +364,11 @@ This application implements **2-layer defense** using Azure AI Content Safety wi
     "Endpoint": "https://your-openai-resource.openai.azure.com/",
     "ApiKey": "your-openai-api-key",
     "ModelDeployment": "gpt-4o-mini"
-  },
-  "ContentSafety": {
-    "Endpoint": "https://your-contentsafety-resource.cognitiveservices.azure.com/",
-    "ApiKey": "your-contentsafety-api-key",
-    "HateThreshold": 2,
-    "ViolenceThreshold": 2,
-    "SexualThreshold": 2,
-    "SelfHarmThreshold": 2
   }
 }
 ```
+
+**Note**: Content safety is handled by Azure OpenAI's built-in content filtering. No separate configuration required.
 
 **2. Database Setup**:
 
@@ -440,14 +438,6 @@ pnpm dev
     "ApiKey": "your-openai-api-key",
     "ModelDeployment": "gpt-4o-mini"
   },
-  "ContentSafety": {
-    "Endpoint": "https://your-contentsafety-resource.cognitiveservices.azure.com/",
-    "ApiKey": "your-contentsafety-api-key",
-    "HateThreshold": 2,
-    "ViolenceThreshold": 2,
-    "SexualThreshold": 2,
-    "SelfHarmThreshold": 2
-  },
   "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=your-key;IngestionEndpoint=https://...",
   "ConnectionStrings": {
     "TasksConnection": "Server=tcp:your-server.database.windows.net,1433;Initial Catalog=TaskAgentDb;User ID=your_user;Password=your_password;Encrypt=True;",
@@ -455,6 +445,8 @@ pnpm dev
   }
 }
 ```
+
+**Note**: Content safety is handled by Azure OpenAI's built-in content filtering. No separate Content Safety resource required.
 
 **2. Deploy to Azure App Service** using standard deployment methods.
 
