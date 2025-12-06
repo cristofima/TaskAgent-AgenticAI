@@ -2,116 +2,105 @@
 
 ## Overview
 
-This document provides test cases for Azure AI Content Safety implementation in the Task Agent application.
+This document provides test cases for content safety in the Task Agent application.
 
-The system uses a **2-Layer Defense Architecture**:
-
-1. **Layer 1: Azure Prompt Shield (REST API)** - Detects prompt injection attacks
-2. **Layer 2: Azure Content Safety (SDK)** - Detects harmful content (Hate, Violence, Sexual, SelfHarm)
+The system uses **Azure OpenAI's built-in content filtering system** for content safety.
 
 ## Architecture
 
+### Azure OpenAI Content Filter (Current)
+
 ```
-User Input → [Prompt Shield + Content Moderation] → Task Agent Processing
-             (Parallel Execution)
+User Input → [AG-UI SSE Streaming] → Azure OpenAI → Content Filter → Response/Block
+                                     (Built-in filter at model level)
 ```
+
+**What Azure OpenAI filters automatically:**
+
+- **Hate speech** → Medium threshold (blocks moderate+ severity)
+- **Violence** → Medium threshold (blocks moderate+ severity)
+- **Sexual content** → Medium threshold (blocks moderate+ severity)
+- **Self-harm** → Medium threshold (blocks moderate+ severity)
+- **Prompt injection attacks** (Jailbreak detection)
+
+**Key Behavior:**
+
+- Azure OpenAI's built-in content filter detects policy violations at the model level
+- When triggered, returns HTTP 400 with `content_filter` code
+- Backend catches exception and sends `CONTENT_FILTER` SSE event
+- Frontend displays friendly message in chat (no error toast)
+- Conversation thread is preserved for continuity
 
 ### Implementation Details
 
-**Technology Stack:**
-
-- Azure AI Content Safety SDK v1.0.0 (Content Moderation)
-- Azure Prompt Shield REST API v2024-09-01 (Prompt Injection Detection)
-- IHttpClientFactory with Named HttpClient for optimal performance
-- Record types for immutable DTOs
-- **Parallel execution with Task.WhenAll for 50% faster response times**
-
 **Key Components:**
 
-- `ContentSafetyService` - Core service implementing both layers
-- `ContentSafetyMiddleware` - Request interception with parallel validation
-- `ContentSafetyConfig` - Configurable severity thresholds
-- `PromptShieldResponse` - Response DTOs for API deserialization
+- `AgentStreamingService` - Detects `ClientResultException` with `content_filter` code
+- `SseStreamingService` - Sends `CONTENT_FILTER` SSE event
+- `AgentConstants` - Content filter constants and user-friendly messages
+- Frontend `chat-service.ts` - Handles event, displays user-friendly message
 
-**Performance Optimization:**
-
-Both safety checks execute in **parallel** instead of sequentially:
-
-- **Sequential (before)**: ~400-800ms (200-400ms each)
-- **Parallel (after)**: ~200-400ms (time of slowest check)
-- **Improvement**: ~50% reduction in response time for safe prompts
-
-This is safe because:
-
-1. Both validations are independent (no data dependencies)
-2. Most user prompts are legitimate and pass both checks
-3. Error handling is robust (fail-open if Azure service unavailable)
-4. Security priority maintained (injection checked first in results)
-
-### Blocked Message Handling (v2.1)
+### Blocked Message Handling (AG-UI)
 
 **UX Enhancement - ChatGPT-like Behavior:**
 
-When Content Safety blocks a message, the system now provides a seamless user experience:
+When Azure OpenAI content filter blocks a message, the system provides a seamless user experience:
 
-1. **Thread Creation**: Empty thread placeholder created in database
+1. **SSE Event**: Backend sends `CONTENT_FILTER` event with user-friendly message
 2. **In-Chat Display**: Blocked message appears as assistant response (not error toast)
-3. **Conversation Continuity**: User can immediately send valid message
-4. **Smart Title Updates**: When first valid message arrives:
-   - Backend extracts title from user message
-   - Frontend detects title change (null → actual title)
-   - Sidebar refreshes once to show updated title
-5. **Efficient Refresh**: Flag-based detection prevents unnecessary reloads
+3. **Thread State**: Thread state (`serializedState`) is still sent for continuity
+4. **Conversation Continuity**: User can immediately send valid message
 
 **Technical Implementation:**
 
-```typescript
-// Frontend (use-chat.ts)
-const [isFirstValidMessage, setIsFirstValidMessage] = useState(false);
-
-// When message is blocked:
-if (errorResponse.threadId && !threadId) {
-  setThreadId(errorResponse.threadId);
-  options.onThreadCreated?.(errorResponse.threadId); // Reload sidebar
-  setIsFirstValidMessage(true); // Mark for next reload
+```csharp
+// Backend (AgentStreamingService.cs)
+catch (ClientResultException ex) when (IsContentFilterError(ex))
+{
+    _logger.LogWarning(ex, "Content filter triggered on prompt");
+    _contentFilterException = new ContentFilterException(ex.Message);
+    yield break; // Stop streaming, let SseStreamingService handle the event
 }
 
-// When first valid message sent:
-if (isFirstValidMessage && response.threadId) {
-  options.onThreadCreated?.(response.threadId); // Reload to update title
-  setIsFirstValidMessage(false); // Disable flag
+// Backend (SseStreamingService.cs)
+if (contentFilterEx != null)
+{
+    await SendContentFilterEventAsync(response, cancellationToken);
+    // Still send thread state for conversation continuity
 }
 ```
 
-````csharp
-// Backend (TaskAgentService.cs)
-// Note: Only accepts threadId parameter - blocked content is NEVER persisted
-public async Task<string> SaveBlockedMessageAsync(string? threadId = null)
-{
-    // Creates/restores thread WITHOUT persisting blocked content
-    // Security: Avoids storing potentially harmful prompts in database
-    // The blocked message is shown in UI temporarily but not saved
-    AgentThread thread = threadId != null
-        ? _agent.DeserializeThread(existingThread)
-        : _agent.GetNewThread();
-
-    await _threadPersistence.SaveThreadAsync(activeThreadId, serialized);
-    return activeThreadId; // Returns thread ID for frontend continuity
+```typescript
+// Frontend (chat-service.ts)
+if (event.type === "CONTENT_FILTER") {
+  const filterMessage =
+    event.message ||
+    "I'm unable to assist with that request as it may violate content policies.";
+  fullMessage = filterMessage;
+  callbacks.onTextChunk?.(filterMessage, filterMessage);
+  // Don't throw - let stream continue to get thread state
 }
-```**Performance Optimization:**
-
-- ❌ Before: Sidebar reloaded on every message (1 + N reloads)
-- ✅ After: Sidebar reloads only twice (block + first valid = 2 reloads)
+```
 
 **Security Trade-off:**
 
-- Blocked message content NOT persisted in database (security measure)
-- User sees blocked message in UI session (temporary)
-- First valid message triggers full conversation persistence
+- Blocked message content NOT persisted in database (by design)
+- User sees blocked message in UI session only (temporary)
+- Thread state (`serializedState`) is preserved for next valid message
+- On page refresh, blocked messages disappear (acceptable UX trade-off)
 
 ### Configuration
 
-**appsettings.json:**
+**Azure OpenAI Content Filter:**
+
+Configure content filtering in Azure AI Foundry portal:
+
+1. Go to your Azure OpenAI resource
+2. Navigate to "Content filters" section
+3. Create/modify filter configuration
+4. Apply to your model deployment
+
+**Legacy appsettings.json (for ContentSafetyMiddleware):**
 
 ```json
 {
@@ -124,9 +113,9 @@ public async Task<string> SaveBlockedMessageAsync(string? threadId = null)
     "SelfHarmThreshold": 2
   }
 }
-````
+```
 
-**Threshold Levels:**
+**Threshold Levels (Legacy):**
 
 - **0** = Allow all (not recommended)
 - **1** = Low severity
@@ -138,7 +127,7 @@ public async Task<string> SaveBlockedMessageAsync(string? threadId = null)
 
 ## Test Cases
 
-### ✅ SAFE PROMPTS - Should Pass Both Layers
+### ✅ SAFE PROMPTS - Should Pass All Layers
 
 These prompts represent legitimate task management commands:
 

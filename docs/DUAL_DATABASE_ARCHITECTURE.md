@@ -2,93 +2,100 @@
 
 ## Executive Summary
 
-This document analyzes the **architectural challenge** of managing two separate databases in the TaskAgent application:
+This document analyzes the **architectural implementation** of managing two separate databases in the TaskAgent application:
 
-- **SQL Server**: TaskItem entities (existing implementation)
-- **PostgreSQL**: ConversationThreadEntity (newly added)
+- **SQL Server**: TaskItem entities (CRUD operations)
+- **PostgreSQL**: ConversationThreadEntity + ConversationMessage (chat persistence)
 
-**Current Issue**: Application is configured with a **single connection string** pointing to PostgreSQL, but TaskItem entities still require SQL Server.
+**Status**: ✅ **Working** - Both databases are properly configured with separate `DbContext` classes and connection strings.
 
 ---
 
-## 1. Current Architecture (❌ Broken)
+## 1. Current Architecture (✅ Implemented)
 
-### 1.1 Configuration Issue
+### 1.1 Configuration (✅ Correct)
 
 **File**: `appsettings.json` / `appsettings.Development.json`
 
 ```json
 {
   "ConnectionStrings": {
-    // ❌ PROBLEM: Should have TWO separate connection strings
-    "DefaultConnection": "Server=localhost;Database=TaskAgentDb;Trusted_Connection=true;Encrypt=False;"
+    "TasksConnection": "Server=localhost;Database=TaskAgentDb;Trusted_Connection=true;Encrypt=False;",
+    "ConversationsConnection": "Host=localhost;Port=5432;Database=taskagent_conversations;Username=postgres;Password=..."
   }
 }
 ```
 
-**Note**: Now correctly configured with both SQL Server (Tasks) and PostgreSQL (Conversations)
+Both SQL Server (Tasks) and PostgreSQL (Conversations) are properly configured.
 
-### 1.2 DbContext Configuration Issue
+### 1.2 DbContext Configuration (✅ Correct)
 
 **File**: `TaskAgent.Infrastructure/InfrastructureServiceExtensions.cs`
 
 ```csharp
 public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
 {
-    // ❌ PROBLEM: Must use separate connection strings for each database
+    // ✅ SQL Server for TaskItem entities
     string? tasksConnectionString = configuration.GetConnectionString("TasksConnection");
+    services.AddDbContext<TaskDbContext>(options => options.UseSqlServer(tasksConnectionString));
 
-    services.AddDbContext<TaskDbContext>(options =>
-    {
-        options.UseSqlServer(tasksConnectionString);  // SQL Server for tasks
-    });
+    // ✅ PostgreSQL for Conversation entities  
+    string? conversationsConnectionString = configuration.GetConnectionString("ConversationsConnection");
+    services.AddDbContext<ConversationDbContext>(options => options.UseNpgsql(conversationsConnectionString));
 
-    // TaskRepository expects SQL Server schema
     services.AddScoped<ITaskRepository, TaskRepository>();
-
-    // PostgresThreadPersistenceService expects PostgreSQL schema
-    services.AddScoped<IThreadPersistenceService, PostgresThreadPersistenceService>();
+    services.AddScoped<IAgentStreamingService, AgentStreamingService>();
 
     return services;
 }
 ```
 
-### 1.3 DbContext Entity Mapping Issue
+### 1.3 DbContext Entity Mapping (✅ Correct - Separate DbContexts)
 
-**File**: `TaskAgent.Infrastructure/Data/TaskDbContext.cs`
+**File**: `TaskAgent.Infrastructure/Data/TaskDbContext.cs` (SQL Server)
 
 ```csharp
 public class TaskDbContext : DbContext
 {
     public TaskDbContext(DbContextOptions<TaskDbContext> options) : base(options) { }
 
-    // ❌ PROBLEM: Both entity sets in same DbContext, but need different databases
-    public DbSet<TaskItem> Tasks => Set<TaskItem>();  // Expects SQL Server
-    public DbSet<ConversationThreadEntity> ConversationThreads => Set<ConversationThreadEntity>();  // Expects PostgreSQL
+    public DbSet<TaskItem> Tasks => Set<TaskItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // TaskItem configuration (SQL Server types)
-        var taskEntity = modelBuilder.Entity<TaskItem>();
-        taskEntity.Property(e => e.CreatedAt).HasColumnType("datetime2");  // SQL Server type
-
-        // ConversationThreadEntity configuration (PostgreSQL types)
-        var threadEntity = modelBuilder.Entity<ConversationThreadEntity>();
-        threadEntity.Property(e => e.SerializedThread).HasColumnType("json");  // PostgreSQL json (not jsonb - preserves order)
-        threadEntity.Property(e => e.CreatedAt).HasColumnType("timestamptz");  // PostgreSQL type
+        modelBuilder.ApplyConfiguration(new TaskItemConfiguration());
     }
 }
 ```
 
-**The Problem**: Single `DbContext` cannot connect to two different databases simultaneously.
+**File**: `TaskAgent.Infrastructure/Data/ConversationDbContext.cs` (PostgreSQL)
+
+```csharp
+public class ConversationDbContext : DbContext
+{
+    public ConversationDbContext(DbContextOptions<ConversationDbContext> options) : base(options) { }
+
+    public DbSet<ConversationThreadMetadata> ConversationThreads => Set<ConversationThreadMetadata>();
+    public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // PostgreSQL-specific types
+        modelBuilder.Entity<ConversationMessage>()
+            .Property(e => e.Timestamp).HasColumnType("timestamptz");
+    }
+}
+```
+
+**Solution Implemented**: Two separate `DbContext` classes, each connected to its own database.
 
 ---
 
-## 2. Architectural Solutions
+## 2. Architecture Implementation
 
-### Solution 1: Split DbContext (Recommended for Clean Separation)
+### Solution: Split DbContext (Implemented)
 
-**Concept**: Create two separate `DbContext` classes, one for each database.
+**Concept**: Two separate `DbContext` classes, one for each database.
 
 #### Architecture Diagram
 
@@ -179,13 +186,11 @@ public class ConversationDbContext : DbContext
     "Endpoint": "https://your-resource.openai.azure.com/",
     "ApiKey": "your-key",
     "DeploymentName": "gpt-4o-mini"
-  },
-  "ContentSafety": {
-    "Endpoint": "https://your-resource.cognitiveservices.azure.com/",
-    "ApiKey": "your-key"
   }
 }
 ```
+
+**Note**: Content safety is handled by Azure OpenAI's built-in content filtering. No separate configuration required.
 
 **Step 3**: Register both DbContexts in DI
 
@@ -212,17 +217,9 @@ public static IServiceCollection AddInfrastructure(this IServiceCollection servi
     services.AddScoped<ITaskRepository, TaskRepository>();
     services.AddScoped<IThreadPersistenceService, PostgresThreadPersistenceService>();
 
-    // Content Safety
-    services.AddHttpClient("ContentSafety", client =>
-    {
-        string? endpoint = configuration["ContentSafety:Endpoint"];
-        string? apiKey = configuration["ContentSafety:ApiKey"];
-
-        client.BaseAddress = new Uri(endpoint!);
-        client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", apiKey);
-    });
-
-    services.AddSingleton<IContentSafetyService, ContentSafetyService>();
+    // Application Services
+    services.AddScoped<IAgentStreamingService, AgentStreamingService>();
+    services.AddScoped<IConversationService, ConversationService>();
 
     return services;
 }
@@ -598,7 +595,7 @@ public static IServiceCollection AddInfrastructure(this IServiceCollection servi
 
 ```powershell
 # Navigate to working directory
-cd c:\Framework_Projects\Agentic Framework\Intro\TaskAgentWeb\src\backend\services\TaskAgent\src
+cd TaskAgent-AgenticAI\src\backend\services\TaskAgent\src
 
 # Step 1: Remove existing mixed migration
 dotnet ef migrations remove --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApp

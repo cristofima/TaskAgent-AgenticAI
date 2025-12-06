@@ -9,11 +9,11 @@
 
 ```powershell
 # Terminal 1 - Backend
-cd "c:\Framework_Projects\Agentic Framework\Intro\TaskAgentWeb\src"
+cd TaskAgent-AgenticAI\src
 dotnet run --project TaskAgent.AppHost
 
 # Terminal 2 - Frontend
-cd "c:\Framework_Projects\Agentic Framework\Intro\TaskAgentWeb\src\frontend\task-agent-web"
+cd TaskAgent-AgenticAI\src\frontend\task-agent-web
 pnpm dev
 ```
 
@@ -310,6 +310,77 @@ WHERE "ThreadId" = '<thread-id-from-ui>';
 - ❌ Title doesn't update after first valid message
 - ❌ Sidebar reloads on every message (inefficient)
 - ❌ ThreadId not persisted between messages
+
+---
+
+## Test Case 8: Load Conversation and Continue Chat
+
+### Expected Behavior
+
+When loading an existing conversation from sidebar, subsequent messages should continue in the same conversation (not create a new one).
+
+### Steps:
+
+1. **Create conversation**: Send message `"Create a task to test"`
+2. **Note** conversation title in sidebar
+3. **Start new conversation**: Click "New Chat" button
+4. **Send** another message: `"Show all tasks"`
+5. **Now** click on the **first conversation** in sidebar
+6. **Verify** messages load correctly
+7. **Send new message** in loaded conversation: `"Update that task to high priority"`
+8. **Verify** message is sent in **same conversation** (not a new one)
+9. **Refresh page** (F5)
+10. **Verify** conversation still has all messages (including new one)
+
+### Expected Behavior:
+
+- ✅ After loading conversation, `serializedState` is retrieved from backend
+- ✅ New messages continue in the same conversation thread
+- ✅ Sidebar shows same conversation (not a new one)
+- ✅ After refresh, all messages are persisted
+
+### Visual Check:
+
+```mermaid
+graph LR
+    subgraph sidebar["📱 Sidebar"]
+        conv1["📝 Create a task...<br/>2 messages"]
+        conv2["📝 Show all tasks<br/>2 messages"]
+    end
+
+    subgraph chat["💬 Chat (conv1 loaded)"]
+        user1["👤 Create a task to test"]
+        bot1["🤖 ✅ Task created..."]
+        user2["👤 Update that task to high priority"]
+        bot2["🤖 ✅ Task updated..."]
+    end
+
+    conv1 --> chat
+    
+    style sidebar fill:#f5f5f5,stroke:#666,stroke-width:2px,color:#000
+    style conv1 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
+    style conv2 fill:#fff,stroke:#ddd,stroke-width:1px,color:#000
+    style chat fill:#f9f9f9,stroke:#333,stroke-width:2px,color:#000
+    style user1 fill:#e3f2fd,stroke:#2196f3,stroke-width:1px,color:#000
+    style bot1 fill:#e8f5e9,stroke:#4caf50,stroke-width:1px,color:#000
+    style user2 fill:#e3f2fd,stroke:#2196f3,stroke-width:1px,color:#000
+    style bot2 fill:#e8f5e9,stroke:#4caf50,stroke-width:1px,color:#000
+```
+
+### Common Issues to Watch For:
+
+- ❌ New message creates a new conversation (serializedState not preserved)
+- ❌ History not loaded when clicking sidebar conversation
+- ❌ Backend creates new thread instead of continuing existing one
+- ❌ Messages not persisted after page refresh
+
+### Technical Details:
+
+The fix for this test case involved:
+
+1. **Frontend (`use-chat.ts`)**: Use `response.serializedState` from API response, not `threadId` directly
+2. **Backend (`AgentStreamingService.cs`)**: Detect if `serializedState` is a simple GUID (from sidebar load) vs full JSON (from normal flow)
+3. **Backend**: Load conversation history from PostgreSQL when receiving simple GUID format
 
 ---
 
