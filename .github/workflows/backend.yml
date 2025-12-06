@@ -5,6 +5,9 @@ on:
       - main
     paths:
       - ".github/workflows/backend.yml"
+      - "src/Directory.Build.props"
+      - "src/Directory.Packages.props"
+      - "src/global.json"
       - "src/backend/services/TaskAgent/src/**/*.cs"
       - "src/backend/services/TaskAgent/src/**/*.csproj"
       - "src/backend/services/TaskAgent/src/**/*.json"
@@ -13,9 +16,6 @@ on:
       - "src/backend/services/TaskAgent/src/**/*.js"
       - "src/backend/TaskAgent.ServiceDefaults/**/*.cs"
       - "src/backend/TaskAgent.ServiceDefaults/**/*.csproj"
-      - "src/backend/Directory.Build.props"
-      - "src/backend/Directory.Packages.props"
-      - "src/backend/global.json"
       - "src/backend/TaskAgentWeb.sln"
 env:
   AZURE_WEBAPP_NAME: app-taskagent-prod
