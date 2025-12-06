@@ -59,4 +59,19 @@ public static class AgentConstants
     /// SSE event type for generic run updates
     /// </summary>
     public const string EVENT_RUN_UPDATE = "RUN_UPDATE";
+
+    /// <summary>
+    /// SSE event type for content filter violations
+    /// </summary>
+    public const string EVENT_CONTENT_FILTER = "CONTENT_FILTER";
+
+    /// <summary>
+    /// Error code for content filter violations
+    /// </summary>
+    public const string ERROR_CONTENT_FILTER = "content_filter";
+
+    /// <summary>
+    /// Default message for content filter violations (ChatGPT-like)
+    /// </summary>
+    public const string CONTENT_FILTER_MESSAGE = "I'm unable to assist with that request as it may violate content policies. Please try rephrasing your message or asking something else.";
 }

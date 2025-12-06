@@ -53,6 +53,14 @@ public class SseStreamingService
             await WriteEventAsync(response, eventJson, cancellationToken);
         }
 
+        // Check for content filter exception
+        object? contentFilterEx = _agentStreamingService.GetContentFilterException();
+        if (contentFilterEx != null)
+        {
+            await SendContentFilterEventAsync(response, cancellationToken);
+            // Still send thread state for conversation continuity
+        }
+
         // Get the thread after streaming completes
         object? threadObj = _agentStreamingService.GetCurrentThread();
             
@@ -84,6 +92,27 @@ public class SseStreamingService
                 messageId = update.MessageId,
             }
         );
+    }
+
+    /// <summary>
+    /// Sends a content filter event with a ChatGPT-like user-friendly message.
+    /// </summary>
+    private static async Task SendContentFilterEventAsync(
+        HttpResponse response,
+        CancellationToken cancellationToken
+    )
+    {
+        string contentFilterEvent = JsonSerializer.Serialize(
+            new
+            {
+                type = AgentConstants.EVENT_CONTENT_FILTER,
+                error = AgentConstants.ERROR_CONTENT_FILTER,
+                message = AgentConstants.CONTENT_FILTER_MESSAGE,
+                messageId = $"cf-{Guid.NewGuid():N}",
+            }
+        );
+
+        await WriteEventAsync(response, contentFilterEvent, cancellationToken);
     }
 
     private async Task SendThreadStateEventAsync(

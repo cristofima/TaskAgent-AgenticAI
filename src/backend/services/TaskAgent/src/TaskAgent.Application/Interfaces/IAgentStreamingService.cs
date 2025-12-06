@@ -41,4 +41,10 @@ public interface IAgentStreamingService
     /// <param name="serializedState">Serialized thread state.</param>
     /// <returns>Deserialized agent thread or new thread if deserialization fails.</returns>
     object DeserializeThread(string? serializedState);
+
+    /// <summary>
+    /// Gets the content filter exception if one occurred during the last streaming operation.
+    /// </summary>
+    /// <returns>ContentFilterException if content was filtered, null otherwise.</returns>
+    object? GetContentFilterException();
 }
