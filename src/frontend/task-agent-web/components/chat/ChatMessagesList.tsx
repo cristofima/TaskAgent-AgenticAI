@@ -1,13 +1,13 @@
 "use client";
 
 import { ChatMessage } from "./ChatMessage";
-import { LoadingIndicator } from "@/components/shared/LoadingIndicator";
 import type { ChatMessage as ChatMessageType } from "@/types/chat";
 
 interface ChatMessagesListProps {
   messages: ChatMessageType[];
   isLoading: boolean;
   isStreaming?: boolean; // New: indicates text is being streamed progressively
+  statusMessage?: string | null; // Server-provided status message
   onSuggestionClick?: (suggestion: string) => void;
 }
 
@@ -19,6 +19,7 @@ export function ChatMessagesList({
   messages,
   isLoading,
   isStreaming = false,
+  statusMessage,
   onSuggestionClick,
 }: ChatMessagesListProps) {
   // Find the last message (streaming message) for cursor display
@@ -51,18 +52,21 @@ export function ChatMessagesList({
         </div>
       ) : (
         <div className="flex flex-col gap-3 sm:gap-4 p-3 sm:p-4 py-4 sm:py-6">
-          {messages.map((message, index) => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              onSuggestionClick={onSuggestionClick}
-              isLoading={isLoading}
-              // Show streaming cursor on last assistant message while streaming
-              isStreaming={isStreaming && index === lastMessageIndex && message.role === "assistant"}
-            />
-          ))}
-          {/* Show loading indicator only when waiting for stream to start (no content yet) */}
-          {isLoading && !isStreaming && <LoadingIndicator />}
+          {messages.map((message, index) => {
+            const isLastAssistantMessage = index === lastMessageIndex && message.role === "assistant";
+            return (
+              <ChatMessage
+                key={message.id}
+                message={message}
+                onSuggestionClick={onSuggestionClick}
+                isLoading={isLoading}
+                // Show streaming cursor on last assistant message while streaming
+                isStreaming={isStreaming && isLastAssistantMessage}
+                // Pass status message for display in empty streaming message
+                statusMessage={isLastAssistantMessage ? statusMessage : undefined}
+              />
+            );
+          })}
         </div>
       )}
     </>

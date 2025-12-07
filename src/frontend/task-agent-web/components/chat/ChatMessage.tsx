@@ -13,6 +13,7 @@ interface ChatMessageProps {
   onSuggestionClick?: (suggestion: string) => void;
   isLoading?: boolean;
   isStreaming?: boolean; // New: shows blinking cursor while streaming
+  statusMessage?: string | null; // Status message from backend (shown when streaming with no content)
 }
 
 /**
@@ -46,6 +47,7 @@ export const ChatMessage = memo(function ChatMessage({
   onSuggestionClick,
   isLoading = false,
   isStreaming = false, // Streaming cursor state
+  statusMessage, // Status from backend
 }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [isHovered, setIsHovered] = useState(false);
@@ -98,9 +100,16 @@ export const ChatMessage = memo(function ChatMessage({
           >
             {textContent}
           </ReactMarkdown>
-          {/* Blinking cursor while streaming - ChatGPT-like effect */}
+          {/* Streaming state: show status message or blinking cursor */}
           {isStreaming && (
-            <span className="inline-block w-2 h-4 ml-0.5 bg-gray-800 dark:bg-gray-200 animate-pulse" />
+            <span className="inline-flex items-center gap-2">
+              {statusMessage && !textContent.trim() && (
+                <span className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">
+                  {statusMessage}
+                </span>
+              )}
+              <span className="inline-block w-2 h-4 bg-gray-800 dark:bg-gray-200 animate-pulse" />
+            </span>
           )}
         </div>
 

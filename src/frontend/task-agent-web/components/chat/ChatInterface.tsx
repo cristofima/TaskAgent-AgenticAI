@@ -33,6 +33,7 @@ export function ChatInterface() {
     input,
     isLoading,
     isStreaming, // New: progressive rendering state
+    statusMessage, // Server-provided status message
     error,
     threadId,
     handleInputChange,
@@ -134,6 +135,7 @@ export function ChatInterface() {
                   messages={messages}
                   isLoading={isLoading}
                   isStreaming={isStreaming} // Pass streaming state
+                  statusMessage={statusMessage} // Pass server status message
                   onSuggestionClick={sendSuggestion}
                 />
               </div>

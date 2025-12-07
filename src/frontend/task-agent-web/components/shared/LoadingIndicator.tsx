@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 
 interface LoadingIndicatorProps {
+  /** Server-provided status message (takes priority over default rotation) */
+  serverStatus?: string | null;
+  /** Optional custom context message (fallback if no server status) */
   contextMessage?: string;
 }
 
 /**
- * Enhanced loading indicator with contextual messages
- * Cycles through messages to provide better UX during loading
+ * Enhanced loading indicator with server-driven status messages
+ * Shows backend processing stages when available, otherwise rotates default messages
  */
-export function LoadingIndicator({ contextMessage }: LoadingIndicatorProps) {
+export function LoadingIndicator({ serverStatus, contextMessage }: LoadingIndicatorProps) {
   const [messageIndex, setMessageIndex] = useState(0);
 
   const defaultMessages = [
@@ -20,17 +23,19 @@ export function LoadingIndicator({ contextMessage }: LoadingIndicatorProps) {
     "✨ Almost ready...",
   ];
 
-  const messages = contextMessage ? [contextMessage] : defaultMessages;
+  // Use server status if available, otherwise use context message or default rotation
+  const displayMessage = serverStatus || contextMessage || defaultMessages[messageIndex];
+  const shouldRotate = !serverStatus && !contextMessage && defaultMessages.length > 1;
 
   useEffect(() => {
-    if (messages.length <= 1) return;
+    if (!shouldRotate) return;
 
     const interval = setInterval(() => {
-      setMessageIndex((prev) => (prev + 1) % messages.length);
+      setMessageIndex((prev) => (prev + 1) % defaultMessages.length);
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [messages.length]);
+  }, [shouldRotate, defaultMessages.length]);
 
   return (
     <div className="flex justify-start animate-fadeIn">
@@ -57,7 +62,7 @@ export function LoadingIndicator({ contextMessage }: LoadingIndicatorProps) {
           </div>
           {/* Contextual message */}
           <span className="text-sm text-gray-600 dark:text-gray-400 animate-pulse">
-            {messages[messageIndex]}
+            {displayMessage}
           </span>
         </div>
       </div>

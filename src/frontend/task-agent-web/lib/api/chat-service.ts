@@ -99,6 +99,8 @@ export interface StreamingCallbacks {
     onComplete?: (serializedState: string | null) => void;
     /** Called on error */
     onError?: (error: ApiError) => void;
+    /** Called when backend sends a status update (processing stages) */
+    onStatusUpdate?: (status: string) => void;
 }
 
 /**
@@ -222,6 +224,12 @@ export async function sendMessageWithStreaming(
                         if (event.type === "TOOL_CALL_RESULT") {
                             // Callback: Tool call completed
                             callbacks.onToolCallResult?.(event.toolCallId || "", event.result || "");
+                        }
+
+                        // Handle STATUS_UPDATE event (processing stage updates from backend)
+                        if (event.type === "STATUS_UPDATE" && event.status) {
+                            // Callback: Status update for UI loading indicator
+                            callbacks.onStatusUpdate?.(event.status);
                         }
 
                         // Handle CONTENT_FILTER event (Azure OpenAI content policy violation)

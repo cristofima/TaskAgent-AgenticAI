@@ -21,6 +21,7 @@ export interface UseChatReturn {
     input: string;
     isLoading: boolean;
     isStreaming: boolean; // New: indicates text is being streamed
+    statusMessage: string | null; // Status message from backend (processing stages)
     error: Error | undefined;
     threadId: string | null;
     handleInputChange: (
@@ -43,6 +44,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isStreaming, setIsStreaming] = useState(false); // New: tracks active streaming
+    const [statusMessage, setStatusMessage] = useState<string | null>(null); // Backend status updates
     const [error, setError] = useState<Error | undefined>();
     const [currentThreadId, setCurrentThreadId] = useState<string | null>(null); // Active conversation ThreadDbKey
     const [serializedState, setSerializedState] = useState<string | null>(null); // ThreadDbKey from backend
@@ -93,6 +95,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
             // Define streaming callbacks for progressive rendering
             const streamingCallbacks: StreamingCallbacks = {
                 onStart: (messageId, createdAt) => {
+                    // Clear status message when actual text starts streaming
+                    setStatusMessage(null);
                     // Update the streaming message with actual ID and timestamp
                     setMessages((prev) => 
                         prev.map((msg) => 
@@ -105,6 +109,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                 },
                 
                 onTextChunk: (_delta, fullText) => {
+                    // Clear status message when text arrives (in case onStart wasn't called)
+                    setStatusMessage(null);
                     // Progressive UI update - this is the magic!
                     const currentMsgId = streamingMessageIdRef.current;
                     setMessages((prev) => 
@@ -115,9 +121,15 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                         )
                     );
                 },
+
+                onStatusUpdate: (status) => {
+                    // Update status message from backend (processing stages)
+                    setStatusMessage(status);
+                },
                 
                 onComplete: (newSerializedState) => {
                     setIsStreaming(false);
+                    setStatusMessage(null); // Clear status on completion
                     
                     // Update serializedState for next request
                     if (newSerializedState) {
@@ -131,8 +143,9 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                     }
                 },
                 
-                onError: (apiError) => {
+                onError: () => {
                     setIsStreaming(false);
+                    setStatusMessage(null); // Clear status on error
                     // Error will be handled in catch block
                 }
             };
@@ -287,6 +300,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         input,
         isLoading,
         isStreaming, // New: indicates progressive text rendering in progress
+        statusMessage, // Backend status updates (processing stages)
         error,
         threadId: currentThreadId,
         handleInputChange,
