@@ -6,13 +6,34 @@
 
 1. **Look at the ACTUAL file paths** in staged changes
 2. **Determine area from file location:**
-   - Files in `src/frontend/` → `frontend/*`
+   - Files in `src/frontend/task-agent-web/__tests__/` → `test(frontend/tests)`
+   - Files in `src/frontend/task-agent-web/e2e/` → `test(frontend/tests)`
+   - Files matching `src/frontend/task-agent-web/vitest*.{ts,mts}` → `test(frontend/tests)`
+   - Files matching `src/frontend/task-agent-web/playwright.config.ts` → `test(frontend/tests)`
+   - Files in `src/frontend/` (non-test) → `frontend/*`
    - Files in `src/backend/` → `backend/*`
    - Files in `.github/workflows/` → `ci`
    - Root config files → `build`
    - `.md` files → `docs`
 3. **DO NOT reuse the previous commit's scope**
 4. **Match scope to file locations, not assumptions**
+5. **For test files, ALWAYS use `test` type** (not `feat` or `refactor`)
+
+### Frontend Test File Patterns:
+
+**These files/folders → `test(frontend/tests):`**
+
+```
+src/frontend/task-agent-web/
+├── __tests__/**/*.test.ts       → test(frontend/tests)
+├── __tests__/**/*.test.tsx      → test(frontend/tests)
+├── e2e/**/*.spec.ts             → test(frontend/tests)
+├── e2e/fixtures/*               → test(frontend/tests)
+├── vitest.config.mts            → test(frontend/tests)
+├── vitest-setup.ts              → test(frontend/tests)
+├── playwright.config.ts         → test(frontend/tests)
+└── TESTING_STRATEGY.md          → docs(frontend)
+```
 
 **Example:**
 
@@ -24,6 +45,88 @@ Changed files:
 ❌ WRONG: feat(backend/Application): implement chat
 ✅ CORRECT: feat(frontend/hooks): implement chat hook
 ```
+
+**Example (Test config files):**
+
+```
+Changed files:
+- src/frontend/task-agent-web/vitest.config.mts
+- src/frontend/task-agent-web/vitest-setup.ts
+
+❌ WRONG: feat(frontend/tests): add Vitest configuration
+❌ WRONG: chore(frontend): add test config
+✅ CORRECT: test(frontend/tests): configure Vitest for unit testing
+```
+
+**Example (Test files + config):**
+
+```
+Changed files:
+- src/frontend/task-agent-web/__tests__/components/chat/ChatInput.test.tsx
+- src/frontend/task-agent-web/vitest-setup.ts
+
+✅ CORRECT: test(frontend/tests): add ChatInput component tests
+```
+
+---
+
+## Mixed File Types in Single Commit
+
+When a commit includes multiple file types (tests, config, docs, dependencies), **use the PRIMARY PURPOSE of the commit**:
+
+### Priority Order for Type Selection:
+
+1. **If main purpose is adding/fixing tests** → `test(frontend/tests)`
+2. **If main purpose is new feature** → `feat(frontend/*)`
+3. **If main purpose is bug fix** → `fix(frontend/*)`
+4. **If only docs changed** → `docs`
+
+### Example: Testing Infrastructure Commit
+
+```
+Staged files (18):
+- src/frontend/task-agent-web/__tests__/**          (test files)
+- src/frontend/task-agent-web/e2e/**                (E2E tests)
+- src/frontend/task-agent-web/vitest.config.mts     (test config)
+- src/frontend/task-agent-web/vitest-setup.ts       (test setup)
+- src/frontend/task-agent-web/playwright.config.ts  (test config)
+- src/frontend/task-agent-web/package.json          (dependencies)
+- src/frontend/task-agent-web/pnpm-lock.yaml        (lockfile)
+- src/frontend/task-agent-web/.gitignore            (git config)
+- src/frontend/task-agent-web/README.md             (docs)
+- src/frontend/task-agent-web/TESTING_STRATEGY.md   (docs)
+
+Primary purpose: Setting up testing infrastructure
+→ Type: test
+→ Scope: frontend/tests
+
+✅ CORRECT:
+test(frontend/tests): add unit and E2E testing infrastructure
+
+Configured Vitest for unit tests and Playwright for E2E tests.
+Added 94 tests covering components, utilities, and user flows.
+
+Test files:
+- __tests__/: Unit tests (57 tests)
+- e2e/: E2E tests (37 tests)
+
+Configuration:
+- vitest.config.mts: Vitest setup with React plugin
+- playwright.config.ts: Playwright with Chromium
+- vitest-setup.ts: jest-dom matchers and mocks
+
+Documentation:
+- README.md: Updated testing section
+- TESTING_STRATEGY.md: Testing strategy and implementation status
+```
+
+### Rule: Supporting Files Follow Main Purpose
+
+| Main Files | Supporting Files | Result |
+|------------|------------------|--------|
+| Test files (`.test.tsx`, `.spec.ts`) | `package.json`, `README.md`, config | `test(frontend/tests)` |
+| Component files (`.tsx`) | `package.json`, types, styles | `feat(frontend/*)` |
+| Only `.md` files | None | `docs` |
 
 ---
 
@@ -173,6 +276,50 @@ Modified files (3):
 - `frontend/types` - TypeScript interfaces
 - `frontend/chat` - Chat feature
 - `frontend/styles` - CSS/Tailwind
+- `frontend/tests` - Test files and configuration
+
+### Frontend Test Files Mapping:
+
+| File/Folder | Scope |
+|-------------|-------|
+| `__tests__/**/*.test.ts(x)` | `frontend/tests` |
+| `e2e/**/*.spec.ts` | `frontend/tests` |
+| `e2e/fixtures/*` | `frontend/tests` |
+| `vitest.config.mts` | `frontend/tests` |
+| `vitest-setup.ts` | `frontend/tests` |
+| `playwright.config.ts` | `frontend/tests` |
+| `TESTING_STRATEGY.md` | `docs(frontend)` |
+
+**Examples:**
+
+```
+# New unit tests
+test(frontend/tests): add ChatInput component tests
+
+# New E2E tests
+test(frontend/tests): add conversation management E2E tests
+
+# Test configuration changes
+test(frontend/tests): configure Playwright for Chromium
+
+# Fix failing tests
+fix(frontend/tests): resolve theme toggle assertion
+
+# Test infrastructure/setup
+test(frontend/tests): add jest-dom matchers to vitest setup
+
+# Multiple test files
+test(frontend/tests): implement chat component tests
+
+Added comprehensive tests for ChatInput and ChatMessage components
+covering rendering, interactions, loading states, and accessibility.
+
+Modified files (4):
+- __tests__/components/chat/ChatInput.test.tsx: 19 tests
+- __tests__/components/chat/ChatMessage.test.tsx: 22 tests
+- vitest-setup.ts: Added jest-dom import
+- e2e/fixtures/mock-data.ts: Updated mock data
+```
 
 ### Shared/Root Scopes:
 
@@ -536,13 +683,14 @@ Reason: Streaming is NEW functionality, not restructuring
 1. **Are ONLY .md files changed?** → `docs:`
 2. **Are files in `.github/workflows/`?** → `ci:`
 3. **Is this a major framework upgrade?** → `build!:` or `ci!:` (breaking)
-4. **Are files in `src/frontend/`?** → Use `frontend/*` scope
-5. **Are files in `src/backend/`?** → Use `backend/*` scope
-6. **Does it add new user-facing functionality?** → `feat`
-7. **Does it fix broken functionality?** → `fix`
-8. **Does it improve performance?** → `perf`
-9. **Does it restructure code (same behavior)?** → `refactor`
-10. **Is it style/formatting only?** → `style`
+4. **Are files test-related?** (`__tests__/`, `e2e/`, `vitest*`, `playwright*`) → `test(frontend/tests):`
+5. **Are files in `src/frontend/`?** → Use `frontend/*` scope
+6. **Are files in `src/backend/`?** → Use `backend/*` scope
+7. **Does it add new user-facing functionality?** → `feat`
+8. **Does it fix broken functionality?** → `fix`
+9. **Does it improve performance?** → `perf`
+10. **Does it restructure code (same behavior)?** → `refactor`
+11. **Is it style/formatting only?** → `style`
 
 ---
 
@@ -575,6 +723,12 @@ fix(frontend/hooks): correct [state management]
 
 # Frontend - Styling
 style(frontend/chat): improve [layout/responsiveness]
+
+# Frontend - Testing
+test(frontend/tests): add [component name] unit tests
+test(frontend/tests): add [feature name] E2E tests
+test(frontend/tests): configure [Vitest/Playwright] setup
+fix(frontend/tests): resolve [test name] assertion
 
 # Documentation
 docs: update [document name]
