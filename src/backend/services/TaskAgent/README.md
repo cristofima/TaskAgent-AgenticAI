@@ -774,6 +774,89 @@ customMetrics
 | render timechart
 ```
 
+## 🧪 Testing
+
+Comprehensive test suite following Microsoft testing best practices with **100+ tests** across three test projects.
+
+### Test Stack
+
+| Tool | Purpose |
+|------|---------|
+| **xUnit 2.9.3** | Testing framework (Microsoft recommended) |
+| **FluentAssertions 8.8.0** | Readable assertion syntax |
+| **NSubstitute 5.3.0** | Mocking framework |
+| **Testcontainers 4.4.0** | Real database containers for integration tests |
+
+### Test Projects
+
+```
+tests/
+├── TaskAgent.Domain.UnitTests/              # 28 tests - Entity & constant validation
+├── TaskAgent.Application.UnitTests/         # 76 tests - AI function tools with mocks
+└── TaskAgent.Infrastructure.IntegrationTests/ # 27 tests - Real SQL Server/PostgreSQL
+```
+
+### Running Tests
+
+```bash
+# All tests (requires Docker for integration tests)
+cd src/backend/services/TaskAgent/tests
+dotnet test
+
+# Unit tests only (fast, no Docker required)
+dotnet test --filter "FullyQualifiedName~UnitTests"
+
+# Integration tests only (requires Docker)
+dotnet test --filter "FullyQualifiedName~IntegrationTests"
+
+# Run specific test project
+dotnet test TaskAgent.Domain.UnitTests
+
+# Run with coverage
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+### Test Categories
+
+| Category | Tests | Description |
+|----------|-------|-------------|
+| **Domain Unit Tests** | 28 | `TaskItem` entity, constants, validation |
+| **Application Unit Tests** | 76 | 6 AI function tools (CreateTask, ListTasks, etc.) |
+| **Integration Tests** | 27 | `TaskRepository` + `ConversationService` with Testcontainers |
+| **Total** | **131** | |
+
+### Integration Tests (Testcontainers)
+
+Real database testing with Docker containers:
+
+- **SQL Server** (`mcr.microsoft.com/mssql/server:2022-latest`) → `TaskRepository`
+- **PostgreSQL** (`postgres:16-alpine`) → `ConversationService`
+
+```csharp
+// Example: TaskRepositoryTests with real SQL Server
+[Collection("SqlServer")]
+public class TaskRepositoryTests : IAsyncLifetime
+{
+    private readonly SqlServerContainerFixture _fixture;
+    
+    [Fact]
+    public async Task AddAsync_WithValidTask_InsertsTaskToDatabase()
+    {
+        // Real SQL Server container - no mocks!
+        var task = TaskItem.Create("Test", "Description", TaskPriority.High);
+        await _repository.AddAsync(task);
+        await _repository.SaveChangesAsync();
+        
+        // Verify with fresh DbContext
+        await using var verificationContext = _fixture.CreateDbContext();
+        var savedTask = await verificationContext.Tasks.FirstAsync(t => t.Id == task.Id);
+        savedTask.Title.Should().Be("Test");
+    }
+}
+```
+
+For detailed test specifications, see [TESTING_STRATEGY.md](./TESTING_STRATEGY.md).
+
 ## 🔒 Security Best Practices
 
 1. **Content Safety**: 2-layer defense (Prompt Shield + Content Moderation)
