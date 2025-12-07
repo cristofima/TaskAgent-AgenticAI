@@ -1,5 +1,8 @@
 # Task Agent - AI-Powered Task Management
 
+[![Backend CI/CD](https://github.com/cristofima/TaskAgent-AgenticAI/actions/workflows/backend.yml/badge.svg)](https://github.com/cristofima/TaskAgent-AgenticAI/actions/workflows/backend.yml)
+[![Frontend CI/CD](https://github.com/cristofima/TaskAgent-AgenticAI/actions/workflows/frontend.yml/badge.svg)](https://github.com/cristofima/TaskAgent-AgenticAI/actions/workflows/frontend.yml)
+
 An intelligent task management assistant built with **Microsoft Agent Framework**, **Azure OpenAI**, and **.NET Aspire**, demonstrating Clean Architecture, autonomous AI agents, and production-grade observability with Azure Content Safety protection.
 
 ![Task Agent Chat Interface](docs/screenshots/chat-interface.png)
@@ -338,6 +341,76 @@ When content filter triggers:
 | react-markdown | Markdown rendering      |
 | SWR (planned)  | Data fetching & caching |
 
+### Testing
+
+| Technology | Purpose |
+| ---------- | ------- |
+| xUnit 2.9.3 | .NET testing framework |
+| FluentAssertions 8.8.0 | Readable assertions |
+| NSubstitute 5.3.0 | Mocking framework |
+| Testcontainers 4.4.0 | Real database containers |
+| Vitest | Frontend unit testing |
+| Playwright | E2E testing |
+
+---
+
+## 🧪 Testing
+
+Comprehensive test suites for both backend and frontend with **225+ tests total**.
+
+### Backend Tests (131 tests)
+
+| Project | Tests | Type | Description |
+|---------|-------|------|-------------|
+| `TaskAgent.Domain.UnitTests` | 28 | Unit | Entity validation, constants |
+| `TaskAgent.Application.UnitTests` | 76 | Unit | AI function tools with mocks |
+| `TaskAgent.Infrastructure.IntegrationTests` | 27 | Integration | Real SQL Server/PostgreSQL via Testcontainers |
+
+```bash
+# Run all backend tests
+cd src/backend/services/TaskAgent/tests
+dotnet test
+
+# Run with coverage
+dotnet test --collect:"XPlat Code Coverage"
+
+# Unit tests only (fast, no Docker)
+dotnet test --filter "FullyQualifiedName~UnitTests"
+
+# Integration tests (requires Docker)
+dotnet test --filter "FullyQualifiedName~IntegrationTests"
+```
+
+**For detailed backend testing strategy**: See [Backend TESTING_STRATEGY.md](src/backend/services/TaskAgent/TESTING_STRATEGY.md)
+
+### Frontend Tests (94 tests)
+
+| Type | Tests | Description |
+|------|-------|-------------|
+| Unit Tests | 57 | Components, hooks, utilities |
+| E2E Tests | 37 | User flows with Playwright |
+
+```bash
+cd src/frontend/task-agent-web
+
+# Unit tests with coverage
+pnpm test:coverage
+
+# E2E tests
+pnpm test:e2e
+```
+
+**For detailed frontend testing strategy**: See [Frontend TESTING_STRATEGY.md](src/frontend/task-agent-web/TESTING_STRATEGY.md)
+
+### CI/CD Test Execution
+
+Both workflows execute tests before deployment:
+
+- **Backend**: Unit + Integration tests with Testcontainers
+- **Frontend**: Unit tests with coverage + Playwright E2E
+
+See [Workflows README](.github/workflows/README.md) for detailed CI/CD documentation.
+
 ---
 
 ## ⚙️ Setup
@@ -621,6 +694,7 @@ _Production distributed tracing_
 
 ## 📚 Documentation
 
+- **[CI/CD Workflows](.github/workflows/README.md)** - GitHub Actions pipelines (Backend & Frontend)
 - **[Content Safety Guide](docs/CONTENT_SAFETY.md)** - Security testing with 75+ test cases
 - **[Documentation Index](docs/README.md)** - Full documentation structure
 
