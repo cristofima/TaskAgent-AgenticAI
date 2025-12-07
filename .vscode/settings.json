@@ -15,6 +15,14 @@
       "file": "./.github/nextjs-code-review-instructions.md"
     }
   ],
+   "github.copilot.chat.testGeneration.instructions": [
+    {
+      "file": "./.github/dotnet-unit-tests-generation-instructions.md"
+    },
+    {
+      "file": "./.github/dotnet-integration-functional-tests-generation-instructions.md"
+    }
+  ],
   "github.copilot.chat.commitMessageGeneration.instructions": [
     {
       "file": "./.github/git-commit-messages-instructions.md"
