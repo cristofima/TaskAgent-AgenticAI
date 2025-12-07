@@ -12,10 +12,14 @@ namespace TaskAgent.WebApi.Services;
 public class SseStreamingService
 {
     private readonly IAgentStreamingService _agentStreamingService;
+    private readonly FunctionDescriptionProvider _descriptionProvider;
 
-    public SseStreamingService(IAgentStreamingService agentStreamingService)
+    public SseStreamingService(
+        IAgentStreamingService agentStreamingService,
+        FunctionDescriptionProvider descriptionProvider)
     {
         _agentStreamingService = agentStreamingService;
+        _descriptionProvider = descriptionProvider;
     }
 
     /// <summary>
@@ -31,8 +35,18 @@ public class SseStreamingService
         // Configure response for SSE
         ConfigureSseResponse(response);
 
+        // Send initial status - indicate if loading history or processing new request
+        bool hasExistingConversation = !string.IsNullOrEmpty(serializedState);
+        string initialStatus = hasExistingConversation 
+            ? AgentConstants.STATUS_LOADING_HISTORY 
+            : AgentConstants.STATUS_PROCESSING_REQUEST;
+        await SendStatusUpdateAsync(response, initialStatus, cancellationToken);
+
         // Convert to object enumerable for interface
         IEnumerable<object> messageObjects = messages;
+
+        // Track active function call for STEP_FINISHED event
+        string? activeStepName = null;
 
         // Stream agent responses
         await foreach (
@@ -47,6 +61,20 @@ public class SseStreamingService
             if (updateObj is not AgentRunResponseUpdate update)
             {
                 continue;
+            }
+
+            // Check for function calls and send STEP_STARTED + STATUS_UPDATE
+            string? functionName = await SendFunctionStatusIfNeededAsync(response, update, cancellationToken);
+            if (functionName != null)
+            {
+                activeStepName = functionName;
+            }
+
+            // Check for function result and send STEP_FINISHED
+            if (activeStepName != null && HasFunctionResult(update))
+            {
+                await SendStepFinishedAsync(response, activeStepName, cancellationToken);
+                activeStepName = null;
             }
 
             string eventJson = SerializeEvent(update);
@@ -72,6 +100,14 @@ public class SseStreamingService
 
         // Send completion event
         await WriteDoneEventAsync(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// Checks if the update contains a function result.
+    /// </summary>
+    private static bool HasFunctionResult(AgentRunResponseUpdate update)
+    {
+        return update.Contents.OfType<FunctionResultContent>().Any();
     }
 
     private static void ConfigureSseResponse(HttpResponse response)
@@ -147,5 +183,79 @@ public class SseStreamingService
     {
         await response.WriteAsync("data: [DONE]\n\n", cancellationToken);
         await response.Body.FlushAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends a status update event to inform the client about current processing stage.
+    /// </summary>
+    private static async Task SendStatusUpdateAsync(
+        HttpResponse response,
+        string status,
+        CancellationToken cancellationToken
+    )
+    {
+        string statusEvent = JsonSerializer.Serialize(
+            new { type = AgentConstants.EVENT_STATUS_UPDATE, status }
+        );
+        await WriteEventAsync(response, statusEvent, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends a status update if the current update is a function call, with a message specific to the function being called.
+    /// Uses AG-UI standard STEP_STARTED event and dynamic status messages from function descriptions.
+    /// </summary>
+    /// <returns>The function name if a function call was detected, null otherwise.</returns>
+    private async Task<string?> SendFunctionStatusIfNeededAsync(
+        HttpResponse response,
+        AgentRunResponseUpdate update,
+        CancellationToken cancellationToken
+    )
+    {
+        FunctionCallContent? functionCall = update.Contents.OfType<FunctionCallContent>().FirstOrDefault();
+        if (functionCall == null)
+        {
+            return null;
+        }
+
+        string functionName = functionCall.Name ?? "Unknown";
+
+        // Send AG-UI standard STEP_STARTED event
+        await SendStepStartedAsync(response, functionName, cancellationToken);
+
+        // Send dynamic status message derived from [Description] attribute
+        string status = _descriptionProvider.GetStatusMessage(functionName);
+        await SendStatusUpdateAsync(response, status, cancellationToken);
+
+        return functionName;
+    }
+
+    /// <summary>
+    /// Sends an AG-UI standard STEP_STARTED event.
+    /// </summary>
+    private static async Task SendStepStartedAsync(
+        HttpResponse response,
+        string stepName,
+        CancellationToken cancellationToken
+    )
+    {
+        string stepEvent = JsonSerializer.Serialize(
+            new { type = AgentConstants.EVENT_STEP_STARTED, stepName }
+        );
+        await WriteEventAsync(response, stepEvent, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends an AG-UI standard STEP_FINISHED event.
+    /// </summary>
+    private static async Task SendStepFinishedAsync(
+        HttpResponse response,
+        string stepName,
+        CancellationToken cancellationToken
+    )
+    {
+        string stepEvent = JsonSerializer.Serialize(
+            new { type = AgentConstants.EVENT_STEP_FINISHED, stepName }
+        );
+        await WriteEventAsync(response, stepEvent, cancellationToken);
     }
 }

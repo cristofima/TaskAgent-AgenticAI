@@ -9,6 +9,7 @@ using TaskAgent.Application.Telemetry;
 using TaskAgent.Infrastructure.Data;
 using TaskAgent.Infrastructure.MessageStores;
 using TaskAgent.WebApi.Constants;
+using TaskAgent.WebApi.Services;
 
 namespace TaskAgent.WebApi.Extensions;
 
@@ -27,6 +28,15 @@ public static class AgentServiceExtensions
 
         // Register AG-UI protocol services
         services.AddAGUI();
+
+        // Register FunctionDescriptionProvider as singleton for dynamic status messages
+        services.AddSingleton<FunctionDescriptionProvider>(sp =>
+        {
+            var provider = new FunctionDescriptionProvider();
+            // Register TaskFunctions type to extract [Description] attributes
+            provider.RegisterFunctionType(typeof(TaskFunctions));
+            return provider;
+        });
 
         // Register AIAgent as singleton for DI (used by AgentController)
         services.AddSingleton<AIAgent>(serviceProvider =>

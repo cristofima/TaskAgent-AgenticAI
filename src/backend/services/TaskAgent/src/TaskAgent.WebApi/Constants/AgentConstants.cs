@@ -74,4 +74,23 @@ public static class AgentConstants
     /// Default message for content filter violations (ChatGPT-like)
     /// </summary>
     public const string CONTENT_FILTER_MESSAGE = "I'm unable to assist with that request as it may violate content policies. Please try rephrasing your message or asking something else.";
+
+    /// <summary>
+    /// SSE event type for status updates during processing
+    /// </summary>
+    public const string EVENT_STATUS_UPDATE = "STATUS_UPDATE";
+
+    /// <summary>
+    /// AG-UI standard event type for step started (function execution begins)
+    /// </summary>
+    public const string EVENT_STEP_STARTED = "STEP_STARTED";
+
+    /// <summary>
+    /// AG-UI standard event type for step finished (function execution completes)
+    /// </summary>
+    public const string EVENT_STEP_FINISHED = "STEP_FINISHED";
+
+    // Status messages for initial processing stages (non-function specific)
+    public const string STATUS_LOADING_HISTORY = "Loading conversation history...";
+    public const string STATUS_PROCESSING_REQUEST = "Processing your request...";
 }
