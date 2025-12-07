@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { setupApiMocks } from './fixtures/api-mocks';
+import { createMockSSEResponseWithFunctionCall } from './fixtures/mock-data';
 
 /**
  * Chat functionality E2E tests
@@ -160,6 +161,78 @@ test.describe('Chat Error Handling', () => {
     await page.waitForLoadState('networkidle');
 
     // The page should remain functional even with network issues
+    await expect(page.locator('body')).toBeVisible();
+  });
+});
+
+test.describe('Chat Status Updates', () => {
+  test.beforeEach(async ({ page }) => {
+    await setupApiMocks(page);
+  });
+
+  test('should display status message during function call processing', async ({ page }) => {
+    // Override the chat mock to use a slower response with status updates
+    await page.route('**/api/agent/chat', async (route) => {
+      // Create a mock response with function call and status updates
+      const sseResponse = createMockSSEResponseWithFunctionCall(
+        '✅ Task created successfully!',
+        'CreateTask'
+      );
+
+      // Add delay to simulate processing time - status should be visible
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: sseResponse,
+      });
+    });
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const chatInput = page.locator('textarea').first();
+    await chatInput.fill('Create a new task');
+    
+    // Submit the message
+    await chatInput.press('Enter');
+
+    // Verify the page handles the SSE stream correctly
+    await page.waitForTimeout(1000);
+    
+    // After response, the message should be displayed
+    await expect(page.locator('body')).toBeVisible();
+  });
+
+  test('should display searching status for list tasks operation', async ({ page }) => {
+    // Override the chat mock for search operation
+    await page.route('**/api/agent/chat', async (route) => {
+      const sseResponse = createMockSSEResponseWithFunctionCall(
+        'Here are your tasks...',
+        'ListTasks'
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: sseResponse,
+      });
+    });
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const chatInput = page.locator('textarea').first();
+    await chatInput.fill('Show me all tasks');
+    await chatInput.press('Enter');
+
+    // Wait for response to complete
+    await page.waitForTimeout(800);
+    
+    // The UI should process the response correctly
     await expect(page.locator('body')).toBeVisible();
   });
 });

@@ -202,6 +202,60 @@ describe('ChatMessage', () => {
       const cursor = document.querySelector('.animate-pulse');
       expect(cursor).not.toBeInTheDocument();
     });
+
+    it('should show status message when streaming with empty content', () => {
+      const emptyAssistantMessage: ChatMessageType = {
+        id: 'msg-empty',
+        role: 'assistant',
+        content: '',
+        createdAt: '2025-12-06T10:00:00Z',
+      };
+
+      render(
+        <ChatMessage
+          message={emptyAssistantMessage}
+          isStreaming={true}
+          statusMessage="Creating task..."
+        />
+      );
+
+      expect(screen.getByText('Creating task...')).toBeInTheDocument();
+    });
+
+    it('should not show status message when content has been received', () => {
+      render(
+        <ChatMessage
+          message={assistantMessage}
+          isStreaming={true}
+          statusMessage="Creating task..."
+        />
+      );
+
+      // Status should not appear because content is not empty
+      expect(screen.queryByText('Creating task...')).not.toBeInTheDocument();
+    });
+
+    it('should show cursor alongside status message', () => {
+      const emptyAssistantMessage: ChatMessageType = {
+        id: 'msg-empty',
+        role: 'assistant',
+        content: '',
+        createdAt: '2025-12-06T10:00:00Z',
+      };
+
+      render(
+        <ChatMessage
+          message={emptyAssistantMessage}
+          isStreaming={true}
+          statusMessage="Searching tasks..."
+        />
+      );
+
+      // Both status and cursor should be visible
+      expect(screen.getByText('Searching tasks...')).toBeInTheDocument();
+      const cursor = document.querySelector('.animate-pulse');
+      expect(cursor).toBeInTheDocument();
+    });
   });
 
   describe('function call filtering', () => {
