@@ -499,6 +499,283 @@ With the migration complete, monitor:
 
 ---
 
+## CI/CD Pipeline Lessons
+
+### GitHub Actions Architecture
+
+#### 1. Node.js Runtime for Actions (Not for Your Code)
+
+**Challenge:** Confusion about why GitHub Actions like `actions/checkout` require Node.js updates when your project is .NET.
+
+**Key Insight:** GitHub Actions are written in JavaScript/TypeScript and run on Node.js - this is the Actions runtime, not your application runtime.
+
+```
+┌────────────────────────────────────────────────────────┐
+│              GitHub Actions Runner (ubuntu-latest)     │
+├────────────────────────────────────────────────────────┤
+│  Node.js Runtime (for executing Actions themselves)    │
+│  ┌─────────────────┐  ┌─────────────────┐              │
+│  │ checkout@v5     │  │ setup-dotnet@v4 │              │
+│  │ (JavaScript)    │  │ (JavaScript)    │              │
+│  └─────────────────┘  └─────────────────┘              │
+├────────────────────────────────────────────────────────┤
+│  .NET SDK 10.0.x (for YOUR code)                       │
+│  ┌─────────────────────────────────────┐               │
+│  │ dotnet build, dotnet test, etc.     │               │
+│  └─────────────────────────────────────┘               │
+└────────────────────────────────────────────────────────┘
+```
+
+**Lesson:** Keep Actions updated (v4→v5) to avoid Node.js deprecation warnings, even though your .NET code doesn't use Node.js.
+
+#### 2. dotnet restore Requires Project/Solution Files
+
+**Challenge:** `dotnet restore "directory/"` fails with `MSB1003: Specify a project or solution file`.
+
+**Root Cause:** The `dotnet restore` command does NOT accept directories - it requires explicit `.sln` or `.csproj` files.
+
+```yaml
+# ❌ WRONG - Directory path
+- name: Restore
+  run: dotnet restore "src/backend/services/TaskAgent/tests"
+
+# ✅ CORRECT - Solution file path
+- name: Restore
+  run: dotnet restore "src/backend/TaskAgentWeb.sln"
+```
+
+**Lesson:** Always point to the solution file for restore/build operations. Define `SOLUTION_PATH` environment variable for consistency.
+
+### Testcontainers in GitHub Actions
+
+#### 3. Docker Availability on Runners
+
+**Challenge:** Will Testcontainers work in CI? Does GitHub Actions have Docker?
+
+**Key Insight:** Ubuntu runners (`ubuntu-latest`) come with Docker Engine preinstalled. Testcontainers works out-of-the-box.
+
+| Runner | Docker Available | Testcontainers Support |
+|--------|------------------|------------------------|
+| `ubuntu-latest` | ✅ Preinstalled | ✅ Full support |
+| `windows-latest` | ❌ Not available | ❌ Won't work |
+| `macos-latest` | ⚠️ Requires setup | ⚠️ Limited |
+
+**First Run Consideration:** Initial workflow execution may be slower due to Docker image pulls:
+- SQL Server image: ~1.5GB
+- PostgreSQL image: ~80MB
+
+**Lesson:** Always use `ubuntu-latest` for integration tests with Testcontainers. Set adequate `timeout-minutes` (30+) for first runs.
+
+### Code Coverage Aggregation
+
+#### 4. Combining Multiple Coverage Reports
+
+**Challenge:** How to show unified coverage metrics when tests are split across Domain, Application, and Infrastructure projects?
+
+**Solution:** Use ReportGenerator to merge Cobertura XML files:
+
+```yaml
+- name: Generate Combined Coverage Report
+  run: |
+    dotnet tool install -g dotnet-reportgenerator-globaltool
+    reportgenerator \
+      -reports:"./TestResults/**/coverage.cobertura.xml" \
+      -targetdir:"./TestResults/CoverageReport" \
+      -reporttypes:"Html;JsonSummary;Cobertura"
+```
+
+**Output Formats:**
+- `Html` - Interactive report for download
+- `JsonSummary` - Parseable for GitHub Job Summary
+- `Cobertura` - Combined XML for external tools
+
+**Reading JSON Summary in Bash:**
+
+```bash
+LINE_COV=$(cat ./TestResults/CoverageReport/Summary.json | jq -r '.summary.linecoverage // 0')
+echo "| Lines | ${LINE_COV}% |" >> $GITHUB_STEP_SUMMARY
+```
+
+**Lesson:** Use `jq` (preinstalled on Ubuntu runners) to parse JSON and display metrics in GitHub Job Summary tables.
+
+### Action Version Management
+
+#### 5. Keeping Actions Updated
+
+**Challenge:** How to know when GitHub Actions need updates?
+
+**Resolution:** Use Context7 MCP or check official GitHub documentation for latest versions.
+
+| Action | Purpose | Current Stable |
+|--------|---------|----------------|
+| `actions/checkout` | Clone repository | v5 |
+| `actions/setup-dotnet` | Install .NET SDK | v4 |
+| `actions/upload-artifact` | Upload build artifacts | v4 |
+| `actions/download-artifact` | Download artifacts | v5 |
+| `azure/login` | Azure authentication | v2 |
+| `azure/webapps-deploy` | Deploy to App Service | v2 |
+
+**Lesson:** Check action versions periodically. Major version bumps (v4→v5) often include important changes like Node.js runtime updates.
+
+---
+
+## Frontend Testing Lessons
+
+### React 19 Compatibility
+
+#### 1. Testing Library Version Requirements
+
+**Challenge:** Tests failed with cryptic errors after upgrading to React 19.
+
+**Root Cause:** `@testing-library/react` versions below 16 are incompatible with React 19's new architecture.
+
+```json
+// ❌ WRONG - Will fail with React 19
+"@testing-library/react": "^14.0.0"
+
+// ✅ CORRECT - Required for React 19
+"@testing-library/react": "^16.3.0"
+```
+
+**Lesson:** When using React 19, always use `@testing-library/react` v16+. The compatibility matrix is not always clearly documented.
+
+#### 2. Testing forwardRef Components
+
+**Challenge:** Testing a component that uses `forwardRef` for external focus control. TypeScript error: "Type 'RefObject<null>' is not assignable to type 'Ref<HTMLTextAreaElement>'".
+
+**Symptom:**
+
+```typescript
+// ❌ FAILS - ref typing mismatch
+const ref = { current: null };
+render(<ChatInput ref={ref} {...props} />);
+```
+
+**Root Cause:** When passing refs to `forwardRef` components in tests, you need a properly typed React ref from `useRef`, not a plain object.
+
+**Solution:** Create a wrapper component that uses `useRef`:
+
+```typescript
+// ✅ CORRECT - Wrapper with useRef
+function TestWrapper({ onRef }: { onRef: (ref: HTMLTextAreaElement | null) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    onRef(ref.current);
+  }, [onRef]);
+
+  return <ChatInput ref={ref} {...defaultProps} />;
+}
+
+it('should be focusable via ref', () => {
+  let textareaRef: HTMLTextAreaElement | null = null;
+  render(<TestWrapper onRef={(ref) => { textareaRef = ref; }} />);
+  
+  expect(textareaRef).toBeInstanceOf(HTMLTextAreaElement);
+  textareaRef?.focus();
+  expect(textareaRef).toHaveFocus();
+});
+```
+
+**Lesson:** For testing `forwardRef` components, use a wrapper component with `useRef` hook rather than plain object refs. This ensures proper TypeScript typing and React behavior.
+
+### GitHub Actions for Frontend CI/CD
+
+#### 3. pnpm Setup Order Matters
+
+**Challenge:** Workflow failed with cache errors when using `cache: 'pnpm'` in `setup-node`.
+
+**Root Cause:** `actions/setup-node` requires pnpm to be installed BEFORE it runs to detect the cache directory.
+
+```yaml
+# ❌ WRONG - Cache won't work
+- uses: actions/setup-node@v4
+  with:
+    cache: 'pnpm'
+- uses: pnpm/action-setup@v4
+
+# ✅ CORRECT - pnpm must be installed first
+- uses: pnpm/action-setup@v4
+  with:
+    version: 9
+- uses: actions/setup-node@v4
+  with:
+    cache: 'pnpm'
+    cache-dependency-path: src/frontend/task-agent-web/pnpm-lock.yaml
+```
+
+**Lesson:** Always install pnpm (`pnpm/action-setup`) BEFORE `setup-node` when using pnpm caching. Also specify `cache-dependency-path` for monorepo structures.
+
+#### 4. GitHub Actions Has No Built-in Test Report Viewer
+
+**Challenge:** Expected GitHub Actions to display test results like Azure DevOps does with its Test tab.
+
+**Key Insight:** Unlike Azure DevOps, GitHub Actions does NOT have a built-in test report viewer. Test results must be handled differently.
+
+| Feature | Azure DevOps | GitHub Actions |
+|---------|--------------|----------------|
+| Built-in test report viewer | ✅ Yes (Test tab) | ❌ No |
+| Test annotations in code | ✅ Yes | ✅ Yes (with reporter) |
+| Coverage visualization | ✅ Yes (Coverage tab) | ❌ No (artifacts only) |
+| Job Summary markdown | ❌ No | ✅ Yes (`GITHUB_STEP_SUMMARY`) |
+
+**Solution:** Combine multiple techniques:
+
+1. **Job Summary** (`GITHUB_STEP_SUMMARY`) - Display metrics directly in workflow summary
+2. **GitHub Reporter** - Generate code annotations for failures
+3. **Artifacts** - Upload HTML reports for detailed viewing
+
+```yaml
+# Job Summary with coverage table
+- name: Generate Unit Test Summary
+  run: |
+    echo "## 🧪 Unit Test Results" >> $GITHUB_STEP_SUMMARY
+    echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
+    echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
+    echo "| Lines | $(cat coverage/coverage-summary.json | jq -r '.total.lines.pct')% |" >> $GITHUB_STEP_SUMMARY
+```
+
+**Lesson:** GitHub Actions requires explicit configuration for test visualization. Use Job Summaries for quick metrics and artifacts for detailed reports.
+
+#### 5. Playwright GitHub Reporter for Code Annotations
+
+**Challenge:** Want test failures to appear as annotations directly in PR code, like Azure DevOps.
+
+**Solution:** Configure Playwright to use the `github` reporter in CI:
+
+```typescript
+// playwright.config.ts
+reporter: process.env.CI
+  ? [['github'], ['html', { open: 'never' }], ['list']]
+  : [['html', { open: 'never' }], ['list']],
+```
+
+**Result:** When E2E tests fail in CI, GitHub shows annotations directly on the affected code lines in PRs.
+
+**Lesson:** The `github` reporter is specifically designed for GitHub Actions - it uses workflow commands to create annotations.
+
+#### 6. Vitest Coverage JSON Summary
+
+**Challenge:** Wanted to display coverage metrics in GitHub Job Summary, but only had HTML reports.
+
+**Root Cause:** Vitest's `json` reporter creates `coverage-final.json` (detailed per-file), but Job Summary scripts need aggregated totals from `coverage-summary.json`.
+
+```typescript
+// ❌ INCOMPLETE - No summary file
+reporter: ['text', 'json', 'html']
+
+// ✅ COMPLETE - Includes summary for CI
+reporter: ['text', 'json', 'json-summary', 'html']
+```
+
+**Generated files:**
+- `json` → `coverage-final.json` (detailed, per-file)
+- `json-summary` → `coverage-summary.json` (aggregated totals)
+
+**Lesson:** Always include `json-summary` reporter when you need to extract coverage metrics programmatically (CI/CD, badges, etc.).
+
+---
+
 ## Conclusion
 
 This document captures key learnings from building TaskAgent-AgenticAI:
@@ -517,6 +794,21 @@ This document captures key learnings from building TaskAgent-AgenticAI:
 - Central Package Management prevents dependency conflicts
 - Factory methods in Domain layer enforce invariants
 - SSE events enable graceful error handling in streaming protocols
+
+**CI/CD Lessons:**
+- GitHub Actions run on Node.js runtime (separate from your application runtime)
+- `dotnet restore` requires explicit `.sln` or `.csproj` files, not directories
+- Ubuntu runners include Docker preinstalled (Testcontainers works out-of-the-box)
+- ReportGenerator combines multiple coverage reports into unified metrics
+- Keep GitHub Actions updated to avoid Node.js deprecation warnings
+
+**Frontend Testing Lessons:**
+- React 19 requires `@testing-library/react` v16+ (not documented clearly)
+- Testing `forwardRef` components requires wrapper with `useRef` hook
+- pnpm must be installed BEFORE `setup-node` for cache to work
+- GitHub Actions has no built-in test viewer (use Job Summaries + artifacts)
+- Playwright `github` reporter creates code annotations in PRs
+- Vitest `json-summary` reporter needed for CI coverage metrics
 
 ---
 
