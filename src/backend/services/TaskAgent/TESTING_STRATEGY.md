@@ -179,6 +179,81 @@ tests/
 | `GET /api/conversations/{threadId}/messages` | 🟡 Medium | 🟠 Medium | Get conversation history |
 | `DELETE /api/conversations/{threadId}` | 🟡 Medium | 🟢 Low | Soft delete conversation |
 
+### 🟡 Planned - WebApi Unit Tests
+
+| File | Type | Complexity | Status | Tests |
+|------|------|------------|--------|-------|
+| `WebApi/Constants/AgentConstants.cs` | Constants | 🟢 Low | 🚧 Planned | ~8 |
+| `WebApi/Services/FunctionDescriptionProvider.cs` | Service | 🟠 Medium | 🚧 Planned | ~12 |
+| `WebApi/Services/SseStreamingService.cs` | Service | 🟠 Medium | 🚧 Planned | ~10 |
+
+#### Planned AgentConstants Tests
+
+```csharp
+public class AgentConstantsTests
+{
+    // SSE Event Types
+    [Fact] public void EVENT_STATUS_UPDATE_ShouldBe_STATUS_UPDATE()
+    [Fact] public void EVENT_THREAD_STATE_ShouldBe_THREAD_STATE()
+    [Fact] public void EVENT_CONTENT_FILTER_ShouldBe_CONTENT_FILTER()
+    [Fact] public void EVENT_STEP_STARTED_ShouldBe_STEP_STARTED()
+    [Fact] public void EVENT_STEP_FINISHED_ShouldBe_STEP_FINISHED()
+    
+    // Generic Status Messages (non function-specific)
+    [Fact] public void STATUS_LOADING_HISTORY_ShouldBeCorrectMessage()
+    [Fact] public void STATUS_PROCESSING_REQUEST_ShouldBeCorrectMessage()
+}
+```
+
+#### Planned FunctionDescriptionProvider Tests
+
+```csharp
+public class FunctionDescriptionProviderTests
+{
+    // Registration Tests
+    [Fact] public void RegisterFunctionType_WithTaskFunctions_RegistersAllMethods()
+    [Fact] public void RegisterFunctionType_WithNullType_ThrowsArgumentNullException()
+    [Fact] public void RegisterFunctionType_CalledTwice_DoesNotDuplicate()
+    
+    // GetStatusMessage Tests
+    [Fact] public void GetStatusMessage_CreateTaskAsync_ReturnsCreatingTask()
+    [Fact] public void GetStatusMessage_ListTasksAsync_ReturnsListingTasks()
+    [Fact] public void GetStatusMessage_GetTaskDetailsAsync_ReturnsGettingDetails()
+    [Fact] public void GetStatusMessage_UpdateTaskAsync_ReturnsUpdatingTask()
+    [Fact] public void GetStatusMessage_DeleteTaskAsync_ReturnsDeletingTask()
+    [Fact] public void GetStatusMessage_GetTaskSummaryAsync_ReturnsGeneratingSummary()
+    [Fact] public void GetStatusMessage_UnknownFunction_ReturnsProcessingRequest()
+    
+    // Caching Tests
+    [Fact] public void GetStatusMessage_SameFunction_UsesCachedValue()
+}
+```
+
+#### Planned SseStreamingService Tests
+
+```csharp
+public class SseStreamingServiceTests
+{
+    // STEP Lifecycle Events
+    [Fact] public async Task SendStepStartedAsync_SendsCorrectJsonFormat()
+    [Fact] public async Task SendStepFinishedAsync_SendsCorrectJsonFormat()
+    
+    // STATUS_UPDATE Events (dynamic from FunctionDescriptionProvider)
+    [Fact] public async Task SendStatusUpdateAsync_SendsCorrectJsonFormat()
+    [Fact] public async Task SendFunctionStatusAsync_UsesFunctionDescriptionProvider()
+    
+    // Content Filter Events
+    [Fact] public async Task SendContentFilterAsync_SendsCorrectJsonFormat()
+    
+    // Thread State Events
+    [Fact] public async Task SendThreadStateAsync_SendsCorrectJsonFormat()
+    
+    // Integration with FunctionDescriptionProvider
+    [Fact] public async Task HandleToolCallStart_SendsStepStartedThenStatusUpdate()
+    [Fact] public async Task HandleToolCallEnd_SendsStepFinished()
+}
+```
+
 ---
 
 ## Detailed Test Specifications

@@ -126,7 +126,7 @@ src/
         │
         └── TaskAgent.WebApi/                  # 🔴 Presentation layer (Web API)
             ├── Constants/
-            │   ├── AgentConstants.cs          # Content filter constants
+            │   ├── AgentConstants.cs          # SSE events, content filter, status messages
             │   ├── AgentInstructions.cs       # AI Agent instruction constants
             │   ├── ApiRoutes.cs               # Route constants
             │   ├── ErrorCodes.cs              # Error code constants
@@ -139,7 +139,8 @@ src/
             ├── Models/
             │   └── ChatRequestDto.cs          # API request model
             ├── Services/
-            │   ├── SseStreamingService.cs     # SSE streaming
+            │   ├── FunctionDescriptionProvider.cs # Dynamic status from [Description]
+            │   ├── SseStreamingService.cs     # SSE streaming + STEP lifecycle events
             │   └── ErrorResponseFactory.cs    # Standardized error responses
             ├── Properties/
             │   └── launchSettings.json        # Launch configuration
@@ -206,10 +207,52 @@ public async Task ChatAsync([FromBody] AgentRequest request)
 
 **Why Custom Endpoint (not `/agui` standard)?**
 - ✅ Full control over SSE streaming format
+- ✅ Custom `STATUS_UPDATE` event for real-time progress feedback
 - ✅ Custom `THREAD_STATE` event for conversation continuity
 - ✅ Frontend receives `serializedState` after each response
 - ✅ PostgreSQL persistence via `ChatMessageStore` factory
 - ✅ No need for `/agui` protocol complexity
+
+**SSE Event Types**:
+
+| Event Type | Description | Example |
+|------------|-------------|---------|
+| `STEP_STARTED` | AG-UI lifecycle: function execution starts | `{"type":"STEP_STARTED","stepName":"CreateTaskAsync"}` |
+| `STATUS_UPDATE` | Dynamic progress message (from `[Description]`) | `{"type":"STATUS_UPDATE","status":"Creating task..."}` |
+| `STEP_FINISHED` | AG-UI lifecycle: function execution ends | `{"type":"STEP_FINISHED","stepName":"CreateTaskAsync"}` |
+| `TEXT_MESSAGE_START` | Start of assistant response | `{"type":"TEXT_MESSAGE_START","messageId":"..."}` |
+| `TEXT_MESSAGE_CONTENT` | Streamed text content | `{"type":"TEXT_MESSAGE_CONTENT","delta":"Hello"}` |
+| `TEXT_MESSAGE_END` | End of assistant response | `{"type":"TEXT_MESSAGE_END"}` |
+| `TOOL_CALL_START` | Function tool invocation | `{"type":"TOOL_CALL_START","toolName":"CreateTaskAsync"}` |
+| `TOOL_CALL_RESULT` | Function result | `{"type":"TOOL_CALL_RESULT","result":"..."}` |
+| `CONTENT_FILTER` | Azure content filter triggered | `{"type":"CONTENT_FILTER","message":"..."}` |
+| `THREAD_STATE` | Updated thread state | `{"type":"THREAD_STATE","serializedState":"..."}` |
+
+**Dynamic Status Messages (via FunctionDescriptionProvider)**:
+
+Status messages are **automatically generated** from `[Description]` attributes on function methods, eliminating the need for hardcoded mappings. This approach:
+
+- ✅ **Scalable**: New functions automatically get status messages
+- ✅ **Multi-Agent Ready**: Each agent can register its own function types
+- ✅ **Maintainable**: Single source of truth in `[Description]` attributes
+
+```csharp
+// Application/Functions/TaskFunctions.cs
+[Description("Creates a new task with the given title, description, and priority")]
+public async Task<string> CreateTaskAsync(string title, string? description, TaskPriority priority)
+
+// WebApi/Services/FunctionDescriptionProvider.cs extracts this and generates:
+// "Creating task..." (gerund form)
+```
+
+| Function | Description Attribute | Generated Status |
+|----------|----------------------|------------------|
+| `CreateTaskAsync` | "Creates a new task..." | "Creating task..." |
+| `ListTasksAsync` | "Lists all tasks..." | "Listing tasks..." |
+| `GetTaskDetailsAsync` | "Gets the details..." | "Getting details..." |
+| `UpdateTaskAsync` | "Updates an existing task..." | "Updating task..." |
+| `DeleteTaskAsync` | "Deletes a task..." | "Deleting task..." |
+| `GetTaskSummaryAsync` | "Generates a summary..." | "Generating summary..." |
 
 **6 Function Tools** (Application/Functions/TaskFunctions.cs):
 
@@ -424,8 +467,9 @@ Content filtering is handled by **Azure OpenAI's built-in content filtering syst
 **Key Files**:
 
 - `Infrastructure/Services/AgentStreamingService.cs` - Detects content filter errors
-- `WebApi/Services/SseStreamingService.cs` - Emits CONTENT_FILTER event
-- `WebApi/Constants/AgentConstants.cs` - Content filter constants and messages
+- `WebApi/Services/FunctionDescriptionProvider.cs` - Dynamic status from `[Description]` attributes
+- `WebApi/Services/SseStreamingService.cs` - Emits SSE events (STEP_STARTED, STATUS_UPDATE, STEP_FINISHED, etc.)
+- `WebApi/Constants/AgentConstants.cs` - SSE event types, content filter constants
 
 **For detailed testing**: See [docs/CONTENT_SAFETY.md](../../../../../docs/CONTENT_SAFETY.md)
 
