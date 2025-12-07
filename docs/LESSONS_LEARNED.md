@@ -776,6 +776,240 @@ reporter: ['text', 'json', 'json-summary', 'html']
 
 ---
 
+## SSE Status Events Architecture Lessons
+
+### Background: Real-Time Status Updates
+
+**Challenge:** The initial implementation used hardcoded status message constants (`TaskFunctionStatusMessages.cs`) mapped to function names. This worked but had a critical scalability limitation.
+
+```csharp
+// ❌ ORIGINAL - Hardcoded constants (not scalable)
+public static class TaskFunctionStatusMessages
+{
+    public static readonly Dictionary<string, string> StatusMessages = new()
+    {
+        { "CreateTaskAsync", "Creating task..." },
+        { "ListTasksAsync", "Retrieving tasks..." },
+        { "GetTaskByIdAsync", "Looking up task..." },
+        // Must add new entries for EVERY function in EVERY agent
+    };
+}
+```
+
+**Problem:** In a multi-agent system, each new agent would require:
+1. A new constants file with all its function mappings
+2. Updates to `SseStreamingService` to handle each agent type
+3. Duplicate maintenance when function descriptions change
+
+### Solution: Dynamic Status from `[Description]` Attributes
+
+**Hybrid Approach:** Combine AG-UI standard lifecycle events with dynamic message extraction.
+
+#### 1. AG-UI Lifecycle Events (Standard Protocol)
+
+Following the AG-UI protocol, implemented three event types:
+
+| Event | Purpose | When Sent |
+|-------|---------|-----------|
+| `STEP_STARTED` | Tool execution begins | Before function invocation |
+| `STATUS_UPDATE` | Human-readable progress | During function execution |
+| `STEP_FINISHED` | Tool execution completes | After function returns |
+
+```csharp
+// WebApi/Services/SseStreamingService.cs
+await WriteEventAsync("STEP_STARTED", new { 
+    stepName = functionName 
+});
+
+await WriteEventAsync("STATUS_UPDATE", new { 
+    status = _functionDescriptionProvider.GetStatusMessage(functionName)
+});
+
+// ... function executes ...
+
+await WriteEventAsync("STEP_FINISHED", new { 
+    stepName = functionName 
+});
+```
+
+#### 2. FunctionDescriptionProvider (Dynamic Extraction)
+
+Created a service that extracts `[Description]` attributes via reflection and converts them to gerund form:
+
+```csharp
+// WebApi/Services/FunctionDescriptionProvider.cs
+public class FunctionDescriptionProvider
+{
+    private readonly ConcurrentDictionary<string, string> _statusMessages = new();
+
+    public void RegisterFunctionType(Type functionType)
+    {
+        foreach (var method in functionType.GetMethods())
+        {
+            var descAttr = method.GetCustomAttribute<DescriptionAttribute>();
+            if (descAttr != null)
+            {
+                string status = ConvertToGerund(descAttr.Description);
+                _statusMessages.TryAdd(method.Name, status);
+            }
+        }
+    }
+
+    private static string ConvertToGerund(string description)
+    {
+        // "Creates a new task" → "Creating a new task..."
+        // "Lists all tasks" → "Listing all tasks..."
+        // "Gets a task by ID" → "Getting a task by ID..."
+    }
+}
+```
+
+### Key Challenges Encountered
+
+#### 1. Gerund Conversion Edge Cases
+
+**Challenge:** English verb conjugation has many irregular patterns.
+
+**Examples handled:**
+- "Creates" → "Creating" (drop 's', add 'ing')
+- "Deletes" → "Deleting" (drop 'es', add 'ing')
+- "Gets" → "Getting" (double consonant)
+- "Lists" → "Listing" (standard)
+
+**Solution:** Pattern-based conversion with special cases:
+
+```csharp
+private static string ConvertToGerund(string description)
+{
+    var match = Regex.Match(description, @"^(\w+)(.*)$");
+    string verb = match.Groups[1].Value;
+    string rest = match.Groups[2].Value;
+
+    string gerund = verb.ToLower() switch
+    {
+        "gets" => "Getting",
+        "creates" => "Creating",
+        "updates" => "Updating",
+        "deletes" => "Deleting",
+        "lists" => "Listing",
+        "marks" => "Marking",
+        _ => verb.EndsWith("es") 
+            ? verb[..^2] + "ing"  // "deletes" → "delet" + "ing"
+            : verb.EndsWith("s") 
+                ? verb[..^1] + "ing"  // "creates" → "creat" + "ing"
+                : verb + "ing"
+    };
+
+    return $"{gerund}{rest}...";
+}
+```
+
+#### 2. Singleton vs Scoped Service Lifetime
+
+**Challenge:** `FunctionDescriptionProvider` needed to be accessed from the singleton `SseStreamingService`, but also needed to be registered at startup.
+
+**Solution:** Register as singleton and initialize during DI configuration:
+
+```csharp
+// WebApi/Extensions/AgentServiceExtensions.cs
+services.AddSingleton<FunctionDescriptionProvider>(sp =>
+{
+    var provider = new FunctionDescriptionProvider();
+    provider.RegisterFunctionType(typeof(TaskFunctions));
+    // Future: provider.RegisterFunctionType(typeof(CalendarFunctions));
+    return provider;
+});
+```
+
+**Benefit:** Registration happens once at startup; lookups are O(1) from `ConcurrentDictionary`.
+
+#### 3. Pairing STEP_STARTED with STEP_FINISHED
+
+**Challenge:** Needed to track which function started so we could send the correct `STEP_FINISHED` event.
+
+**Solution:** Track active step name in service state:
+
+```csharp
+private string? _activeStepName;
+
+// On function start
+_activeStepName = functionName;
+await WriteEventAsync("STEP_STARTED", new { stepName = functionName });
+
+// On function complete
+if (_activeStepName != null)
+{
+    await WriteEventAsync("STEP_FINISHED", new { stepName = _activeStepName });
+    _activeStepName = null;
+}
+```
+
+#### 4. Frontend Event Handling
+
+**Challenge:** Frontend needed to handle the new event structure without breaking existing functionality.
+
+**Solution:** Update `chat-service.ts` to process all three event types:
+
+```typescript
+// lib/api/chat-service.ts
+case 'STEP_STARTED':
+  onStepStarted?.(parsed.stepName);
+  break;
+
+case 'STATUS_UPDATE':
+  onStatusUpdate?.(parsed.status);
+  break;
+
+case 'STEP_FINISHED':
+  onStepFinished?.(parsed.stepName);
+  break;
+```
+
+### Benefits of Final Architecture
+
+| Aspect | Before (Hardcoded) | After (Dynamic) |
+|--------|-------------------|-----------------|
+| **New agent support** | Requires new constants file | Just register `FunctionType` |
+| **Description changes** | Update 2 places (attribute + constant) | Update 1 place (attribute only) |
+| **Type safety** | String-based dictionary | Reflection-based, compile-time attributes |
+| **Maintenance** | O(n) per agent | O(1) - single registration call |
+| **Protocol compliance** | Custom events only | AG-UI standard lifecycle events |
+
+### Testing Considerations
+
+**Unit Tests Added:**
+- `FunctionDescriptionProvider` gerund conversion for all verb patterns
+- Status message retrieval for registered functions
+- Fallback behavior for unregistered functions
+
+**Integration Test Update:**
+- SSE event mocks updated to include `STEP_STARTED`/`STEP_FINISHED` wrapper events
+
+```typescript
+// Frontend test mock
+const mockSSEResponse = `
+event: STEP_STARTED
+data: {"stepName":"ListTasksAsync"}
+
+event: STATUS_UPDATE
+data: {"status":"Listing all tasks..."}
+
+event: STEP_FINISHED
+data: {"stepName":"ListTasksAsync"}
+`;
+```
+
+### Lesson Learned
+
+> **Key Insight:** When designing status/progress systems, leverage existing metadata (like `[Description]` attributes) rather than creating parallel data structures. This follows DRY principle and ensures consistency.
+
+The `[Description]` attribute was already required for the AI agent to understand function purposes. Reusing it for user-facing status messages:
+1. Eliminates duplicate maintenance
+2. Ensures AI understanding and user messaging stay in sync
+3. Scales automatically to new agents/functions
+
+---
+
 ## Conclusion
 
 This document captures key learnings from building TaskAgent-AgenticAI:
