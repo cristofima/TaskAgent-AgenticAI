@@ -14,46 +14,169 @@ on:
       - "src/backend/services/TaskAgent/src/**/*.cshtml"
       - "src/backend/services/TaskAgent/src/**/*.css"
       - "src/backend/services/TaskAgent/src/**/*.js"
+      - "src/backend/services/TaskAgent/tests/**/*.cs"
+      - "src/backend/services/TaskAgent/tests/**/*.csproj"
       - "src/backend/TaskAgent.ServiceDefaults/**/*.cs"
       - "src/backend/TaskAgent.ServiceDefaults/**/*.csproj"
       - "src/backend/TaskAgentWeb.sln"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/backend/**"
+      - "!src/backend/**/*.md"
 env:
   AZURE_WEBAPP_NAME: app-taskagent-prod
   AZURE_WEBAPP_PACKAGE_PATH: src/backend/services/TaskAgent/src/TaskAgent.WebApi/published
   CONFIGURATION: Release
   DOTNET_CORE_VERSION: 10.0.x
   WORKING_DIRECTORY: src/backend/services/TaskAgent/src/TaskAgent.WebApi
+  TESTS_DIRECTORY: src/backend/services/TaskAgent/tests
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    name: Test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
+
+      - name: Restore Test Projects
+        run: dotnet restore "${{ env.TESTS_DIRECTORY }}"
+
+      - name: Build Test Projects
+        run: dotnet build "${{ env.TESTS_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-restore
+
+      - name: Run Unit Tests with Coverage
+        run: |
+          dotnet test "${{ env.TESTS_DIRECTORY }}/TaskAgent.Domain.UnitTests" \
+            --configuration ${{ env.CONFIGURATION }} \
+            --no-build \
+            --logger "trx;LogFileName=domain-tests.trx" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults/Domain
+
+          dotnet test "${{ env.TESTS_DIRECTORY }}/TaskAgent.Application.UnitTests" \
+            --configuration ${{ env.CONFIGURATION }} \
+            --no-build \
+            --logger "trx;LogFileName=application-tests.trx" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults/Application
+
+      - name: Run Integration Tests
+        run: |
+          dotnet test "${{ env.TESTS_DIRECTORY }}/TaskAgent.Infrastructure.IntegrationTests" \
+            --configuration ${{ env.CONFIGURATION }} \
+            --no-build \
+            --logger "trx;LogFileName=integration-tests.trx" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults/Infrastructure
+
+      - name: Generate Test Summary
+        if: ${{ !cancelled() }}
+        run: |
+          echo "## 🧪 Backend Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Count tests from TRX files
+          echo "### 📊 Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Project | Tests | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # Domain Tests
+          if [ -f "./TestResults/Domain/domain-tests.trx" ]; then
+            DOMAIN_TOTAL=$(grep -oP 'total="\K[0-9]+' ./TestResults/Domain/domain-tests.trx | head -1 || echo "0")
+            DOMAIN_PASSED=$(grep -oP 'passed="\K[0-9]+' ./TestResults/Domain/domain-tests.trx | head -1 || echo "0")
+            echo "| Domain.UnitTests | $DOMAIN_PASSED/$DOMAIN_TOTAL | ✅ |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Domain.UnitTests | - | ⚠️ |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Application Tests
+          if [ -f "./TestResults/Application/application-tests.trx" ]; then
+            APP_TOTAL=$(grep -oP 'total="\K[0-9]+' ./TestResults/Application/application-tests.trx | head -1 || echo "0")
+            APP_PASSED=$(grep -oP 'passed="\K[0-9]+' ./TestResults/Application/application-tests.trx | head -1 || echo "0")
+            echo "| Application.UnitTests | $APP_PASSED/$APP_TOTAL | ✅ |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Application.UnitTests | - | ⚠️ |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Infrastructure Tests
+          if [ -f "./TestResults/Infrastructure/integration-tests.trx" ]; then
+            INFRA_TOTAL=$(grep -oP 'total="\K[0-9]+' ./TestResults/Infrastructure/integration-tests.trx | head -1 || echo "0")
+            INFRA_PASSED=$(grep -oP 'passed="\K[0-9]+' ./TestResults/Infrastructure/integration-tests.trx | head -1 || echo "0")
+            echo "| Infrastructure.IntegrationTests | $INFRA_PASSED/$INFRA_TOTAL | ✅ |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Infrastructure.IntegrationTests | - | ⚠️ |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📥 **Download Reports:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`backend-test-results\` - TRX test results" >> $GITHUB_STEP_SUMMARY
+          echo "- \`backend-coverage\` - Code coverage reports" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: backend-test-results
+          path: ./TestResults/**/**.trx
+          retention-days: 30
+
+      - name: Upload Coverage Reports
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: backend-coverage
+          path: ./TestResults/**/coverage.cobertura.xml
+          retention-days: 30
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Build
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
+
       - name: Restore
         run: dotnet restore "${{ env.WORKING_DIRECTORY }}"
+
       - name: Build
         run: dotnet build "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-restore
-      - name: Test
-        run: dotnet test "${{ env.WORKING_DIRECTORY }}" --no-build
+
       - name: Publish
         run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}"
+
       - name: Publish Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: webapp
           path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Deploy
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: webapp
           path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+
       - name: Azure Login
         uses: azure/login@v2
         with:
