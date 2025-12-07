@@ -77,6 +77,15 @@ jobs:
             --collect:"XPlat Code Coverage" \
             --results-directory ./TestResults/Infrastructure
 
+      - name: Generate Combined Coverage Report
+        if: ${{ !cancelled() }}
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator \
+            -reports:"./TestResults/**/coverage.cobertura.xml" \
+            -targetdir:"./TestResults/CoverageReport" \
+            -reporttypes:"Html;JsonSummary;Cobertura"
+
       - name: Generate Test Summary
         if: ${{ !cancelled() }}
         run: |
@@ -117,9 +126,27 @@ jobs:
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Coverage Summary from ReportGenerator JSON
+          echo "### 📈 Coverage Summary (Combined)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "./TestResults/CoverageReport/Summary.json" ]; then
+            echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
+            LINE_COV=$(cat ./TestResults/CoverageReport/Summary.json | jq -r '.summary.linecoverage // 0')
+            BRANCH_COV=$(cat ./TestResults/CoverageReport/Summary.json | jq -r '.summary.branchcoverage // 0')
+            METHOD_COV=$(cat ./TestResults/CoverageReport/Summary.json | jq -r '.summary.methodcoverage // 0')
+            echo "| Lines | ${LINE_COV}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Branches | ${BRANCH_COV}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Methods | ${METHOD_COV}% |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Coverage summary not available" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "📥 **Download Reports:**" >> $GITHUB_STEP_SUMMARY
           echo "- \`backend-test-results\` - TRX test results" >> $GITHUB_STEP_SUMMARY
-          echo "- \`backend-coverage\` - Code coverage reports" >> $GITHUB_STEP_SUMMARY
+          echo "- \`backend-coverage\` - HTML coverage report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Test Results
@@ -135,7 +162,7 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: backend-coverage
-          path: ./TestResults/**/coverage.cobertura.xml
+          path: ./TestResults/CoverageReport/
           retention-days: 30
 
   build:
