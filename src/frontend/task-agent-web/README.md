@@ -226,19 +226,6 @@ Backend (.NET)
 - **pnpm** - Fast, efficient package manager
 - **ESLint** - Code quality
 
-## 🧪 Testing
-
-```bash
-# Run linter
-pnpm lint
-
-# Type check
-pnpm build
-
-# Run tests (when available)
-pnpm test
-```
-
 ## 🎨 Customization
 
 ### Styling
@@ -427,34 +414,51 @@ export interface ListThreadsResponse {
 
 ## 🧪 Testing
 
-### Manual Testing Guide
+The project uses **Vitest** for unit tests and **Playwright** for E2E tests.
 
-For comprehensive end-to-end testing scenarios including:
+| Type | Framework | Tests | Coverage |
+|------|-----------|-------|----------|
+| Unit Tests | Vitest + Testing Library | 57 | Utilities, Components |
+| E2E Tests | Playwright | 37 | Navigation, Chat, Conversations, Theme |
+| **Total** | | **94** | |
 
-- Suggestions UI testing
-- Loading states validation
-- Content Safety blocked message flow
-- Sidebar update behavior
-- Error handling
-
-**See**: [docs/FRONTEND_E2E_TESTING.md](../../../../../docs/FRONTEND_E2E_TESTING.md)
-
-### Unit Testing (Planned)
+### Quick Commands
 
 ```bash
-# Run tests (when available)
-pnpm test
+# Unit Tests
+pnpm test              # Watch mode (development)
+pnpm test:run          # Single run (CI/CD)
+pnpm test:coverage     # With coverage report
 
-# Run tests in watch mode
-pnpm test:watch
+# E2E Tests
+pnpm playwright:install chromium  # First time setup
+pnpm test:e2e          # Headless
+pnpm test:e2e:headed   # With visible browser
+pnpm test:e2e:ui       # Interactive UI
 ```
 
-### E2E Testing (Planned)
+### Test Files
 
-```bash
-# Run Playwright E2E tests
-pnpm test:e2e
 ```
+__tests__/                          # Unit tests (57)
+├── lib/
+│   ├── constants.test.ts           # 6 tests
+│   └── utils/date-utils.test.ts    # 10 tests
+└── components/chat/
+    ├── ChatInput.test.tsx          # 19 tests
+    └── ChatMessage.test.tsx        # 22 tests
+
+e2e/                                # E2E tests (37)
+├── navigation.spec.ts              # 6 tests
+├── chat.spec.ts                    # 7 tests
+├── conversations.spec.ts           # 10 tests
+├── theme.spec.ts                   # 14 tests
+└── fixtures/                       # Mock data & API mocks
+```
+
+**For detailed test documentation**: See [TESTING_STRATEGY.md](./TESTING_STRATEGY.md)
+
+**For manual testing scenarios**: See [docs/FRONTEND_E2E_TESTING.md](../../../docs/FRONTEND_E2E_TESTING.md)
 
 ---
 
