@@ -82,16 +82,17 @@
 ## ✅ Implemented Tests
 
 > **Last Updated**: December 2025  
-> **Total Tests**: 94 (57 unit + 37 E2E)
+> **Total Tests**: 108 (71 unit + 37 E2E)
 
-### Unit Tests (Vitest) - 57 Tests
+### Unit Tests (Vitest) - 71 Tests
 
 | File | Tests | Status | Description |
 |------|-------|--------|-------------|
 | `__tests__/lib/constants.test.ts` | 6 | ✅ | PAGINATION and API constants validation |
 | `__tests__/lib/utils/date-utils.test.ts` | 10 | ✅ | formatDistanceToNow, formatDate, formatDateTime |
 | `__tests__/components/chat/ChatInput.test.tsx` | 19 | ✅ | Rendering, input handling, submit, loading, keyboard shortcuts, accessibility |
-| `__tests__/components/chat/ChatMessage.test.tsx` | 22 | ✅ | User/assistant messages, suggestions, loading/streaming, function calls |
+| `__tests__/components/chat/ChatMessage.test.tsx` | 25 | ✅ | User/assistant messages, suggestions, loading/streaming, status messages, function calls |
+| `__tests__/components/shared/LoadingIndicator.test.tsx` | 11 | ✅ | Server status, context message, default rotation, transitions |
 
 #### Unit Test Details
 
@@ -160,7 +161,7 @@
 </details>
 
 <details>
-<summary><b>ChatMessage.test.tsx</b> (22 tests)</summary>
+<summary><b>ChatMessage.test.tsx</b> (25 tests)</summary>
 
 - User Messages
   - ✅ should render user message with correct styling
@@ -184,6 +185,9 @@
   - ✅ should show streaming indicator when isStreaming is true
   - ✅ should show content while streaming
   - ✅ should show streaming cursor animation
+  - ✅ should show status message when streaming with empty content
+  - ✅ should not show status message when content has been received
+  - ✅ should show cursor alongside status message
 - Function Calls Filtering
   - ✅ should filter out function call JSON from content
   - ✅ should display content after function call JSON
@@ -191,6 +195,28 @@
 - Empty Content
   - ✅ should handle empty content gracefully
   - ✅ should handle whitespace-only content
+
+</details>
+
+<details>
+<summary><b>LoadingIndicator.test.tsx</b> (11 tests)</summary>
+
+- Rendering
+  - ✅ should render the loading indicator with assistant label
+  - ✅ should render animated bounce dots
+- Server Status Message
+  - ✅ should display server status when provided
+  - ✅ should prioritize server status over context message
+  - ✅ should not rotate messages when server status is provided
+  - ✅ should display different server statuses correctly
+- Context Message
+  - ✅ should display context message when no server status
+  - ✅ should not rotate messages when context message is provided
+- Default Rotation
+  - ✅ should show default message when no props provided
+  - ✅ should rotate through default messages
+- Transitions
+  - ✅ should switch from server status to default when server status becomes null
 
 </details>
 
@@ -403,10 +429,20 @@ await page.routeFromHAR('./fixtures/api.har', {
 
 #### SSE Streaming Mock (for this project)
 
-Since this project uses SSE for chat streaming:
+Since this project uses SSE for chat streaming with AG-UI lifecycle events:
 ```typescript
 await page.route('**/api/agent/chat', async route => {
   const sseResponse = [
+    // AG-UI lifecycle: STEP_STARTED indicates function execution begins
+    'event: STEP_STARTED\n',
+    `data: {"stepName":"CreateTaskAsync"}\n\n`,
+    // STATUS_UPDATE: Dynamic message from [Description] attribute
+    'event: STATUS_UPDATE\n',
+    `data: {"status":"Creating task..."}\n\n`,
+    // AG-UI lifecycle: STEP_FINISHED indicates function execution ends
+    'event: STEP_FINISHED\n',
+    `data: {"stepName":"CreateTaskAsync"}\n\n`,
+    // Text streaming events
     'event: TEXT_MESSAGE_START\n',
     `data: {"messageId":"mock-1"}\n\n`,
     'event: TEXT_MESSAGE_CONTENT\n',

@@ -21,6 +21,21 @@ AI-powered task management interface built with **Next.js 16**, **React 19**, an
 
 ### Recent Updates (November 2025)
 
+#### v2.4 - AG-UI Step Lifecycle Events (December 2025)
+
+- ✅ **STEP_STARTED/STEP_FINISHED Events** - AG-UI standard lifecycle events for function calls
+- ✅ **Dynamic Status Messages** - Backend generates status from `[Description]` attributes
+- ✅ **Multi-Agent Ready** - Scalable architecture without hardcoded status mappings
+- ✅ **Enhanced Event Flow** - `STEP_STARTED` → `STATUS_UPDATE` → `STEP_FINISHED`
+
+#### v2.3 - Real-Time Status Updates (December 2025)
+
+- ✅ **Server-Driven Status Messages** - Backend sends operation-specific status during processing
+- ✅ **STATUS_UPDATE SSE Event** - Real-time progress feedback during function execution
+- ✅ **ChatGPT-like Loading UX** - Status message + cursor shown in assistant message bubble
+- ✅ **Dynamic Status by Operation** - Status messages auto-generated from function descriptions
+- ✅ **Seamless Transition** - Status disappears when actual content starts streaming
+
 #### v2.2 - Dark Theme Support
 
 - ✅ **System Theme Detection** - Automatic dark/light mode based on OS preference
@@ -183,6 +198,8 @@ Frontend (Next.js)
 │   POST /api/agent/chat
 │   • serializedState → Backend
 │   • SSE events ← Backend
+│   • STEP_STARTED/STEP_FINISHED events (AG-UI lifecycle)
+│   • STATUS_UPDATE event (dynamic from [Description])
 │   • THREAD_STATE event (new serializedState)
 │
 Backend (.NET)
@@ -190,14 +207,22 @@ Backend (.NET)
 │   └── Wraps Microsoft Agent Framework
 │       • Deserializes thread from serializedState
 │       • Streams responses via RunStreamingAsync
+│       • Sends STEP_STARTED → STATUS_UPDATE → STEP_FINISHED
 │       • Returns updated serializedState
+│
+├── FunctionDescriptionProvider
+│   └── Generates status from [Description] attributes
+│       • Auto-discovers function descriptions at startup
+│       • Converts to gerund form: "Creates..." → "Creating..."
+│       • Cached for performance
 │
 └── PostgresChatMessageStore
     └── Automatic persistence in PostgreSQL
 ```
 
 **Why Custom AG-UI Endpoint (not standard `/agui`)?**
-- ✅ **Full SSE control**: Custom event types (`CONTENT_START`, `CONTENT_DELTA`, `THREAD_STATE`)
+- ✅ **Full SSE control**: Custom event types (`STEP_STARTED`, `STATUS_UPDATE`, `STEP_FINISHED`, `THREAD_STATE`)
+- ✅ **Dynamic status messages**: Generated from `[Description]` attributes (multi-agent ready)
 - ✅ **serializedState pattern**: Frontend receives updated state after each response
 - ✅ **Chat continuity**: Backend deserializes full thread from PostgreSQL
 - ✅ **No protocol limitations**: Can add custom events as needed
