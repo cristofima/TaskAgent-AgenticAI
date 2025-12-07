@@ -24,10 +24,12 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   
   // Reporter to use
-  reporter: [
-    ['html', { open: 'never' }],
-    ['list'],
-  ],
+  // - 'github' for CI: generates annotations directly in GitHub Actions
+  // - 'html' for detailed reports (uploaded as artifacts)
+  // - 'list' for console output
+  reporter: process.env.CI
+    ? [['github'], ['html', { open: 'never' }], ['list']]
+    : [['html', { open: 'never' }], ['list']],
   
   // Shared settings for all projects
   use: {

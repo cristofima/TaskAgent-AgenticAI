@@ -45,6 +45,25 @@ jobs:
       - name: Run Unit Tests with Coverage
         run: pnpm test:coverage
 
+      - name: Generate Unit Test Summary
+        if: ${{ !cancelled() }}
+        run: |
+          echo "## 🧪 Unit Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "### 📊 Coverage Summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Lines | $(cat coverage/coverage-summary.json | jq -r '.total.lines.pct')% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Statements | $(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Functions | $(cat coverage/coverage-summary.json | jq -r '.total.functions.pct')% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Branches | $(cat coverage/coverage-summary.json | jq -r '.total.branches.pct')% |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Coverage summary not available" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
       - name: Upload Unit Test Coverage Report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -58,6 +77,22 @@ jobs:
 
       - name: Run E2E Tests
         run: pnpm test:e2e
+
+      - name: Generate E2E Test Summary
+        if: ${{ !cancelled() }}
+        run: |
+          echo "## 🎭 Playwright E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f playwright-report/index.html ]; then
+            echo "✅ E2E tests completed. See artifacts for detailed HTML report." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Report not generated" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📥 **Download Reports:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`playwright-report\` - Interactive HTML report" >> $GITHUB_STEP_SUMMARY
+          echo "- \`unit-test-coverage\` - Coverage HTML report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload E2E Test Report
         uses: actions/upload-artifact@v4
