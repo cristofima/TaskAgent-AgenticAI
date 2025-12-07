@@ -9,6 +9,31 @@ This folder contains architecture diagrams for the TaskAgent AI-powered task man
 python scripts/generate_architecture_diagram.py
 ```
 
+**Generated diagrams (11 total):**
+
+### Architecture Diagrams
+
+| File | Description |
+|------|-------------|
+| `architecture-main.png` | Main system overview |
+| `architecture-clean.png` | Clean Architecture layers |
+| `architecture-sse-flow.png` | SSE event streaming (simplified) |
+| `architecture-dual-database.png` | SQL Server + PostgreSQL |
+| `architecture-observability.png` | OpenTelemetry + Aspire |
+| `architecture-content-safety.png` | Azure OpenAI filtering |
+| `architecture-streaming.png` | Detailed streaming architecture |
+| `architecture-event-types.png` | SSE event types sequence |
+
+### C4 Model Diagrams
+
+Based on [C4 Model](https://c4model.com/) - a standardized way to visualize software architecture.
+
+| File | Level | Description |
+|------|-------|-------------|
+| `c4-1-context.png` | Level 1: Context | System in relation to users and external services |
+| `c4-2-container.png` | Level 2: Container | Technical building blocks (Frontend, Backend, DBs) |
+| `c4-3-component-backend.png` | Level 3: Component | Components inside the .NET Backend |
+
 ---
 
 ## 1. System Overview
@@ -127,6 +152,105 @@ Azure OpenAI built-in content filtering:
 - Jailbreak detection (prompt injection)
 
 **Security**: Blocked content is never persisted to database.
+
+---
+
+## 7. Streaming Architecture
+
+**File:** `architecture-streaming.png`
+
+![Streaming Architecture](architecture-streaming.png)
+
+Detailed view of the SSE streaming implementation:
+
+| Component | Layer | Responsibility |
+|-----------|-------|----------------|
+| **useChat Hook** | Frontend | Manages state, sends requests, processes SSE callbacks |
+| **MessagesList** | Frontend | Renders messages with progressive text updates |
+| **AgentController** | Backend | Entry point, configures SSE headers |
+| **SseStreamingService** | Backend | Orchestrates streaming to HTTP response |
+| **AIAgent** | Backend | Microsoft Agent Framework with function tools |
+| **ChatMessageStore** | Persistence | Factory pattern for PostgreSQL persistence |
+
+---
+
+## 8. SSE Event Types
+
+**File:** `architecture-event-types.png`
+
+![Event Types](architecture-event-types.png)
+
+SSE event sequence during a typical chat interaction:
+
+| Order | Event | Purpose |
+|-------|-------|---------|
+| 1 | Request (`POST`) | Client sends message with `serializedState` |
+| 2 | `MSG_START` | Streaming begins, includes `messageId` |
+| 3 | `MSG_CONTENT` | Text chunks (delta updates) |
+| 4 | `TOOL_CALL` | Function tool invoked |
+| 5 | `TOOL_RESULT` | Function returns result |
+| 6 | `THREAD_STATE` | Updated state for next request |
+| 7 | `[DONE]` | Stream complete |
+
+**Special events:** `CONTENT_FILTER` (blocked content), `RUN_ERROR` (execution failure)
+
+---
+
+# C4 Model Diagrams
+
+The [C4 Model](https://c4model.com/) provides a standardized way to visualize software architecture at different levels of abstraction.
+
+## 9. C4 Level 1: System Context
+
+**File:** `c4-1-context.png`
+
+![C4 Context](c4-1-context.png)
+
+Shows TaskAgent in relation to its users and external systems:
+
+| Element | Type | Description |
+|---------|------|-------------|
+| **User** | Person | End user who manages tasks via natural language |
+| **TaskAgent** | System | AI-powered task management application |
+| **Azure OpenAI** | External | GPT-4o-mini for AI responses and function calling |
+| **Azure Monitor** | External | Application Insights for telemetry |
+
+---
+
+## 10. C4 Level 2: Container
+
+**File:** `c4-2-container.png`
+
+![C4 Container](c4-2-container.png)
+
+Technical building blocks of the system:
+
+| Container | Technology | Purpose |
+|-----------|------------|---------|
+| **Frontend** | Next.js 16 / TypeScript | React UI with SSE streaming |
+| **Backend** | .NET 10 / C# | REST API + Agent Framework |
+| **Task DB** | SQL Server | CRUD operations for tasks |
+| **Chat DB** | PostgreSQL | Conversation thread persistence |
+
+---
+
+## 11. C4 Level 3: Backend Components
+
+**File:** `c4-3-component-backend.png`
+
+![C4 Component](c4-3-component-backend.png)
+
+Components inside the .NET Backend (Clean Architecture):
+
+| Component | Layer | Responsibility |
+|-----------|-------|----------------|
+| **AgentController** | Presentation | HTTP entry point, SSE configuration |
+| **SseStreaming** | Presentation | Orchestrates streaming to HTTP response |
+| **TaskFunctions** | Application | 6 function tools for task operations |
+| **Telemetry** | Application | OpenTelemetry metrics and traces |
+| **AgentStreaming** | Infrastructure | Agent Framework integration |
+| **TaskRepository** | Infrastructure | SQL Server data access |
+| **ChatMessageStore** | Infrastructure | PostgreSQL persistence |
 
 ---
 
