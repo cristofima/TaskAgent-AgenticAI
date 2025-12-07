@@ -309,6 +309,7 @@ When content filter triggers:
 - 📘 [Backend README](src/backend/services/TaskAgent/README.md) - Clean Architecture layers, API endpoints, observability
 - 📗 [Frontend README](src/frontend/task-agent-web/README.md) - Component structure, state management, API integration
 - 📙 [Architecture Decisions](docs/DUAL_DATABASE_ARCHITECTURE.md) - Dual-database rationale and patterns
+- 📐 [Architecture Diagrams](docs/architecture/README.md) - Visual diagrams (system overview, SSE flow, observability)
 
 ---
 
