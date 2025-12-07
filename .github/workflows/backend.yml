@@ -31,6 +31,7 @@ env:
   CONFIGURATION: Release
   DOTNET_CORE_VERSION: 10.0.x
   WORKING_DIRECTORY: src/backend/services/TaskAgent/src/TaskAgent.WebApi
+  SOLUTION_PATH: src/backend/TaskAgentWeb.sln
   TESTS_DIRECTORY: src/backend/services/TaskAgent/tests
 jobs:
   test:
@@ -45,11 +46,11 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
 
-      - name: Restore Test Projects
-        run: dotnet restore "${{ env.TESTS_DIRECTORY }}"
+      - name: Restore Solution
+        run: dotnet restore "${{ env.SOLUTION_PATH }}"
 
       - name: Build Test Projects
-        run: dotnet build "${{ env.TESTS_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-restore
+        run: dotnet build "${{ env.SOLUTION_PATH }}" --configuration ${{ env.CONFIGURATION }} --no-restore
 
       - name: Run Unit Tests with Coverage
         run: |
