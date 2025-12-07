@@ -33,6 +33,7 @@ Based on [C4 Model](https://c4model.com/) - a standardized way to visualize soft
 | `c4-1-context.png` | Level 1: Context | System in relation to users and external services |
 | `c4-2-container.png` | Level 2: Container | Technical building blocks (Frontend, Backend, DBs) |
 | `c4-3-component-backend.png` | Level 3: Component | Components inside the .NET Backend |
+| `c4-sequence-list-tasks.md` | Sequence | SSE event flow for List Tasks operation |
 
 ---
 
@@ -87,10 +88,14 @@ Server-Sent Events (SSE) streaming between frontend and backend:
 7. **Messages** → Display in MessagesList
 
 **SSE Event Types:**
+- `STEP_STARTED` / `STEP_FINISHED` - AG-UI lifecycle events
+- `STATUS_UPDATE` - Dynamic status from `[Description]` attributes
 - `TEXT_MESSAGE_START` / `TEXT_MESSAGE_CONTENT` / `TEXT_MESSAGE_END`
 - `TOOL_CALL_START` / `TOOL_CALL_RESULT`
 - `CONTENT_FILTER`
 - `THREAD_STATE`
+
+**Sequence Diagram:** See [c4-sequence-list-tasks.md](c4-sequence-list-tasks.md) for a detailed SSE event flow example.
 
 ---
 
