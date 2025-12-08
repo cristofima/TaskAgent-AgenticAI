@@ -5,7 +5,7 @@
 **Common Commands** (from repository root):
 
 ```powershell
-# Backend (with Aspire Dashboard)
+# Backend (with Aspire Dashboard - recommended)
 dotnet run --project src/TaskAgent.AppHost
 
 # Backend (standalone)
@@ -20,6 +20,15 @@ pnpm dev
 # EF Migrations (from src/backend/services/TaskAgent/src/)
 dotnet ef migrations add MigrationName --context TaskDbContext --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi --output-dir Migrations/TaskDb
 dotnet ef database update --context TaskDbContext --project TaskAgent.Infrastructure --startup-project TaskAgent.WebApi
+
+# Testing
+cd src/backend/services/TaskAgent      # Backend tests (132 tests)
+dotnet test                            # All tests
+dotnet test --filter "UnitTests"       # Unit tests only
+
+cd src/frontend/task-agent-web         # Frontend tests (108 tests)
+pnpm test:run                          # Vitest unit tests (71)
+pnpm e2e                               # Playwright E2E tests (37)
 ```
 
 **Key URLs**:
@@ -28,105 +37,123 @@ dotnet ef database update --context TaskDbContext --project TaskAgent.Infrastruc
 - Aspire Dashboard: https://localhost:17198
 - AG-UI endpoint: https://localhost:5001/agui
 
-## Project Overview
+## Architecture Overview
 
-AI-powered task management system built with **Microsoft Agent Framework** (preview), demonstrating autonomous AI agents with function calling, Clean Architecture, and production-grade observability.
+AI-powered task management with **Microsoft Agent Framework** (preview), Clean Architecture, and dual-database persistence.
 
-**Tech Stack**: .NET 10, ASP.NET Core MVC, Azure OpenAI (GPT-4o-mini), Entity Framework Core, .NET Aspire 13.0.2, OpenTelemetry
+**Tech Stack**: .NET 10, Azure OpenAI (GPT-4o-mini), EF Core, .NET Aspire 13.0.2 | Next.js 16, React 19, TypeScript
 
-**Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS 4, SSE streaming
-
-## Architecture
-
-**Clean Architecture** with strict downward dependencies: `Domain` → `Application` → `Infrastructure` → `WebApi`
-
-**Critical**: Domain has NO external dependencies. Application defines interfaces (e.g., `ITaskRepository`); Infrastructure implements them.
+**Clean Architecture** (strict downward dependencies):
 
 ```
-src/
-├── TaskAgent.AppHost/                  # Aspire orchestrator
-├── backend/services/TaskAgent/src/     # Clean Architecture (.NET)
-│   ├── TaskAgent.Domain/               # Entities, Enums, Constants (NO dependencies)
-│   ├── TaskAgent.Application/          # DTOs, Interfaces, Functions (TaskFunctions.cs)
-│   ├── TaskAgent.Infrastructure/       # EF Core, Repositories, Azure Services
-│   └── TaskAgent.WebApi/               # Controllers, AG-UI setup, DI
-└── frontend/task-agent-web/            # Next.js + SSE streaming
+src/backend/services/TaskAgent/src/
+├── TaskAgent.Domain/           # Entities, Enums, Constants (NO dependencies)
+├── TaskAgent.Application/      # DTOs, Interfaces, Functions (TaskFunctions.cs)
+├── TaskAgent.Infrastructure/   # EF Core, Repositories, Azure Services
+└── TaskAgent.WebApi/           # Controllers, AG-UI setup, DI configuration
 ```
 
-## AI Agent Pattern
+## Critical Patterns
 
-Uses `Microsoft.Agents.AI.OpenAI` with **AG-UI Protocol** for SSE streaming.
-
-**Key Files**:
-- `WebApi/Extensions/AgentServiceExtensions.cs` - Agent factory with ChatMessageStore
-- `WebApi/Constants/AgentInstructions.cs` - Single source for agent behavior
-- `Application/Functions/TaskFunctions.cs` - 6 function tools (CreateTask, ListTasks, etc.)
-
-**Critical Pattern - Scoped Dependencies**:
+### 1. Domain Entity Factory Methods
 ```csharp
-// TaskFunctions takes IServiceProvider, creates scope per-call for fresh DbContext
+// ❌ NEVER: new TaskItem() { Title = "..." }
+// ✅ ALWAYS: TaskItem.Create(title, description, priority)
+var task = TaskItem.Create("My Task", "Description", TaskPriority.High);
+
+// Business rules in entity methods
+task.UpdateStatus(TaskStatus.InProgress);  // Validates transitions internally
+```
+See: `Domain/Entities/TaskItem.cs`
+
+### 2. Scoped Dependencies in Singleton Agent
+```csharp
+// TaskFunctions is used by singleton AIAgent, but needs scoped DbContext
+// ✅ Create scope per-call for fresh DbContext
 using IServiceScope scope = _serviceProvider.CreateScope();
 var repository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
 ```
+See: `Application/Functions/TaskFunctions.cs`
 
-**Function Tools Contract**: All methods in `TaskFunctions.cs` must:
+### 3. Function Tools Contract
+All methods in `TaskFunctions.cs` must:
 - Use `[Description]` attributes for AI understanding
 - Return user-friendly strings (✅/❌ emojis) - **NEVER throw exceptions**
 - Catch all exceptions, return formatted error strings
 
-## Domain Patterns
-
+### 4. PostgreSQL JSON Storage
 ```csharp
-// ❌ NEVER: new TaskItem() { Title = "..." }
-// ✅ ALWAYS: TaskItem.Create(title, description, priority)
+// ✅ Use json (preserves property order for $type discriminator)
+entity.Property(e => e.SerializedThread).HasColumnType("json");
+// ❌ NEVER jsonb (reorders properties alphabetically, breaks polymorphic deserialization)
 
-// Business rules in entity methods
-task.UpdateStatus(TaskStatus.InProgress);  // Validates transitions
+// ✅ Use GetRawText() to preserve exact JSON structure
+string serialized = threadJson.GetRawText();
+// ❌ NEVER JsonSerializer.Serialize(threadJson) - reorders properties
 ```
 
-## API Endpoints
+## Dual Database Architecture
 
-**SSE Streaming** (Frontend uses these):
+- **SQL Server** (`TaskDbContext`) - Task entities (structured CRUD)
+- **PostgreSQL** (`ConversationDbContext`) - Conversation threads (JSON blob storage)
+
+Both databases **MUST be available** on startup (fail-fast strategy).
+
+## SSE Streaming & AG-UI
+
+**Endpoints**:
 - `POST /api/agent/chat` - Send message (SSE stream response)
 - `GET /api/conversations` - List conversations
 - `GET /api/conversations/{threadId}/messages` - Get history
 - `DELETE /api/conversations/{threadId}` - Delete conversation
 
-**SSE Event Types**: `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END`, `TOOL_CALL_START`, `TOOL_CALL_RESULT`, `CONTENT_FILTER`, `THREAD_STATE`
+**SSE Event Types**: `STEP_STARTED`, `STATUS_UPDATE`, `STEP_FINISHED`, `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END`, `TOOL_CALL_START`, `TOOL_CALL_RESULT`, `CONTENT_FILTER`, `THREAD_STATE`
 
-## Dual Database Architecture
+**Dynamic Status Messages**: `FunctionDescriptionProvider` generates status from `[Description]` attributes (multi-agent ready, no hardcoded mappings).
 
-- **SQL Server** (`TaskDbContext`) - Task entities
-- **PostgreSQL** (`ConversationDbContext`) - Conversation threads (JSON blob storage)
+**Content Safety**: Azure OpenAI's built-in filtering → Backend catches `ClientResultException` → Sends `CONTENT_FILTER` SSE event → Frontend displays friendly message in chat.
 
-Both databases **MUST be available** on startup (fail-fast strategy).
+## Frontend Patterns
 
-See `docs/DUAL_DATABASE_ARCHITECTURE.md` for rationale.
+### SSE Streaming Client
+```typescript
+// ✅ Use chat-service.ts for all backend communication
+import { sendMessage, listConversations } from "@/lib/api/chat-service";
 
-## Content Safety
+// ✅ StreamingCallbacks for progressive UI updates
+await sendMessage(request, {
+  onTextChunk: (delta, fullText) => setMessage(fullText),
+  onToolCallStart: (name, id) => setLoading(true),
+  onComplete: (state) => saveThreadState(state),
+});
+```
+See: `frontend/lib/api/chat-service.ts`
 
-Uses **Azure OpenAI's built-in content filtering** (no separate SDK). When triggered:
-1. Backend catches `ClientResultException` with `content_filter` code
-2. Sends `CONTENT_FILTER` SSE event
-3. Frontend displays friendly message in chat
+### Component Organization
+```
+components/
+├── chat/           # ChatInput, ChatMessage, ChatMessagesList
+├── conversations/  # ConversationSidebar, ConversationList, ConversationItem
+└── shared/         # LoadingIndicator, DeleteConfirmModal
+```
 
-See `docs/CONTENT_SAFETY.md` for 75+ test cases.
+## Anti-Patterns to Avoid
 
-## Anti-Patterns
-
-❌ `new TaskItem()` → Use `TaskItem.Create()` factory  
-❌ Inject scoped DbContext into singleton agent → Use `IServiceProvider.CreateScope()`  
-❌ Throw from function tools → Return user-friendly error strings  
-❌ Skip `.AsNoTracking()` on read queries → Performance degradation  
-❌ Magic strings/numbers → Use constants from appropriate layer  
-❌ npm/yarn for frontend → Use `pnpm` (enforced by pnpm-lock.yaml)
+| ❌ Don't | ✅ Do Instead |
+|----------|---------------|
+| `new TaskItem()` | `TaskItem.Create()` factory |
+| Inject scoped DbContext into singleton | `IServiceProvider.CreateScope()` |
+| Throw from function tools | Return user-friendly error strings |
+| Skip `.AsNoTracking()` on reads | Always use for read-only queries |
+| Magic strings/numbers | Use constants from appropriate layer |
+| npm/yarn for frontend | Use `pnpm` (enforced by pnpm-lock.yaml) |
+| `jsonb` for conversation storage | `json` (preserves property order) |
 
 ## Version Constraints
 
-**These versions MUST match** (see `src/global.json` and `src/Directory.Build.props`):
-- .NET SDK: 10.0.0
-- Aspire: 13.0.2
-- Target Framework: net10.0
+**Pinned versions** (see `src/global.json` and `src/Directory.Packages.props`):
+- .NET SDK: 10.0.0 | Aspire: 13.0.2 | Target: net10.0
+- Microsoft.Agents.AI.OpenAI: `1.0.0-preview.251125.1` (preview - pin exactly)
 
 **Central Package Management**: All NuGet versions in `src/Directory.Packages.props`
 
@@ -134,17 +161,21 @@ See `docs/CONTENT_SAFETY.md` for 75+ test cases.
 
 | File | Purpose |
 |------|---------|
-| `WebApi/Extensions/AgentServiceExtensions.cs` | AG-UI + ChatMessageStore setup |
-| `WebApi/Constants/AgentInstructions.cs` | Agent behavior prompt |
-| `Application/Functions/TaskFunctions.cs` | Function tools for AI |
+| `WebApi/Extensions/AgentServiceExtensions.cs` | AIAgent factory + ChatMessageStore |
+| `WebApi/Services/FunctionDescriptionProvider.cs` | Dynamic status from [Description] attributes |
+| `WebApi/Services/SseStreamingService.cs` | SSE events (STEP_STARTED, STATUS_UPDATE, STEP_FINISHED) |
+| `WebApi/Constants/AgentInstructions.cs` | Agent system prompt |
+| `Application/Functions/TaskFunctions.cs` | 6 function tools (CreateTask, ListTasks, etc.) |
 | `Domain/Entities/TaskItem.cs` | Core entity with factory method |
-| `Infrastructure/MessageStores/PostgresChatMessageStore.cs` | AG-UI persistence |
+| `Infrastructure/Services/AgentStreamingService.cs` | Core streaming + content filter detection |
+| `Infrastructure/Services/PostgresThreadPersistenceService.cs` | JSON blob storage for threads |
+| `frontend/lib/api/chat-service.ts` | SSE streaming client |
+| `frontend/hooks/use-chat.ts` | Chat state management hook |
 
 ## Additional Documentation
 
-For detailed information, see the `docs/` folder:
-- `DUAL_DATABASE_ARCHITECTURE.md` - Why SQL Server + PostgreSQL
-- `CONTENT_SAFETY.md` - Security testing guide (75+ test cases)
-- `POSTGRESQL_MIGRATION.md` - Database setup guide
-- `LESSONS_LEARNED.md` - Project-wide patterns and best practices
-- `FRONTEND_E2E_TESTING.md` - Frontend testing scenarios
+- `docs/LESSONS_LEARNED.md` - Project-wide patterns and trade-offs
+- `docs/DUAL_DATABASE_ARCHITECTURE.md` - Why SQL Server + PostgreSQL
+- `docs/CONTENT_SAFETY.md` - Security testing (75+ test cases)
+- `src/backend/services/TaskAgent/TESTING_STRATEGY.md` - Backend testing (132 tests)
+- `src/frontend/task-agent-web/TESTING_STRATEGY.md` - Frontend testing (108 tests)
