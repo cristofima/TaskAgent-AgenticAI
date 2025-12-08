@@ -3,7 +3,7 @@
 [![Backend CI/CD](https://github.com/cristofima/TaskAgent-AgenticAI/actions/workflows/backend.yml/badge.svg)](https://github.com/cristofima/TaskAgent-AgenticAI/actions/workflows/backend.yml)
 [![Frontend CI/CD](https://github.com/cristofima/TaskAgent-AgenticAI/actions/workflows/frontend.yml/badge.svg)](https://github.com/cristofima/TaskAgent-AgenticAI/actions/workflows/frontend.yml)
 
-An intelligent task management assistant built with **Microsoft Agent Framework**, **Azure OpenAI**, and **.NET Aspire**, demonstrating Clean Architecture, autonomous AI agents, and production-grade observability with Azure Content Safety protection.
+An intelligent task management assistant built with **Microsoft Agent Framework**, **Azure OpenAI**, and **.NET Aspire**. Features a **ChatGPT-like streaming interface** using AG-UI protocol with Server-Sent Events (SSE), **Clean Architecture** with dual-database persistence (SQL Server + PostgreSQL), **production-grade observability** with OpenTelemetry, and comprehensive **testing infrastructure** (225+ tests).
 
 ![Task Agent Chat Interface](docs/screenshots/chat-interface.png)
 
@@ -31,6 +31,7 @@ This project is documented in a comprehensive article series on C# Corner:
 2. [**Securing AI Agents**](https://www.c-sharpcorner.com/article/securing-your-ai-task-agent-with-azure-ai-content-safety/) - Azure AI Content Safety with Prompt Shield and parallel validation
 3. [**Production-Grade Observability**](https://www.c-sharpcorner.com/article/real-time-observability-for-ai-agents-with-net-aspire-application-insights-o/) - .NET Aspire, OpenTelemetry, and Application Insights
 4. [**Modern Frontend Architecture**](https://www.c-sharpcorner.com/article/building-a-modern-task-management-ai-agent-separating-backend-and-frontend-with/) - Next.js 16 separation, dual-database strategy, and Azure Static Web Apps
+5. [**Real-Time Streaming with AG-UI**](https://www.c-sharpcorner.com/article/real-time-streaming-for-ai-agents-implementing-ag-ui-protocol-with-microsoft-ag/) - SSE streaming, ChatGPT-like progressive rendering, and state persistence
 
 **Topics Covered**:
 
