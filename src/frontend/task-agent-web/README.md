@@ -19,16 +19,18 @@ AI-powered task management interface built with **Next.js 16**, **React 19**, an
 - 🔄 **Smart Scrolling** - Independent message scroll with fixed header and input
 - 💾 **localStorage Persistence** - Remembers current chat across sessions
 
-### Recent Updates (November 2025)
+### Recent Updates (December 2025)
 
-#### v2.4 - AG-UI Step Lifecycle Events (December 2025)
+> **Note**: These features are part of the upcoming **v2.1.0** release. The current stable release is [v2.0.0](https://github.com/cristofima/TaskAgent-AgenticAI/releases/tag/v2.0.0).
+
+#### AG-UI Step Lifecycle Events
 
 - ✅ **STEP_STARTED/STEP_FINISHED Events** - AG-UI standard lifecycle events for function calls
 - ✅ **Dynamic Status Messages** - Backend generates status from `[Description]` attributes
 - ✅ **Multi-Agent Ready** - Scalable architecture without hardcoded status mappings
 - ✅ **Enhanced Event Flow** - `STEP_STARTED` → `STATUS_UPDATE` → `STEP_FINISHED`
 
-#### v2.3 - Real-Time Status Updates (December 2025)
+#### Real-Time Status Updates
 
 - ✅ **Server-Driven Status Messages** - Backend sends operation-specific status during processing
 - ✅ **STATUS_UPDATE SSE Event** - Real-time progress feedback during function execution
@@ -36,7 +38,7 @@ AI-powered task management interface built with **Next.js 16**, **React 19**, an
 - ✅ **Dynamic Status by Operation** - Status messages auto-generated from function descriptions
 - ✅ **Seamless Transition** - Status disappears when actual content starts streaming
 
-#### v2.2 - Dark Theme Support
+#### Dark Theme Support
 
 - ✅ **System Theme Detection** - Automatic dark/light mode based on OS preference
 - ✅ **Theme Toggle** - Manual toggle in header with sun/moon icons
@@ -45,7 +47,7 @@ AI-powered task management interface built with **Next.js 16**, **React 19**, an
 - ✅ **Component Updates** - All components support dark theme variants
 - ✅ **Copy Button Positioning** - Fixed code block copy button positioning
 
-#### v2.1 - Content Safety UX Enhancements
+#### Content Safety UX Enhancements
 
 - ✅ **Blocked Messages in Chat** - Content Safety violations appear as assistant messages (not toasts)
 - ✅ **Thread Continuity** - Blocked chats create threads for seamless continuation
@@ -53,7 +55,14 @@ AI-powered task management interface built with **Next.js 16**, **React 19**, an
 - ✅ **Optimized Sidebar Refresh** - Only reloads when title changes (efficient flag-based approach)
 - ✅ **ChatGPT-like Behavior** - Natural chat flow even with blocked messages
 
-#### v2.0 - Chat Management
+#### Testing Infrastructure
+
+- ✅ **Vitest Configuration** - Unit testing with React Testing Library
+- ✅ **Playwright E2E** - End-to-end tests for critical flows
+- ✅ **18 Unit Tests** - Components and utilities coverage
+- ✅ **13 E2E Tests** - Chat, conversations, navigation, theme switching
+
+### v2.0.0 - Chat Management (November 2025)
 
 - ✅ **ConversationSidebar Component** - Full chat history with search
 - ✅ **ConversationList Component** - Paginated list with auto-generated titles
@@ -63,7 +72,7 @@ AI-powered task management interface built with **Next.js 16**, **React 19**, an
 - ✅ **localStorage Integration** - Persists current thread ID
 - ✅ **API Integration** - List, load, and delete endpoints
 
-#### v1.0 - Chat Interface
+### v1.0.0 - Chat Interface (November 2025)
 
 - ✅ **ChatGPT-Inspired Layout** - Full-height chat with adaptive behavior
 - ✅ **SuggestionsBar Component** - Click suggestions to send messages

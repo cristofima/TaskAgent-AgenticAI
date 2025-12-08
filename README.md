@@ -695,6 +695,7 @@ _Production distributed tracing_
 
 ## 📚 Documentation
 
+- **[Changelog](CHANGELOG.md)** - All notable changes to this project
 - **[CI/CD Workflows](.github/workflows/README.md)** - GitHub Actions pipelines (Backend & Frontend)
 - **[Content Safety Guide](docs/CONTENT_SAFETY.md)** - Security testing with 75+ test cases
 - **[Documentation Index](docs/README.md)** - Full documentation structure
