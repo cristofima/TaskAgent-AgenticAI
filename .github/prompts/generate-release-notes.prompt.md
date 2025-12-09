@@ -1,8 +1,8 @@
 ---
 description: Generate professional release notes from Git commit history with semantic versioning
-mode: agent
+agent: agent
 tools:
-  - codebase
+  ['search']
 ---
 
 # Generate Release Notes
