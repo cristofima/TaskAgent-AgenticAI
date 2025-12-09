@@ -19,9 +19,7 @@ AI-powered task management interface built with **Next.js 16**, **React 19**, an
 - 🔄 **Smart Scrolling** - Independent message scroll with fixed header and input
 - 💾 **localStorage Persistence** - Remembers current chat across sessions
 
-### Recent Updates (December 2025)
-
-> **Note**: These features are part of the upcoming **v2.1.0** release. The current stable release is [v2.0.0](https://github.com/cristofima/TaskAgent-AgenticAI/releases/tag/v2.0.0).
+### v2.1.0 - Chat Streaming (December 2025)
 
 #### AG-UI Step Lifecycle Events
 
