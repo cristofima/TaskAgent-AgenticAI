@@ -14,13 +14,18 @@ namespace TaskAgent.Application.UnitTests.Functions;
 /// </summary>
 public class GetTaskSummaryTests
 {
+    private const string TestUserId = "test-user-id-12345";
     private readonly ITaskRepository _mockRepository;
+    private readonly IUserContext _mockUserContext;
     private readonly TaskFunctions _taskFunctions;
 
     public GetTaskSummaryTests()
     {
         _mockRepository = Substitute.For<ITaskRepository>();
-        _taskFunctions = CreateTaskFunctions(_mockRepository);
+        _mockUserContext = Substitute.For<IUserContext>();
+        _mockUserContext.UserId.Returns(TestUserId);
+        _mockUserContext.IsAuthenticated.Returns(true);
+        _taskFunctions = CreateTaskFunctions(_mockRepository, _mockUserContext);
     }
 
     #region Happy Path Tests
@@ -31,12 +36,12 @@ public class GetTaskSummaryTests
         // Arrange
         var tasks = new List<TaskItem>
         {
-            TaskItem.Create("Task 1", "Desc 1", TaskPriority.High),
-            TaskItem.Create("Task 2", "Desc 2", TaskPriority.Medium),
-            TaskItem.Create("Task 3", "Desc 3", TaskPriority.Low)
+            TaskItem.Create("Task 1", "Desc 1", TaskPriority.High, TestUserId),
+            TaskItem.Create("Task 2", "Desc 2", TaskPriority.Medium, TestUserId),
+            TaskItem.Create("Task 3", "Desc 3", TaskPriority.Low, TestUserId)
         };
         
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -50,16 +55,16 @@ public class GetTaskSummaryTests
     public async Task GetTaskSummaryAsync_ReturnsStatusBreakdown()
     {
         // Arrange
-        var pendingTask = TaskItem.Create("Pending", "Desc", TaskPriority.Low);
+        var pendingTask = TaskItem.Create("Pending", "Desc", TaskPriority.Low, TestUserId);
         
-        var inProgressTask = TaskItem.Create("InProgress", "Desc", TaskPriority.Medium);
+        var inProgressTask = TaskItem.Create("InProgress", "Desc", TaskPriority.Medium, TestUserId);
         inProgressTask.UpdateStatus(DomainTaskStatus.InProgress);
         
-        var completedTask = TaskItem.Create("Completed", "Desc", TaskPriority.High);
+        var completedTask = TaskItem.Create("Completed", "Desc", TaskPriority.High, TestUserId);
         completedTask.UpdateStatus(DomainTaskStatus.Completed);
 
         var tasks = new List<TaskItem> { pendingTask, inProgressTask, completedTask };
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -74,12 +79,12 @@ public class GetTaskSummaryTests
     public async Task GetTaskSummaryAsync_ReturnsHighPriorityCount()
     {
         // Arrange
-        var highPriorityTask1 = TaskItem.Create("High 1", "Desc", TaskPriority.High);
-        var highPriorityTask2 = TaskItem.Create("High 2", "Desc", TaskPriority.High);
-        var mediumPriorityTask = TaskItem.Create("Medium", "Desc", TaskPriority.Medium);
+        var highPriorityTask1 = TaskItem.Create("High 1", "Desc", TaskPriority.High, TestUserId);
+        var highPriorityTask2 = TaskItem.Create("High 2", "Desc", TaskPriority.High, TestUserId);
+        var mediumPriorityTask = TaskItem.Create("Medium", "Desc", TaskPriority.Medium, TestUserId);
 
         var tasks = new List<TaskItem> { highPriorityTask1, highPriorityTask2, mediumPriorityTask };
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -92,12 +97,12 @@ public class GetTaskSummaryTests
     public async Task GetTaskSummaryAsync_ExcludesCompletedFromHighPriorityCount()
     {
         // Arrange
-        var highPriorityPending = TaskItem.Create("High Pending", "Desc", TaskPriority.High);
-        var highPriorityCompleted = TaskItem.Create("High Completed", "Desc", TaskPriority.High);
+        var highPriorityPending = TaskItem.Create("High Pending", "Desc", TaskPriority.High, TestUserId);
+        var highPriorityCompleted = TaskItem.Create("High Completed", "Desc", TaskPriority.High, TestUserId);
         highPriorityCompleted.UpdateStatus(DomainTaskStatus.Completed);
 
         var tasks = new List<TaskItem> { highPriorityPending, highPriorityCompleted };
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -110,12 +115,12 @@ public class GetTaskSummaryTests
     public async Task GetTaskSummaryAsync_CalculatesCompletionRate()
     {
         // Arrange
-        var pendingTask = TaskItem.Create("Pending", "Desc", TaskPriority.Low);
-        var completedTask = TaskItem.Create("Completed", "Desc", TaskPriority.Medium);
+        var pendingTask = TaskItem.Create("Pending", "Desc", TaskPriority.Low, TestUserId);
+        var completedTask = TaskItem.Create("Completed", "Desc", TaskPriority.Medium, TestUserId);
         completedTask.UpdateStatus(DomainTaskStatus.Completed);
 
         var tasks = new List<TaskItem> { pendingTask, completedTask };
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -128,14 +133,14 @@ public class GetTaskSummaryTests
     public async Task GetTaskSummaryAsync_With100PercentCompletion_ShowsCorrectRate()
     {
         // Arrange
-        var task1 = TaskItem.Create("Task 1", "Desc", TaskPriority.Low);
+        var task1 = TaskItem.Create("Task 1", "Desc", TaskPriority.Low, TestUserId);
         task1.UpdateStatus(DomainTaskStatus.Completed);
         
-        var task2 = TaskItem.Create("Task 2", "Desc", TaskPriority.Medium);
+        var task2 = TaskItem.Create("Task 2", "Desc", TaskPriority.Medium, TestUserId);
         task2.UpdateStatus(DomainTaskStatus.Completed);
 
         var tasks = new List<TaskItem> { task1, task2 };
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -148,11 +153,11 @@ public class GetTaskSummaryTests
     public async Task GetTaskSummaryAsync_With0PercentCompletion_ShowsCorrectRate()
     {
         // Arrange
-        var task1 = TaskItem.Create("Task 1", "Desc", TaskPriority.Low);
-        var task2 = TaskItem.Create("Task 2", "Desc", TaskPriority.Medium);
+        var task1 = TaskItem.Create("Task 1", "Desc", TaskPriority.Low, TestUserId);
+        var task2 = TaskItem.Create("Task 2", "Desc", TaskPriority.Medium, TestUserId);
 
         var tasks = new List<TaskItem> { task1, task2 };
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -169,7 +174,7 @@ public class GetTaskSummaryTests
     public async Task GetTaskSummaryAsync_WithNoTasks_ReturnsNoTasksMessage()
     {
         // Arrange
-        _mockRepository.GetAllAsync().Returns(new List<TaskItem>());
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(new List<TaskItem>());
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -182,7 +187,7 @@ public class GetTaskSummaryTests
     public async Task GetTaskSummaryAsync_WithEmptyList_DoesNotThrowException()
     {
         // Arrange
-        _mockRepository.GetAllAsync().Returns(new List<TaskItem>());
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(new List<TaskItem>());
 
         // Act
         Func<Task<string>> act = async () => await _taskFunctions.GetTaskSummaryAsync();
@@ -201,9 +206,9 @@ public class GetTaskSummaryTests
         // Arrange
         var tasks = new List<TaskItem>
         {
-            TaskItem.Create("Task 1", "Desc", TaskPriority.High)
+            TaskItem.Create("Task 1", "Desc", TaskPriority.High, TestUserId)
         };
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -222,9 +227,9 @@ public class GetTaskSummaryTests
         // Arrange
         var tasks = new List<TaskItem>
         {
-            TaskItem.Create("Task 1", "Desc", TaskPriority.High)
+            TaskItem.Create("Task 1", "Desc", TaskPriority.High, TestUserId)
         };
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -244,16 +249,16 @@ public class GetTaskSummaryTests
     #region Repository Interaction Tests
 
     [Fact]
-    public async Task GetTaskSummaryAsync_CallsRepositoryGetAllAsync()
+    public async Task GetTaskSummaryAsync_CallsRepositoryGetAllByUserAsync()
     {
         // Arrange
-        _mockRepository.GetAllAsync().Returns(new List<TaskItem>());
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(new List<TaskItem>());
 
         // Act
         await _taskFunctions.GetTaskSummaryAsync();
 
         // Assert
-        await _mockRepository.Received(1).GetAllAsync();
+        await _mockRepository.Received(1).GetAllByUserAsync(TestUserId);
     }
 
     #endregion
@@ -266,9 +271,9 @@ public class GetTaskSummaryTests
         // Arrange
         var tasks = new List<TaskItem>
         {
-            TaskItem.Create("Single Task", "Desc", TaskPriority.High)
+            TaskItem.Create("Single Task", "Desc", TaskPriority.High, TestUserId)
         };
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -285,21 +290,21 @@ public class GetTaskSummaryTests
     public async Task GetTaskSummaryAsync_WithAllStatusTypes_CountsCorrectly()
     {
         // Arrange
-        var pending1 = TaskItem.Create("Pending 1", "Desc", TaskPriority.Low);
-        var pending2 = TaskItem.Create("Pending 2", "Desc", TaskPriority.Low);
+        var pending1 = TaskItem.Create("Pending 1", "Desc", TaskPriority.Low, TestUserId);
+        var pending2 = TaskItem.Create("Pending 2", "Desc", TaskPriority.Low, TestUserId);
         
-        var inProgress1 = TaskItem.Create("InProgress 1", "Desc", TaskPriority.Medium);
+        var inProgress1 = TaskItem.Create("InProgress 1", "Desc", TaskPriority.Medium, TestUserId);
         inProgress1.UpdateStatus(DomainTaskStatus.InProgress);
-        var inProgress2 = TaskItem.Create("InProgress 2", "Desc", TaskPriority.Medium);
+        var inProgress2 = TaskItem.Create("InProgress 2", "Desc", TaskPriority.Medium, TestUserId);
         inProgress2.UpdateStatus(DomainTaskStatus.InProgress);
-        var inProgress3 = TaskItem.Create("InProgress 3", "Desc", TaskPriority.High);
+        var inProgress3 = TaskItem.Create("InProgress 3", "Desc", TaskPriority.High, TestUserId);
         inProgress3.UpdateStatus(DomainTaskStatus.InProgress);
         
-        var completed1 = TaskItem.Create("Completed 1", "Desc", TaskPriority.High);
+        var completed1 = TaskItem.Create("Completed 1", "Desc", TaskPriority.High, TestUserId);
         completed1.UpdateStatus(DomainTaskStatus.Completed);
 
         var tasks = new List<TaskItem> { pending1, pending2, inProgress1, inProgress2, inProgress3, completed1 };
-        _mockRepository.GetAllAsync().Returns(tasks);
+        _mockRepository.GetAllByUserAsync(TestUserId).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.GetTaskSummaryAsync();
@@ -315,10 +320,11 @@ public class GetTaskSummaryTests
 
     #region Helper Methods
 
-    private static TaskFunctions CreateTaskFunctions(ITaskRepository mockRepository)
+    private static TaskFunctions CreateTaskFunctions(ITaskRepository mockRepository, IUserContext mockUserContext)
     {
         var services = new ServiceCollection();
         services.AddSingleton(mockRepository);
+        services.AddSingleton(mockUserContext);
 
         ServiceProvider serviceProvider = services.BuildServiceProvider();
         var metrics = new AgentMetrics();

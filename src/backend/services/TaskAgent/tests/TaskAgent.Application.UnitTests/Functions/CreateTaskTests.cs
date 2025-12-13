@@ -13,13 +13,18 @@ namespace TaskAgent.Application.UnitTests.Functions;
 /// </summary>
 public class CreateTaskTests
 {
+    private const string TestUserId = "test-user-id-12345";
     private readonly ITaskRepository _mockRepository;
+    private readonly IUserContext _mockUserContext;
     private readonly TaskFunctions _taskFunctions;
 
     public CreateTaskTests()
     {
         _mockRepository = Substitute.For<ITaskRepository>();
-        _taskFunctions = CreateTaskFunctions(_mockRepository);
+        _mockUserContext = Substitute.For<IUserContext>();
+        _mockUserContext.UserId.Returns(TestUserId);
+        _mockUserContext.IsAuthenticated.Returns(true);
+        _taskFunctions = CreateTaskFunctions(_mockRepository, _mockUserContext);
     }
 
     #region Happy Path Tests
@@ -200,10 +205,11 @@ public class CreateTaskTests
 
     #region Helper Methods
 
-    private static TaskFunctions CreateTaskFunctions(ITaskRepository mockRepository)
+    private static TaskFunctions CreateTaskFunctions(ITaskRepository mockRepository, IUserContext mockUserContext)
     {
         var services = new ServiceCollection();
         services.AddSingleton(mockRepository);
+        services.AddSingleton(mockUserContext);
 
         ServiceProvider serviceProvider = services.BuildServiceProvider();
         var metrics = new AgentMetrics();

@@ -13,13 +13,18 @@ namespace TaskAgent.Application.UnitTests.Functions;
 /// </summary>
 public class ListTasksTests
 {
+    private const string TestUserId = "test-user-id-12345";
     private readonly ITaskRepository _mockRepository;
+    private readonly IUserContext _mockUserContext;
     private readonly TaskFunctions _taskFunctions;
 
     public ListTasksTests()
     {
         _mockRepository = Substitute.For<ITaskRepository>();
-        _taskFunctions = CreateTaskFunctions(_mockRepository);
+        _mockUserContext = Substitute.For<IUserContext>();
+        _mockUserContext.UserId.Returns(TestUserId);
+        _mockUserContext.IsAuthenticated.Returns(true);
+        _taskFunctions = CreateTaskFunctions(_mockRepository, _mockUserContext);
     }
 
     #region Happy Path Tests
@@ -30,12 +35,12 @@ public class ListTasksTests
         // Arrange
         var tasks = new List<TaskItem>
         {
-            TaskItem.Create("Task 1", "Description 1", TaskPriority.High),
-            TaskItem.Create("Task 2", "Description 2", TaskPriority.Medium),
-            TaskItem.Create("Task 3", "Description 3", TaskPriority.Low),
+            TaskItem.Create("Task 1", "Description 1", TaskPriority.High, TestUserId),
+            TaskItem.Create("Task 2", "Description 2", TaskPriority.Medium, TestUserId),
+            TaskItem.Create("Task 3", "Description 3", TaskPriority.Low, TestUserId),
         };
 
-        _mockRepository.SearchAsync(null, null).Returns(tasks);
+        _mockRepository.SearchAsync(TestUserId, null, null).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.ListTasksAsync();
@@ -51,10 +56,10 @@ public class ListTasksTests
     public async Task ListTasksAsync_WithStatusFilter_ReturnsFilteredTasks()
     {
         // Arrange
-        var task = TaskItem.Create("Pending Task", "Description", TaskPriority.Medium);
+        var task = TaskItem.Create("Pending Task", "Description", TaskPriority.Medium, TestUserId);
         var tasks = new List<TaskItem> { task };
 
-        _mockRepository.SearchAsync(DomainTaskStatus.Pending, null).Returns(tasks);
+        _mockRepository.SearchAsync(TestUserId, DomainTaskStatus.Pending, null).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.ListTasksAsync(status: "Pending");
@@ -68,10 +73,10 @@ public class ListTasksTests
     public async Task ListTasksAsync_WithPriorityFilter_ReturnsFilteredTasks()
     {
         // Arrange
-        var task = TaskItem.Create("High Priority Task", "Description", TaskPriority.High);
+        var task = TaskItem.Create("High Priority Task", "Description", TaskPriority.High, TestUserId);
         var tasks = new List<TaskItem> { task };
 
-        _mockRepository.SearchAsync(null, TaskPriority.High).Returns(tasks);
+        _mockRepository.SearchAsync(TestUserId, null, TaskPriority.High).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.ListTasksAsync(priority: "High");
@@ -85,10 +90,10 @@ public class ListTasksTests
     public async Task ListTasksAsync_WithBothFilters_ReturnsCombinedFilter()
     {
         // Arrange
-        var task = TaskItem.Create("Filtered Task", "Description", TaskPriority.High);
+        var task = TaskItem.Create("Filtered Task", "Description", TaskPriority.High, TestUserId);
         var tasks = new List<TaskItem> { task };
 
-        _mockRepository.SearchAsync(DomainTaskStatus.Pending, TaskPriority.High).Returns(tasks);
+        _mockRepository.SearchAsync(TestUserId, DomainTaskStatus.Pending, TaskPriority.High).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.ListTasksAsync(status: "Pending", priority: "High");
@@ -138,7 +143,7 @@ public class ListTasksTests
     public async Task ListTasksAsync_WhenNoTasksExist_ReturnsNoTasksMessage()
     {
         // Arrange
-        _mockRepository.SearchAsync(null, null).Returns(new List<TaskItem>());
+        _mockRepository.SearchAsync(TestUserId, null, null).Returns(new List<TaskItem>());
 
         // Act
         string result = await _taskFunctions.ListTasksAsync();
@@ -151,7 +156,7 @@ public class ListTasksTests
     public async Task ListTasksAsync_WhenNoTasksMatchFilter_ReturnsNoTasksMessage()
     {
         // Arrange
-        _mockRepository.SearchAsync(DomainTaskStatus.Completed, null).Returns(new List<TaskItem>());
+        _mockRepository.SearchAsync(TestUserId, DomainTaskStatus.Completed, null).Returns(new List<TaskItem>());
 
         // Act
         string result = await _taskFunctions.ListTasksAsync(status: "Completed");
@@ -170,12 +175,12 @@ public class ListTasksTests
         // Arrange
         var tasks = new List<TaskItem>
         {
-            TaskItem.Create("High Priority", "Desc", TaskPriority.High),
-            TaskItem.Create("Medium Priority", "Desc", TaskPriority.Medium),
-            TaskItem.Create("Low Priority", "Desc", TaskPriority.Low),
+            TaskItem.Create("High Priority", "Desc", TaskPriority.High, TestUserId),
+            TaskItem.Create("Medium Priority", "Desc", TaskPriority.Medium, TestUserId),
+            TaskItem.Create("Low Priority", "Desc", TaskPriority.Low, TestUserId),
         };
 
-        _mockRepository.SearchAsync(null, null).Returns(tasks);
+        _mockRepository.SearchAsync(TestUserId, null, null).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.ListTasksAsync();
@@ -190,18 +195,18 @@ public class ListTasksTests
     public async Task ListTasksAsync_DisplaysCorrectStatusEmojis()
     {
         // Arrange
-        var task1 = TaskItem.Create("Pending", "Desc", TaskPriority.Medium);
+        var task1 = TaskItem.Create("Pending", "Desc", TaskPriority.Medium, TestUserId);
         
-        var task2 = TaskItem.Create("InProgress", "Desc", TaskPriority.Medium);
+        var task2 = TaskItem.Create("InProgress", "Desc", TaskPriority.Medium, TestUserId);
         task2.UpdateStatus(DomainTaskStatus.InProgress);
         
-        var task3 = TaskItem.Create("Completed", "Desc", TaskPriority.Medium);
+        var task3 = TaskItem.Create("Completed", "Desc", TaskPriority.Medium, TestUserId);
         task3.UpdateStatus(DomainTaskStatus.InProgress);
         task3.UpdateStatus(DomainTaskStatus.Completed);
         
         var tasks = new List<TaskItem> { task1, task2, task3 };
 
-        _mockRepository.SearchAsync(null, null).Returns(tasks);
+        _mockRepository.SearchAsync(TestUserId, null, null).Returns(tasks);
 
         // Act
         string result = await _taskFunctions.ListTasksAsync();
@@ -216,10 +221,11 @@ public class ListTasksTests
 
     #region Helper Methods
 
-    private static TaskFunctions CreateTaskFunctions(ITaskRepository mockRepository)
+    private static TaskFunctions CreateTaskFunctions(ITaskRepository mockRepository, IUserContext mockUserContext)
     {
         var services = new ServiceCollection();
         services.AddSingleton(mockRepository);
+        services.AddSingleton(mockUserContext);
 
         ServiceProvider serviceProvider = services.BuildServiceProvider();
         var metrics = new AgentMetrics();

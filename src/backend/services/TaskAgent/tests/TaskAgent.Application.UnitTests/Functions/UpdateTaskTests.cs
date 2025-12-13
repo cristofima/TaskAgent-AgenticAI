@@ -14,13 +14,18 @@ namespace TaskAgent.Application.UnitTests.Functions;
 /// </summary>
 public class UpdateTaskTests
 {
+    private const string TestUserId = "test-user-id-12345";
     private readonly ITaskRepository _mockRepository;
+    private readonly IUserContext _mockUserContext;
     private readonly TaskFunctions _taskFunctions;
 
     public UpdateTaskTests()
     {
         _mockRepository = Substitute.For<ITaskRepository>();
-        _taskFunctions = CreateTaskFunctions(_mockRepository);
+        _mockUserContext = Substitute.For<IUserContext>();
+        _mockUserContext.UserId.Returns(TestUserId);
+        _mockUserContext.IsAuthenticated.Returns(true);
+        _taskFunctions = CreateTaskFunctions(_mockRepository, _mockUserContext);
     }
 
     #region Happy Path Tests
@@ -30,9 +35,9 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(taskId, status: "InProgress");
@@ -50,9 +55,9 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Low);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Low, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(taskId, priority: "High");
@@ -70,9 +75,9 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Low);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Low, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(taskId, status: "InProgress", priority: "High");
@@ -93,9 +98,9 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(taskId, status: status);
@@ -113,9 +118,9 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(taskId, priority: priority);
@@ -130,9 +135,9 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(taskId, status: "inprogress"); // lowercase
@@ -146,9 +151,9 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Low);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Low, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(taskId, priority: "HIGH"); // uppercase
@@ -172,7 +177,7 @@ public class UpdateTaskTests
 
         // Assert
         result.Should().Contain(ErrorMessages.UPDATE_REQUIRES_FIELDS);
-        await _mockRepository.DidNotReceive().GetByIdAsync(Arg.Any<int>());
+        await _mockRepository.DidNotReceive().GetByIdAsync(Arg.Any<int>(), Arg.Any<string>());
     }
 
     [Fact]
@@ -193,9 +198,9 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(taskId, status: "InvalidStatus");
@@ -210,9 +215,9 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(taskId, priority: "InvalidPriority");
@@ -232,7 +237,7 @@ public class UpdateTaskTests
         // Arrange
         const int nonExistentTaskId = 999;
         
-        _mockRepository.GetByIdAsync(nonExistentTaskId).Returns((TaskItem?)null);
+        _mockRepository.GetByIdAsync(nonExistentTaskId, TestUserId).Returns((TaskItem?)null);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(nonExistentTaskId, status: "InProgress");
@@ -252,10 +257,10 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium, TestUserId);
         task.UpdateStatus(DomainTaskStatus.Completed); // Set to completed first
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.UpdateTaskAsync(taskId, status: "Pending");
@@ -274,9 +279,9 @@ public class UpdateTaskTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium);
+        var task = TaskItem.Create("Test Task", "Description", TaskPriority.Medium, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         await _taskFunctions.UpdateTaskAsync(taskId, status: "InProgress");
@@ -284,7 +289,7 @@ public class UpdateTaskTests
         // Assert
         Received.InOrder(() =>
         {
-            _mockRepository.GetByIdAsync(taskId);
+            _mockRepository.GetByIdAsync(taskId, TestUserId);
             _mockRepository.UpdateAsync(task);
             _mockRepository.SaveChangesAsync();
         });
@@ -294,10 +299,11 @@ public class UpdateTaskTests
 
     #region Helper Methods
 
-    private static TaskFunctions CreateTaskFunctions(ITaskRepository mockRepository)
+    private static TaskFunctions CreateTaskFunctions(ITaskRepository mockRepository, IUserContext mockUserContext)
     {
         var services = new ServiceCollection();
         services.AddSingleton(mockRepository);
+        services.AddSingleton(mockUserContext);
 
         ServiceProvider serviceProvider = services.BuildServiceProvider();
         var metrics = new AgentMetrics();

@@ -12,13 +12,18 @@ namespace TaskAgent.Application.UnitTests.Functions;
 /// </summary>
 public class GetTaskDetailsTests
 {
+    private const string TestUserId = "test-user-id-12345";
     private readonly ITaskRepository _mockRepository;
+    private readonly IUserContext _mockUserContext;
     private readonly TaskFunctions _taskFunctions;
 
     public GetTaskDetailsTests()
     {
         _mockRepository = Substitute.For<ITaskRepository>();
-        _taskFunctions = CreateTaskFunctions(_mockRepository);
+        _mockUserContext = Substitute.For<IUserContext>();
+        _mockUserContext.UserId.Returns(TestUserId);
+        _mockUserContext.IsAuthenticated.Returns(true);
+        _taskFunctions = CreateTaskFunctions(_mockRepository, _mockUserContext);
     }
 
     #region Happy Path Tests
@@ -28,9 +33,9 @@ public class GetTaskDetailsTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("Test Task", "Test Description", TaskPriority.High);
+        var task = TaskItem.Create("Test Task", "Test Description", TaskPriority.High, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.GetTaskDetailsAsync(taskId);
@@ -48,15 +53,15 @@ public class GetTaskDetailsTests
     {
         // Arrange
         const int taskId = 42;
-        var task = TaskItem.Create("Test Task", "Test Description", TaskPriority.Medium);
+        var task = TaskItem.Create("Test Task", "Test Description", TaskPriority.Medium, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         await _taskFunctions.GetTaskDetailsAsync(taskId);
 
         // Assert
-        await _mockRepository.Received(1).GetByIdAsync(taskId);
+        await _mockRepository.Received(1).GetByIdAsync(taskId, TestUserId);
     }
 
     #endregion
@@ -69,7 +74,7 @@ public class GetTaskDetailsTests
         // Arrange
         const int invalidTaskId = 999;
         
-        _mockRepository.GetByIdAsync(invalidTaskId).Returns((TaskItem?)null);
+        _mockRepository.GetByIdAsync(invalidTaskId, TestUserId).Returns((TaskItem?)null);
 
         // Act
         string result = await _taskFunctions.GetTaskDetailsAsync(invalidTaskId);
@@ -85,7 +90,7 @@ public class GetTaskDetailsTests
         // Arrange
         const int zeroId = 0;
         
-        _mockRepository.GetByIdAsync(zeroId).Returns((TaskItem?)null);
+        _mockRepository.GetByIdAsync(zeroId, TestUserId).Returns((TaskItem?)null);
 
         // Act
         string result = await _taskFunctions.GetTaskDetailsAsync(zeroId);
@@ -100,7 +105,7 @@ public class GetTaskDetailsTests
         // Arrange
         const int negativeId = -1;
         
-        _mockRepository.GetByIdAsync(negativeId).Returns((TaskItem?)null);
+        _mockRepository.GetByIdAsync(negativeId, TestUserId).Returns((TaskItem?)null);
 
         // Act
         string result = await _taskFunctions.GetTaskDetailsAsync(negativeId);
@@ -118,9 +123,9 @@ public class GetTaskDetailsTests
     {
         // Arrange
         const int taskId = 1;
-        var task = TaskItem.Create("My Task", "My Description", TaskPriority.Low);
+        var task = TaskItem.Create("My Task", "My Description", TaskPriority.Low, TestUserId);
         
-        _mockRepository.GetByIdAsync(taskId).Returns(task);
+        _mockRepository.GetByIdAsync(taskId, TestUserId).Returns(task);
 
         // Act
         string result = await _taskFunctions.GetTaskDetailsAsync(taskId);
@@ -139,10 +144,11 @@ public class GetTaskDetailsTests
 
     #region Helper Methods
 
-    private static TaskFunctions CreateTaskFunctions(ITaskRepository mockRepository)
+    private static TaskFunctions CreateTaskFunctions(ITaskRepository mockRepository, IUserContext mockUserContext)
     {
         var services = new ServiceCollection();
         services.AddSingleton(mockRepository);
+        services.AddSingleton(mockUserContext);
 
         ServiceProvider serviceProvider = services.BuildServiceProvider();
         var metrics = new AgentMetrics();
