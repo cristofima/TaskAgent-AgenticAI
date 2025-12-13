@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.OpenApi;
+using TaskAgent.WebApi.Extensions;
 using TaskAgent.WebApi.Services;
 
 namespace TaskAgent.WebApi;
@@ -35,6 +36,9 @@ public static class PresentationServiceExtensions
         // Register presentation layer services
         services.AddScoped<SseStreamingService>();
 
+        // HTTP Context accessor for user context in Infrastructure layer
+        services.AddHttpContextAccessor();
+
         // Configure API controllers with JSON options
         services
             .AddControllers()
@@ -58,35 +62,12 @@ public static class PresentationServiceExtensions
                 );
             });
 
-        // Configure Swagger/OpenAPI for API documentation
-        services.AddEndpointsApiExplorer();
-        services.AddSwaggerGen(options =>
-        {
-            options.SwaggerDoc(
-                "v1",
-                new OpenApiInfo
-                {
-                    Title = "TaskAgent API",
-                    Version = "v2.0",
-                    Description =
-                        "AI-powered task management API with Microsoft Agent Framework and AG-UI Protocol",
-                    Contact = new OpenApiContact
-                    {
-                        Name = "TaskAgent Team",
-                        Url = new Uri("https://github.com/cristofima/TaskAgent-AgenticAI"),
-                    },
-                }
-            );
+        // Configure Microsoft Entra ID authentication
+        services.AddEntraIdAuthentication(configuration);
 
-            // Include XML comments if available
-            string xmlFile =
-                $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-            string xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-            if (File.Exists(xmlPath))
-            {
-                options.IncludeXmlComments(xmlPath);
-            }
-        });
+        // Configure Swagger/OpenAPI for API documentation with JWT Bearer auth
+        services.AddEndpointsApiExplorer();
+        services.AddSwaggerWithAuth();
 
         return services;
     }

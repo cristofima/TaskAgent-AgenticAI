@@ -35,6 +35,12 @@ public class TaskDbContext : DbContext
 
             entity.Property(e => e.Description).HasMaxLength(TaskConstants.MAX_DESCRIPTION_LENGTH);
 
+            // UserId for multi-user support (Microsoft Entra ID)
+            entity
+                .Property(e => e.UserId)
+                .IsRequired()
+                .HasMaxLength(450); // Standard GUID length for Azure AD object IDs
+
             entity.Property(e => e.Priority).IsRequired().HasConversion<int>(); // Store enum as int
 
             entity.Property(e => e.Status).IsRequired().HasConversion<int>(); // Store enum as int
@@ -49,6 +55,9 @@ public class TaskDbContext : DbContext
             entity.HasIndex(e => e.Priority).HasDatabaseName("IX_Tasks_Priority");
 
             entity.HasIndex(e => e.CreatedAt).HasDatabaseName("IX_Tasks_CreatedAt");
+
+            // Index for user isolation queries
+            entity.HasIndex(e => e.UserId).HasDatabaseName("IX_Tasks_UserId");
         });
     }
 }

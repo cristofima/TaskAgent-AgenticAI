@@ -70,12 +70,13 @@ public class TaskFunctions
                 return string.Format(ErrorMessages.INVALID_PRIORITY_FORMAT, priority);
             }
 
-            // Create task using domain factory method
-            var task = TaskItem.Create(title, description ?? string.Empty, taskPriority);
-
-            // Create scope to resolve scoped ITaskRepository
+            // Create scope to resolve scoped dependencies
             using IServiceScope scope = _serviceProvider.CreateScope();
             ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+            IUserContext userContext = scope.ServiceProvider.GetRequiredService<IUserContext>();
+
+            // Create task using domain factory method (with user ID for multi-user support)
+            var task = TaskItem.Create(title, description ?? string.Empty, taskPriority, userContext.UserId);
 
             // Persist to database
             await taskRepository.AddAsync(task);
@@ -162,12 +163,14 @@ public class TaskFunctions
                 taskPriority = parsedPriority;
             }
 
-            // Create scope to resolve scoped ITaskRepository
+            // Create scope to resolve scoped dependencies
             using IServiceScope scope = _serviceProvider.CreateScope();
             ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+            IUserContext userContext = scope.ServiceProvider.GetRequiredService<IUserContext>();
 
-            // Fetch tasks from repository
+            // Fetch tasks from repository (filtered by current user)
             IEnumerable<TaskItem> tasks = await taskRepository.SearchAsync(
+                userContext.UserId,
                 taskStatus,
                 taskPriority
             );
@@ -251,11 +254,12 @@ public class TaskFunctions
             _metrics.RecordFunctionCall("GetTaskDetails");
             _logger.LogInformation("GetTaskDetails function called for task ID: {TaskId}", taskId);
 
-            // Create scope to resolve scoped ITaskRepository
+            // Create scope to resolve scoped dependencies
             using IServiceScope scope = _serviceProvider.CreateScope();
             ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+            IUserContext userContext = scope.ServiceProvider.GetRequiredService<IUserContext>();
 
-            TaskItem? task = await taskRepository.GetByIdAsync(taskId);
+            TaskItem? task = await taskRepository.GetByIdAsync(taskId, userContext.UserId);
 
             if (task == null)
             {
@@ -324,12 +328,13 @@ public class TaskFunctions
                 return ErrorMessages.UPDATE_REQUIRES_FIELDS;
             }
 
-            // Create scope to resolve scoped ITaskRepository
+            // Create scope to resolve scoped dependencies
             using IServiceScope scope = _serviceProvider.CreateScope();
             ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+            IUserContext userContext = scope.ServiceProvider.GetRequiredService<IUserContext>();
 
-            // Fetch task
-            TaskItem? task = await taskRepository.GetByIdAsync(taskId);
+            // Fetch task (filtered by current user)
+            TaskItem? task = await taskRepository.GetByIdAsync(taskId, userContext.UserId);
             if (task == null)
             {
                 activity?.SetStatus(ActivityStatusCode.Error, "Task not found");
@@ -413,11 +418,12 @@ public class TaskFunctions
             _metrics.RecordFunctionCall("DeleteTask");
             _logger.LogInformation("DeleteTask function called for task ID: {TaskId}", taskId);
 
-            // Create scope to resolve scoped ITaskRepository
+            // Create scope to resolve scoped dependencies
             using IServiceScope scope = _serviceProvider.CreateScope();
             ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+            IUserContext userContext = scope.ServiceProvider.GetRequiredService<IUserContext>();
 
-            TaskItem? task = await taskRepository.GetByIdAsync(taskId);
+            TaskItem? task = await taskRepository.GetByIdAsync(taskId, userContext.UserId);
             if (task == null)
             {
                 activity?.SetStatus(ActivityStatusCode.Error, "Task not found");
@@ -425,7 +431,7 @@ public class TaskFunctions
                 return string.Format(ErrorMessages.TASK_NOT_FOUND, taskId);
             }
 
-            await taskRepository.DeleteAsync(taskId);
+            await taskRepository.DeleteAsync(taskId, userContext.UserId);
             await taskRepository.SaveChangesAsync();
 
             activity?.SetTag("task.title", task.Title);
@@ -460,11 +466,12 @@ public class TaskFunctions
             _metrics.RecordFunctionCall("GetTaskSummary");
             _logger.LogInformation("GetTaskSummary function called");
 
-            // Create scope to resolve scoped ITaskRepository
+            // Create scope to resolve scoped dependencies
             using IServiceScope scope = _serviceProvider.CreateScope();
             ITaskRepository taskRepository = scope.ServiceProvider.GetRequiredService<ITaskRepository>();
+            IUserContext userContext = scope.ServiceProvider.GetRequiredService<IUserContext>();
 
-            IEnumerable<TaskItem> allTasksEnumerable = await taskRepository.GetAllAsync();
+            IEnumerable<TaskItem> allTasksEnumerable = await taskRepository.GetAllByUserAsync(userContext.UserId);
             var allTasks = allTasksEnumerable.ToList(); // Convert to List for Count property
 
             if (allTasks.Count == 0)

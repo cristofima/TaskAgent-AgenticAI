@@ -18,6 +18,9 @@ public static class InfrastructureServiceExtensions
         IConfiguration configuration
     )
     {
+        // Register user context service (requires HTTP context from WebApi layer)
+        services.AddScoped<IUserContext, HttpUserContext>();
+
         // SQL Server DbContext for Tasks
         string? tasksConnectionString = configuration.GetConnectionString("TasksConnection");
         if (string.IsNullOrWhiteSpace(tasksConnectionString))

@@ -11,6 +11,7 @@ namespace TaskAgent.Infrastructure.Repositories;
 /// Implementation of ITaskRepository using Entity Framework Core
 /// Follows Repository Pattern to encapsulate data access logic
 /// All CRUD operations are implemented for the AI Agent
+/// All queries are scoped to the current user for multi-user support
 /// </summary>
 public class TaskRepository : ITaskRepository
 {
@@ -21,23 +22,29 @@ public class TaskRepository : ITaskRepository
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public async Task<TaskItem?> GetByIdAsync(int id) =>
-        await _context.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
+    public async Task<TaskItem?> GetByIdAsync(int id, string userId) =>
+        await _context.Tasks
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
 
-    public async Task<IEnumerable<TaskItem>> GetAllAsync()
+    public async Task<IEnumerable<TaskItem>> GetAllByUserAsync(string userId)
     {
         return await _context
             .Tasks.AsNoTracking()
+            .Where(t => t.UserId == userId)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
     }
 
     public async Task<IEnumerable<TaskItem>> SearchAsync(
+        string userId,
         DomainTaskStatus? status = null,
         TaskPriority? priority = null
     )
     {
-        IQueryable<TaskItem> query = _context.Tasks.AsNoTracking().AsQueryable();
+        IQueryable<TaskItem> query = _context.Tasks
+            .AsNoTracking()
+            .Where(t => t.UserId == userId);
 
         if (status.HasValue)
         {
@@ -74,9 +81,10 @@ public class TaskRepository : ITaskRepository
         return Task.CompletedTask;
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, string userId)
     {
-        TaskItem? task = await _context.Tasks.FindAsync(id);
+        TaskItem? task = await _context.Tasks
+            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
         if (task != null)
         {
             _context.Tasks.Remove(task);

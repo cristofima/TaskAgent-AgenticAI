@@ -1,5 +1,6 @@
 using System.ClientModel;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.AI;
 using TaskAgent.Application.DTOs.Requests;
@@ -12,6 +13,7 @@ namespace TaskAgent.WebApi.Controllers;
 /// <summary>
 /// Custom AG-UI streaming endpoint with serialized state support for conversation continuity.
 /// </summary>
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class AgentController : ControllerBase

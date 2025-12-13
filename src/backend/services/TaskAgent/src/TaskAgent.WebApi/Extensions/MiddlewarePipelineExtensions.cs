@@ -52,6 +52,8 @@ public static class MiddlewarePipelineExtensions
         // Enable CORS with default policy (configured in PresentationServiceExtensions)
         app.UseCors();
 
+        // Authentication must come before Authorization
+        app.UseAuthentication();
         app.UseAuthorization();
 
         // Map controllers for REST API

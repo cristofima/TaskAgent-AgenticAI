@@ -11,6 +11,11 @@ public class TaskItem
 {
     public int Id { get; private set; }
 
+    /// <summary>
+    /// The ID of the user who owns this task (from Microsoft Entra ID)
+    /// </summary>
+    public string UserId { get; private set; } = string.Empty;
+
     private string _title = string.Empty;
     public string Title
     {
@@ -42,14 +47,24 @@ public class TaskItem
     /// <summary>
     /// Factory method to create a new task
     /// </summary>
-    public static TaskItem Create(string title, string description, TaskPriority priority)
+    /// <param name="title">The task title (required)</param>
+    /// <param name="description">The task description</param>
+    /// <param name="priority">The task priority level</param>
+    /// <param name="userId">The ID of the user creating the task (from Microsoft Entra ID)</param>
+    public static TaskItem Create(string title, string description, TaskPriority priority, string userId)
     {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new ArgumentException("UserId is required", nameof(userId));
+        }
+
         var task = new TaskItem
         {
             Title = title,
             Description = description ?? string.Empty,
             Priority = priority,
             Status = DomainTaskStatus.Pending,
+            UserId = userId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };

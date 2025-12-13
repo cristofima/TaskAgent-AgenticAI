@@ -10,10 +10,11 @@ namespace TaskAgent.Application.Interfaces;
 /// </summary>
 public interface ITaskRepository
 {
-    // Query operations
-    Task<TaskItem?> GetByIdAsync(int id);
-    Task<IEnumerable<TaskItem>> GetAllAsync();
+    // Query operations (user-scoped for multi-user support)
+    Task<TaskItem?> GetByIdAsync(int id, string userId);
+    Task<IEnumerable<TaskItem>> GetAllByUserAsync(string userId);
     Task<IEnumerable<TaskItem>> SearchAsync(
+        string userId,
         DomainTaskStatus? status = null,
         DomainTaskPriority? priority = null
     );
@@ -21,7 +22,7 @@ public interface ITaskRepository
     // Command operations (CRUD)
     Task<TaskItem> AddAsync(TaskItem task);
     Task UpdateAsync(TaskItem task);
-    Task DeleteAsync(int id);
+    Task DeleteAsync(int id, string userId);
 
     // Unit of Work
     Task<int> SaveChangesAsync();
