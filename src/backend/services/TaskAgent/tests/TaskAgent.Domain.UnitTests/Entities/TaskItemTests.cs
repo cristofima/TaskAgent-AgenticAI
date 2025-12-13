@@ -10,6 +10,8 @@ namespace TaskAgent.Domain.UnitTests.Entities;
 /// </summary>
 public class TaskItemTests
 {
+    private const string TestUserId = "test-user-id-12345";
+
     #region Factory Method Tests - Create()
 
     [Fact]
@@ -21,13 +23,14 @@ public class TaskItemTests
         const TaskPriority priority = TaskPriority.Medium;
 
         // Act
-        var task = TaskItem.Create(title, description, priority);
+        var task = TaskItem.Create(title, description, priority, TestUserId);
 
         // Assert
         task.Should().NotBeNull();
         task.Title.Should().Be(title);
         task.Description.Should().Be(description);
         task.Priority.Should().Be(priority);
+        task.UserId.Should().Be(TestUserId);
     }
 
     [Fact]
@@ -39,7 +42,7 @@ public class TaskItemTests
         const TaskPriority priority = TaskPriority.Medium;
 
         // Act
-        Action act = () => TaskItem.Create(emptyTitle, description, priority);
+        Action act = () => TaskItem.Create(emptyTitle, description, priority, TestUserId);
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -55,7 +58,7 @@ public class TaskItemTests
         const TaskPriority priority = TaskPriority.Medium;
 
         // Act
-        Action act = () => TaskItem.Create(whitespaceTitle, description, priority);
+        Action act = () => TaskItem.Create(whitespaceTitle, description, priority, TestUserId);
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -71,7 +74,7 @@ public class TaskItemTests
         const TaskPriority priority = TaskPriority.Medium;
 
         // Act
-        Action act = () => TaskItem.Create(longTitle, description, priority);
+        Action act = () => TaskItem.Create(longTitle, description, priority, TestUserId);
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -87,7 +90,7 @@ public class TaskItemTests
         const TaskPriority priority = TaskPriority.Medium;
 
         // Act
-        var task = TaskItem.Create(maxLengthTitle, description, priority);
+        var task = TaskItem.Create(maxLengthTitle, description, priority, TestUserId);
 
         // Assert
         task.Title.Should().HaveLength(TaskConstants.MAX_TITLE_LENGTH);
@@ -102,7 +105,7 @@ public class TaskItemTests
         const TaskPriority priority = TaskPriority.Medium;
 
         // Act
-        var task = TaskItem.Create(title, nullDescription!, priority);
+        var task = TaskItem.Create(title, nullDescription!, priority, TestUserId);
 
         // Assert
         task.Description.Should().BeEmpty();
@@ -117,7 +120,7 @@ public class TaskItemTests
         const TaskPriority priority = TaskPriority.High;
 
         // Act
-        var task = TaskItem.Create(title, description, priority);
+        var task = TaskItem.Create(title, description, priority, TestUserId);
 
         // Assert
         task.Status.Should().Be(DomainTaskStatus.Pending);
@@ -133,7 +136,7 @@ public class TaskItemTests
         DateTime beforeCreation = DateTime.UtcNow;
 
         // Act
-        var task = TaskItem.Create(title, description, priority);
+        var task = TaskItem.Create(title, description, priority, TestUserId);
 
         // Assert
         DateTime afterCreation = DateTime.UtcNow;
@@ -151,7 +154,7 @@ public class TaskItemTests
         DateTime beforeCreation = DateTime.UtcNow;
 
         // Act
-        var task = TaskItem.Create(title, description, priority);
+        var task = TaskItem.Create(title, description, priority, TestUserId);
 
         // Assert
         DateTime afterCreation = DateTime.UtcNow;
@@ -351,8 +354,9 @@ public class TaskItemTests
     private static TaskItem CreateTestTask(
         string title = "Test Task",
         string description = "Test Description",
-        TaskPriority priority = TaskPriority.Medium) =>
-        TaskItem.Create(title, description, priority);
+        TaskPriority priority = TaskPriority.Medium,
+        string userId = TestUserId) =>
+        TaskItem.Create(title, description, priority, userId);
 
     #endregion
 }
