@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+**Backend - Microsoft Entra ID Authentication**
+- JWT Bearer Authentication - `Microsoft.Identity.Web` v3.9.0 integration
+- User Context Service - `IUserContext` interface with `HttpUserContext` implementation
+- User Isolation - All task operations filtered by authenticated user's ID
+- Swagger OAuth - Bearer token support in Swagger UI for API testing
+- Database Migration - `AddUserIdToTasks` migration (UserId column with index)
+
+**Frontend - MSAL Authentication**
+- MSAL React Integration - `@azure/msal-browser` v4.27.0 + `@azure/msal-react` v3.0.23
+- AuthProvider Component - Wraps app with MsalProvider for auth context
+- AuthButton Component - Sign in/out button with user avatar and menu
+- Bearer Token Injection - Automatic token acquisition for API calls
+- Graceful Fallback - App runs in anonymous mode when auth not configured
+- Environment Template - `.env.example` with auth configuration variables
+
+### Changed
+
+- Updated `TaskItem` entity with `UserId` property (450 chars, indexed)
+- Updated `TaskFunctions` to accept `IUserContext` for user-scoped operations
+- Updated `ITaskRepository` interface with `userId` parameter on all methods
+- Updated `TaskRepository` to filter all queries by user
+- Updated all unit tests to pass `userId` to factory methods
+
+### Fixed
+
+- Microsoft.OpenApi v2.x breaking changes - Updated Swagger security configuration for new namespace structure
+
 ## [2.1.0] - 2025-12-08
 
 ### Added
