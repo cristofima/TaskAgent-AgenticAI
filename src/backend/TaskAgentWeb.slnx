@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="../.editorconfig" />
+    <File Path="../Directory.Build.props" />
+    <File Path="../Directory.Packages.props" />
+    <File Path="../global.json" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="services\TaskAgent\src\TaskAgent.Application\TaskAgent.Application.csproj" />
+    <Project Path="services\TaskAgent\src\TaskAgent.Domain\TaskAgent.Domain.csproj" />
+    <Project Path="services\TaskAgent\src\TaskAgent.Infrastructure\TaskAgent.Infrastructure.csproj" />
+    <Project Path="services\TaskAgent\src\TaskAgent.WebApi\TaskAgent.WebApi.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="services\TaskAgent\tests\TaskAgent.Application.UnitTests\TaskAgent.Application.UnitTests.csproj" />
+    <Project Path="services\TaskAgent\tests\TaskAgent.Domain.UnitTests\TaskAgent.Domain.UnitTests.csproj" />
+    <Project Path="services\TaskAgent\tests\TaskAgent.Infrastructure.IntegrationTests\TaskAgent.Infrastructure.IntegrationTests.csproj" />
+  </Folder>
+  
+  <Project Path="..\TaskAgent.AppHost\TaskAgent.AppHost.csproj" />
+  <Project Path="TaskAgent.ServiceDefaults\TaskAgent.ServiceDefaults.csproj" />
+</Solution>
