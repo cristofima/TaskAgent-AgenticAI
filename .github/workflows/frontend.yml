@@ -114,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: false  # Deployment disabled - no Azure Static Web Apps instances
     name: Build and Deploy
     steps:
       - uses: actions/checkout@v5
