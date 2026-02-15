@@ -6,7 +6,7 @@
     <LangVersion>latest</LangVersion>
 
     <!-- .NET Aspire Version -->
-    <AspireVersion>13.0.2</AspireVersion>
+    <AspireVersion>13.1.1</AspireVersion>
 
     <!-- General Settings -->
     <ImplicitUsings>enable</ImplicitUsings>
