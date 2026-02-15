@@ -45,6 +45,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
+          global-json-file: src/global.json
 
       - name: Restore Solution
         run: dotnet restore "${{ env.SOLUTION_PATH }}"
@@ -177,6 +178,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
+          global-json-file: src/global.json
 
       - name: Restore
         run: dotnet restore "${{ env.WORKING_DIRECTORY }}"

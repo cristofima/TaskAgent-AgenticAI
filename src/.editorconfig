@@ -109,6 +109,10 @@ dotnet_diagnostic.CA1303.severity = none
 # Suggestion level for performance
 dotnet_diagnostic.CA1848.severity = suggestion
 
+# CA1873: Avoid expensive arguments for logging
+# Suggestion level for performance
+dotnet_diagnostic.CA1873.severity = suggestion
+
 # CA2234: Pass system uri objects instead of strings
 # Suggestion level
 dotnet_diagnostic.CA2234.severity = suggestion
