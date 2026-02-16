@@ -1,4 +1,5 @@
 using DotNet.Testcontainers.Builders;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using TaskAgent.Infrastructure.Data;
 using Testcontainers.MsSql;
@@ -17,9 +18,18 @@ public class SqlServerContainerFixture : IAsyncLifetime
 
     public SqlServerContainerFixture()
     {
-        _container = new MsSqlBuilder()
-            .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(1433))
+        // Use multiple combined wait strategies for maximum reliability
+        _container = new MsSqlBuilder(image: "mcr.microsoft.com/mssql/server:2022-latest")
+            .WithWaitStrategy(Wait.ForUnixContainer()
+                // 1. Verify SQL Server port is listening inside container
+                .UntilInternalTcpPortIsAvailable(1433)
+                // 2. Wait for SQL Server ready message in logs
+                .UntilMessageIsLogged("SQL Server is now ready for client connections")
+                // 3. Verify actual database connection (most reliable check)
+                .UntilDatabaseIsAvailable(SqlClientFactory.Instance, o => o
+                    .WithTimeout(TimeSpan.FromMinutes(2))    // SQL Server can take time to initialize
+                    .WithInterval(TimeSpan.FromSeconds(2)))  // Check every 2 seconds
+            )
             .Build();
     }
 

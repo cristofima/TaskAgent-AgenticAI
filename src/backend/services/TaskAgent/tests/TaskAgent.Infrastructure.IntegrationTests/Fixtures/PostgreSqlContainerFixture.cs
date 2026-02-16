@@ -1,5 +1,6 @@
 using DotNet.Testcontainers.Builders;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using TaskAgent.Infrastructure.Data;
 using Testcontainers.PostgreSql;
 
@@ -17,12 +18,23 @@ public class PostgreSqlContainerFixture : IAsyncLifetime
 
     public PostgreSqlContainerFixture()
     {
-        _container = new PostgreSqlBuilder()
-            .WithImage("postgres:16-alpine")
+        // Use multiple combined wait strategies for maximum reliability
+        _container = new PostgreSqlBuilder(image: "postgres:16-alpine")
             .WithDatabase("taskagent_integration_test")
             .WithUsername("test_user")
             .WithPassword("test_password")
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("pg_isready", "-U", "test_user"))
+            .WithWaitStrategy(Wait.ForUnixContainer()
+                // 1. Verify PostgreSQL port is listening inside container
+                .UntilInternalTcpPortIsAvailable(5432)
+                // 2. Execute pg_isready health check command
+                .UntilCommandIsCompleted("pg_isready", "-U", "test_user")
+                // 3. Wait for PostgreSQL ready message in logs
+                .UntilMessageIsLogged("database system is ready to accept connections")
+                // 4. Verify actual database connection (most reliable check)
+                .UntilDatabaseIsAvailable(NpgsqlFactory.Instance, o => o
+                    .WithTimeout(TimeSpan.FromMinutes(1))    // PostgreSQL starts faster than SQL Server
+                    .WithInterval(TimeSpan.FromSeconds(1)))  // Check every second
+            )
             .Build();
     }
 
